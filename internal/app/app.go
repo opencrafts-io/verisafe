@@ -1,0 +1,85 @@
+package app
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+type App struct {
+	config *Config
+	logger *slog.Logger
+	pool   *pgxpool.Pool
+}
+
+// Returns a new instance of the application
+// with a connection instance to the database pool
+func New(logger *slog.Logger, config *Config) (*App, error) {
+
+	dbConfig, err := pgxpool.ParseConfig(fmt.Sprintf(
+		"postgresql://%s:%s@%s:%d/%s?sslmode=disable",
+		config.DatabaseConfig.DatabaseUser,
+		config.DatabaseConfig.DatabasePassword,
+		config.DatabaseConfig.DatabaseHost,
+		config.DatabaseConfig.DatabasePort,
+		config.DatabaseConfig.DatabaseName,
+	))
+	if err != nil {
+		return nil, err
+	}
+
+	dbConfig.MaxConns = config.DatabaseConfig.DatabasePoolMaxConnections
+	dbConfig.MinConns = config.DatabaseConfig.DatabasePoolMinConnections
+	dbConfig.MaxConnLifetime = time.Hour * time.Duration(config.DatabaseConfig.DatabasePoolMaxConnectionLifetime)
+
+	connPool, err := pgxpool.NewWithConfig(context.Background(), dbConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return &App{
+		config: config,
+		logger: logger,
+		pool:   connPool,
+	}, nil
+}
+
+// Starts the application server
+func (a *App) Start(ctx context.Context) error {
+	srv := &http.Server{
+		Addr: fmt.Sprintf(":%d", a.config.AppConfig.Port),
+	}
+
+	errCh := make(chan error, 1)
+
+	go func() {
+		err := srv.ListenAndServe()
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- fmt.Errorf("failed to listen and serve: %w", err)
+		}
+
+		close(errCh)
+	}()
+
+	a.logger.Info("server running", slog.Int("port", a.config.AppConfig.Port))
+
+	select 
+	// Wait until we receive SIGINT (ctrl+c on cli)
+	case <-ctx.Done():
+		break
+	case err := <-errCh:
+		return err
+	}
+
+	sCtx, cancel := context.WithTimeout(context.Background(), time.Second*15)
+	defer cancel()
+
+	srv.Shutdown(sCtx)
+
+	return nil
+}
