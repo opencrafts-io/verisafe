@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/opencrafts-io/verisafe/internal/middleware"
 )
 
 type App struct {
@@ -51,8 +52,16 @@ func New(logger *slog.Logger, config *Config) (*App, error) {
 
 // Starts the application server
 func (a *App) Start(ctx context.Context) error {
+
+	middlewares := middleware.CreateStack(
+		middleware.Logging(a.logger),
+	)
+
+	router := a.loadRoutes()
+
 	srv := &http.Server{
-		Addr: fmt.Sprintf(":%d", a.config.AppConfig.Port),
+		Addr:    fmt.Sprintf(":%d", a.config.AppConfig.Port),
+		Handler: middlewares(router),
 	}
 
 	errCh := make(chan error, 1)
@@ -68,7 +77,7 @@ func (a *App) Start(ctx context.Context) error {
 
 	a.logger.Info("server running", slog.Int("port", a.config.AppConfig.Port))
 
-	select 
+	select {
 	// Wait until we receive SIGINT (ctrl+c on cli)
 	case <-ctx.Done():
 		break
