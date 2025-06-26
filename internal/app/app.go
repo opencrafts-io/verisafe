@@ -9,18 +9,19 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/opencrafts-io/verisafe/internal/config"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 )
 
 type App struct {
-	config *Config
+	config *config.Config
 	logger *slog.Logger
 	pool   *pgxpool.Pool
 }
 
 // Returns a new instance of the application
 // with a connection instance to the database pool
-func New(logger *slog.Logger, config *Config) (*App, error) {
+func New(logger *slog.Logger, config *config.Config) (*App, error) {
 
 	dbConfig, err := pgxpool.ParseConfig(fmt.Sprintf(
 		"postgresql://%s:%s@%s:%d/%s?sslmode=disable",
@@ -60,7 +61,7 @@ func (a *App) Start(ctx context.Context) error {
 	router := a.loadRoutes()
 
 	srv := &http.Server{
-		Addr:    fmt.Sprintf(":%d", a.config.AppConfig.Port),
+		Addr:    fmt.Sprintf("%s:%d", a.config.AppConfig.Addres, a.config.AppConfig.Port),
 		Handler: middlewares(router),
 	}
 
@@ -75,7 +76,10 @@ func (a *App) Start(ctx context.Context) error {
 		close(errCh)
 	}()
 
-	a.logger.Info("server running", slog.Int("port", a.config.AppConfig.Port))
+	a.logger.Info("server running",
+		slog.String("Address", a.config.AppConfig.Addres),
+		slog.Int("port", a.config.AppConfig.Port),
+	)
 
 	select {
 	// Wait until we receive SIGINT (ctrl+c on cli)

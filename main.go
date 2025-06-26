@@ -7,12 +7,13 @@ import (
 	"os/signal"
 
 	"github.com/opencrafts-io/verisafe/internal/app"
+	"github.com/opencrafts-io/verisafe/internal/config"
 )
 
 func main() {
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	cfg, err := app.LoadConfig()
+	cfg, err := config.LoadConfig()
 	if err != nil {
 		logger.Error("Failed to load configuration file", slog.Any("error", err))
 		return

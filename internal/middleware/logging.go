@@ -81,6 +81,7 @@ func logging(logger *slog.Logger, next http.Handler) http.Handler {
 			"Request handled",
 			slog.String("method", r.Method),
 			slog.String("path", r.URL.Path),
+			slog.String("host", r.Host),
 			slog.Int64("duration_ns", end.Nanoseconds()),
 			slog.Int("status", wrapped.statusCode),
 			slog.String("remote_addr", r.RemoteAddr),

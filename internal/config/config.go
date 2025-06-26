@@ -1,4 +1,4 @@
-package app
+package config
 
 import (
 	"fmt"
@@ -7,6 +7,15 @@ import (
 )
 
 type Config struct {
+
+	// Authentication configuration
+	AuthenticationConfig struct {
+		GoogleClientID     string `envconfig:"GOOGLE_CLIENT_ID"`
+		GoogleClientSecret string `envconfig:"GOOGLE_CLIENT_SECRET"`
+		MaxAge             int    `envconfig:"AUTH_MAX_AGE"`
+		SessionSecret      string `envconfig:"SESSION_SECRET"`
+		Environment        string `envconfig:"AUTH_ENV"`
+	}
 
 	// Application configuration
 	AppConfig struct {
