@@ -36,12 +36,9 @@ VALUES (
 RETURNING *;
 
 
--- name: GetAccountSocials :many
--- Returns a list of all social accounts by the account holder
+-- name: GetSocialByExternalUserID :one
 SELECT * FROM socials
-WHERE account_id = $1
-LIMIT $2
-OFFSET $3;
+WHERE user_id = $1;
 
 
 -- name: GetAccountByProvider :many
@@ -51,13 +48,3 @@ SELECT * FROM socials
 WHERE lower(provider) = lower($1)
 LIMIT $2
 OFFSET $3;
-
-
--- name: GetAccountByProvider :many
--- Returns a list of all social accounts organized by provider
--- note that the results are paginated using the limit offset scheme
-SELECT * FROM socials
-WHERE lower(provider) = lower($1)
-LIMIT $2
-OFFSET $3;
-

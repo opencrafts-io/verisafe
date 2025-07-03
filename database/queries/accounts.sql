@@ -1,3 +1,7 @@
+-- name: CreateAccount :one
+INSERT INTO accounts (email, name)
+VALUES ($1, $2)
+RETURNING *;
 -- name: GetAllAccounts :many
 SELECT * FROM accounts 
 LIMIT $1
@@ -11,11 +15,11 @@ LIMIT $1;
 -- name: SearchAccountByEmail :many
 SELECT * FROM accounts 
 WHERE lower(email) LIKE '%' || lower($1) || '%'
-LIMIT $2
-OFFSET $3
+LIMIT $1
+OFFSET $2
 ;
 
--- name: GetAccountByEmail :many
+-- name: GetAccountByEmail :one
 SELECT * FROM accounts 
 WHERE lower(email) = lower($1)
 LIMIT 1
