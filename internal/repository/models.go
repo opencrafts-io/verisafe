@@ -19,20 +19,20 @@ type Account struct {
 
 type Social struct {
 	UserID            string           `json:"user_id"`
-	IDToken           pgtype.Text      `json:"id_token"`
+	IDToken           *string          `json:"id_token"`
 	AccountID         uuid.UUID        `json:"account_id"`
 	Provider          string           `json:"provider"`
-	Email             pgtype.Text      `json:"email"`
-	Name              pgtype.Text      `json:"name"`
-	FirstName         pgtype.Text      `json:"first_name"`
-	LastName          pgtype.Text      `json:"last_name"`
-	NickName          pgtype.Text      `json:"nick_name"`
-	Description       pgtype.Text      `json:"description"`
-	AvatarUrl         pgtype.Text      `json:"avatar_url"`
-	Location          pgtype.Text      `json:"location"`
-	AccessToken       pgtype.Text      `json:"access_token"`
-	AccessTokenSecret pgtype.Text      `json:"access_token_secret"`
-	RefreshToken      pgtype.Text      `json:"refresh_token"`
+	Email             *string          `json:"email"`
+	Name              *string          `json:"name"`
+	FirstName         *string          `json:"first_name"`
+	LastName          *string          `json:"last_name"`
+	NickName          *string          `json:"nick_name"`
+	Description       *string          `json:"description"`
+	AvatarUrl         *string          `json:"avatar_url"`
+	Location          *string          `json:"location"`
+	AccessToken       *string          `json:"access_token"`
+	AccessTokenSecret *string          `json:"access_token_secret"`
+	RefreshToken      *string          `json:"refresh_token"`
 	ExpiresAt         pgtype.Timestamp `json:"expires_at"`
 	CreatedAt         pgtype.Timestamp `json:"created_at"`
 	UpdatedAt         pgtype.Timestamp `json:"updated_at"`

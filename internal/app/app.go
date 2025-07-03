@@ -56,8 +56,8 @@ func (a *App) Start(ctx context.Context) error {
 
 	middlewares := middleware.CreateStack(
 		middleware.Logging(a.logger),
+		middleware.WithDBConnection(a.logger, a.pool),
 	)
-
 	router := a.loadRoutes()
 
 	srv := &http.Server{
