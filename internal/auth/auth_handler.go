@@ -65,8 +65,36 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback(r.Context())
 	repo := repository.New(tx)
 
+	var account repository.Account
+	var socialAccount repository.Social
+
+	account, err = repo.GetAccountByEmail(r.Context(), user.Email)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		a.logger.Error("Error checking user existence", slog.Any("error", err))
+		http.Error(w, "Error checking user existence", http.StatusInternalServerError)
+		return
+	}
+
+	// Create user if they don't exist
+	if errors.Is(err, sql.ErrNoRows) {
+		userParams := repository.CreateAccountParams{
+			Email: user.Email,
+			Name:  strings.Join([]string{user.FirstName, user.LastName}, " "),
+		}
+
+		// Create the user in the repository
+		account, err = repo.CreateAccount(r.Context(), userParams)
+		if err != nil {
+			a.logger.Error("Error creating user", slog.Any("error", err))
+			w.WriteHeader(http.StatusInternalServerError)
+
+			return
+		}
+
+	}
+
 	// Check whether the the social account exists for the user
-	socialAccount, err := repo.GetSocialByExternalUserID(r.Context(), user.UserID)
+	socialAccount, err = repo.GetSocialByExternalUserID(r.Context(), user.UserID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		a.logger.Error("Error while processing request", slog.Any("error", err))
 		w.WriteHeader(http.StatusInternalServerError)
@@ -76,34 +104,40 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var account repository.Account
-
-	// If the social account does not exist yet check if the user already exists
+	// If the social account does not exist yet create it
 	if errors.Is(err, sql.ErrNoRows) {
-		account, err = repo.GetAccountByEmail(r.Context(), user.Email)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			a.logger.Error("Error checking user existence", slog.Any("error", err))
-			http.Error(w, "Error checking user existence", http.StatusInternalServerError)
+		socialAccount, err = repo.CreateSocial(r.Context(), repository.CreateSocialParams{
+			UserID:            user.UserID,
+			AccountID:         account.ID,
+			Provider:          provider,
+			Email:             &user.Email,
+			Name:              &user.Name,
+			FirstName:         &user.FirstName,
+			LastName:          &user.LastName,
+			NickName:          &user.NickName,
+			Description:       &user.Description,
+			AvatarUrl:         &user.AvatarURL,
+			Location:          &user.Location,
+			AccessToken:       &user.AccessToken,
+			AccessTokenSecret: &user.AccessTokenSecret,
+			RefreshToken:      &user.RefreshToken,
+			ExpiresAt:         pgtype.Timestamp{Time: user.ExpiresAt},
+		})
+
+		if err != nil {
+			a.logger.Error("Error creating social connection", slog.Any("error", err))
+			http.Error(w, "Error creating social connection", http.StatusInternalServerError)
 			return
 		}
+		a.logger.Info("New social connection created for user",
+			slog.Any("created_user", account), slog.Any("social_account", socialAccount),
+		)
+	} else {
 
-		// Create user if they don't exist
-		if errors.Is(err, sql.ErrNoRows) {
-			userParams := repository.CreateAccountParams{
-				Email: user.Email,
-				Name:  strings.Join([]string{user.FirstName, user.LastName}, " "),
-			}
-
-			// Create the user in the repository
-			account, err = repo.CreateAccount(r.Context(), userParams)
-			if err != nil {
-				a.logger.Error("Error creating user", slog.Any("error", err))
-				http.Error(w, "Error creating user", http.StatusInternalServerError)
-				return
-			}
-
-			// Create the social connection
-			socialParams := repository.CreateSocialParams{
+		// Update the social account
+		err = nil
+		if socialAccount, err = repo.UpdateSocial(r.Context(),
+			repository.UpdateSocialParams{
 				UserID:            user.UserID,
 				AccountID:         account.ID,
 				Provider:          provider,
@@ -119,36 +153,16 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 				AccessTokenSecret: &user.AccessTokenSecret,
 				RefreshToken:      &user.RefreshToken,
 				ExpiresAt:         pgtype.Timestamp{Time: user.ExpiresAt},
-			}
-
-			// Create the new social account for the user
-			socialAccount, err = repo.CreateSocial(r.Context(), socialParams)
-			if err != nil {
-				a.logger.Error("Error creating social connection", slog.Any("error", err))
-				http.Error(w, "Error creating social connection", http.StatusInternalServerError)
-				return
-			}
-			a.logger.Info("New social connection created for user",
-				slog.Any("created_user", account), slog.Any("social_account", socialAccount),
+			},
+		); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			a.logger.Info("Error while trying to update social auth", slog.Any("error", err))
+			json.NewEncoder(w).Encode(map[string]any{
+				"error": "We ran into an error while trying to authenticate you"},
 			)
-		}
-	} else {
-		// If the social account already exists, check if it's from the same provider
-		if socialAccount.Provider != provider {
-			// User is trying to link a new provider to their existing account.
-			// Depending on your business logic, you could either:
-			// 1. Reject the request, or
-			// 2. Allow it and link the new provider.
-			// Option 1: Reject the request if the provider doesn't match
-			a.logger.Warn("User is trying to link a different provider to the same account", slog.Any("error", err))
-			http.Error(w, "This account is already linked to another provider", http.StatusBadRequest)
 			return
-		}
 
-		// Option 2: If same provider, you could update the social connection here if needed.
-		// For example, you could update tokens, or refresh token if expired.
-		// TODO (erick) (Handle updating of social connection)
-		a.logger.Info("User already connected with this provider")
+		}
 	}
 
 	if err = tx.Commit(r.Context()); err != nil {

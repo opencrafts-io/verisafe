@@ -194,3 +194,85 @@ func (q *Queries) GetSocialByExternalUserID(ctx context.Context, userID string) 
 	)
 	return i, err
 }
+
+const updateSocial = `-- name: UpdateSocial :one
+UPDATE socials
+SET
+    provider = COALESCE($2, provider),
+    email = COALESCE($3, email),
+    name = COALESCE($4, name),
+    first_name = COALESCE($5, first_name),
+    last_name = COALESCE($6, last_name),
+    nick_name = COALESCE($7, nick_name),
+    description = COALESCE($8, description),
+    user_id = COALESCE($9, user_id),
+    avatar_url = COALESCE($10, avatar_url),
+    location = COALESCE($11, location),
+    access_token = COALESCE($12, access_token),
+    access_token_secret = COALESCE($13, access_token_secret),
+    refresh_token = COALESCE($14, refresh_token),
+    expires_at = COALESCE($15, expires_at),
+    updated_at = NOW()
+WHERE account_id = $1
+RETURNING user_id, id_token, account_id, provider, email, name, first_name, last_name, nick_name, description, avatar_url, location, access_token, access_token_secret, refresh_token, expires_at, created_at, updated_at
+`
+
+type UpdateSocialParams struct {
+	AccountID         uuid.UUID        `json:"account_id"`
+	Provider          string           `json:"provider"`
+	Email             *string          `json:"email"`
+	Name              *string          `json:"name"`
+	FirstName         *string          `json:"first_name"`
+	LastName          *string          `json:"last_name"`
+	NickName          *string          `json:"nick_name"`
+	Description       *string          `json:"description"`
+	UserID            string           `json:"user_id"`
+	AvatarUrl         *string          `json:"avatar_url"`
+	Location          *string          `json:"location"`
+	AccessToken       *string          `json:"access_token"`
+	AccessTokenSecret *string          `json:"access_token_secret"`
+	RefreshToken      *string          `json:"refresh_token"`
+	ExpiresAt         pgtype.Timestamp `json:"expires_at"`
+}
+
+func (q *Queries) UpdateSocial(ctx context.Context, arg UpdateSocialParams) (Social, error) {
+	row := q.db.QueryRow(ctx, updateSocial,
+		arg.AccountID,
+		arg.Provider,
+		arg.Email,
+		arg.Name,
+		arg.FirstName,
+		arg.LastName,
+		arg.NickName,
+		arg.Description,
+		arg.UserID,
+		arg.AvatarUrl,
+		arg.Location,
+		arg.AccessToken,
+		arg.AccessTokenSecret,
+		arg.RefreshToken,
+		arg.ExpiresAt,
+	)
+	var i Social
+	err := row.Scan(
+		&i.UserID,
+		&i.IDToken,
+		&i.AccountID,
+		&i.Provider,
+		&i.Email,
+		&i.Name,
+		&i.FirstName,
+		&i.LastName,
+		&i.NickName,
+		&i.Description,
+		&i.AvatarUrl,
+		&i.Location,
+		&i.AccessToken,
+		&i.AccessTokenSecret,
+		&i.RefreshToken,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}

@@ -48,3 +48,26 @@ SELECT * FROM socials
 WHERE lower(provider) = lower($1)
 LIMIT $2
 OFFSET $3;
+
+
+
+-- name: UpdateSocial :one
+UPDATE socials
+SET
+    provider = COALESCE($2, provider),
+    email = COALESCE($3, email),
+    name = COALESCE($4, name),
+    first_name = COALESCE($5, first_name),
+    last_name = COALESCE($6, last_name),
+    nick_name = COALESCE($7, nick_name),
+    description = COALESCE($8, description),
+    user_id = COALESCE($9, user_id),
+    avatar_url = COALESCE($10, avatar_url),
+    location = COALESCE($11, location),
+    access_token = COALESCE($12, access_token),
+    access_token_secret = COALESCE($13, access_token_secret),
+    refresh_token = COALESCE($14, refresh_token),
+    expires_at = COALESCE($15, expires_at),
+    updated_at = NOW()
+WHERE account_id = $1
+RETURNING *;
