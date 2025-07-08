@@ -10,11 +10,13 @@ import (
 )
 
 type Account struct {
-	ID        uuid.UUID        `json:"id"`
-	Email     string           `json:"email"`
-	Name      string           `json:"name"`
-	CreatedAt pgtype.Timestamp `json:"created_at"`
-	UpdatedAt pgtype.Timestamp `json:"updated_at"`
+	ID            uuid.UUID        `json:"id"`
+	Email         string           `json:"email"`
+	Name          string           `json:"name"`
+	CreatedAt     pgtype.Timestamp `json:"created_at"`
+	UpdatedAt     pgtype.Timestamp `json:"updated_at"`
+	TermsAccepted *bool            `json:"terms_accepted"`
+	Onboarded     *bool            `json:"onboarded"`
 }
 
 type Social struct {

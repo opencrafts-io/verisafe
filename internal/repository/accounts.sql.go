@@ -12,7 +12,7 @@ import (
 const createAccount = `-- name: CreateAccount :one
 INSERT INTO accounts (email, name)
 VALUES ($1, $2)
-RETURNING id, email, name, created_at, updated_at
+RETURNING id, email, name, created_at, updated_at, terms_accepted, onboarded
 `
 
 type CreateAccountParams struct {
@@ -29,12 +29,14 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (A
 		&i.Name,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TermsAccepted,
+		&i.Onboarded,
 	)
 	return i, err
 }
 
 const getAccountByEmail = `-- name: GetAccountByEmail :one
-SELECT id, email, name, created_at, updated_at FROM accounts 
+SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded FROM accounts 
 WHERE lower(email) = lower($1)
 LIMIT 1
 `
@@ -48,12 +50,14 @@ func (q *Queries) GetAccountByEmail(ctx context.Context, lower string) (Account,
 		&i.Name,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TermsAccepted,
+		&i.Onboarded,
 	)
 	return i, err
 }
 
 const getAccountByID = `-- name: GetAccountByID :one
-SELECT id, email, name, created_at, updated_at FROM accounts 
+SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded FROM accounts 
 WHERE id = $1
 LIMIT $1
 `
@@ -67,12 +71,14 @@ func (q *Queries) GetAccountByID(ctx context.Context, limit int32) (Account, err
 		&i.Name,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TermsAccepted,
+		&i.Onboarded,
 	)
 	return i, err
 }
 
 const getAllAccounts = `-- name: GetAllAccounts :many
-SELECT id, email, name, created_at, updated_at FROM accounts 
+SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded FROM accounts 
 LIMIT $1
 OFFSET $2
 `
@@ -97,6 +103,8 @@ func (q *Queries) GetAllAccounts(ctx context.Context, arg GetAllAccountsParams) 
 			&i.Name,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TermsAccepted,
+			&i.Onboarded,
 		); err != nil {
 			return nil, err
 		}
@@ -109,7 +117,7 @@ func (q *Queries) GetAllAccounts(ctx context.Context, arg GetAllAccountsParams) 
 }
 
 const searchAccountByEmail = `-- name: SearchAccountByEmail :many
-SELECT id, email, name, created_at, updated_at FROM accounts 
+SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded FROM accounts 
 WHERE lower(email) LIKE '%' || lower($1) || '%'
 LIMIT $1
 OFFSET $2
@@ -135,6 +143,8 @@ func (q *Queries) SearchAccountByEmail(ctx context.Context, arg SearchAccountByE
 			&i.Name,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TermsAccepted,
+			&i.Onboarded,
 		); err != nil {
 			return nil, err
 		}
@@ -147,7 +157,7 @@ func (q *Queries) SearchAccountByEmail(ctx context.Context, arg SearchAccountByE
 }
 
 const searchAccountByName = `-- name: SearchAccountByName :many
-SELECT id, email, name, created_at, updated_at FROM accounts 
+SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded FROM accounts 
 WHERE lower(name) LIKE '%' || lower($1) || '%'
 LIMIT $2
 OFFSET $3
@@ -174,6 +184,8 @@ func (q *Queries) SearchAccountByName(ctx context.Context, arg SearchAccountByNa
 			&i.Name,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TermsAccepted,
+			&i.Onboarded,
 		); err != nil {
 			return nil, err
 		}
