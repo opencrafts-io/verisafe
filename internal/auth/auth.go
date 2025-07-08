@@ -9,6 +9,7 @@ import (
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
 	"github.com/markbates/goth/providers/google"
+	"github.com/markbates/goth/providers/spotify"
 	"github.com/opencrafts-io/verisafe/internal/config"
 )
 
@@ -52,8 +53,25 @@ func NewAuthenticator(cfg *config.Config, logger *slog.Logger) *Auth {
 
 	googleProvider.SetAccessType("offline")
 
+	spotifyProvider := spotify.New(
+		cfg.AuthenticationConfig.SpotifyClientID,
+		cfg.AuthenticationConfig.SpotifyClientSecret,
+		fmt.Sprintf(
+			"http://%s:%d/auth/spotify/callback",
+			cfg.AppConfig.Addres,
+			cfg.AppConfig.Port,
+		),
+		"app-remote-control",
+		"user-follow-read",
+		"user-follow-modify",
+		"user-top-read",
+		"user-read-playback-position",
+		"user-read-recently-played",
+	)
+
 	goth.UseProviders(
 		googleProvider,
+		spotifyProvider,
 	)
 
 	logger.Info("Goth Oauth2 providers initialized successfully")
