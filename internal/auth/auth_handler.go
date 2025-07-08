@@ -60,6 +60,7 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+
 	tx, _ := conn.Begin(r.Context())
 	defer tx.Rollback(r.Context())
 	repo := repository.New(tx)
@@ -75,9 +76,11 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var account repository.Account
+
 	// If the social account does not exist yet check if the user already exists
 	if errors.Is(err, sql.ErrNoRows) {
-		_, err := repo.GetAccountByEmail(r.Context(), user.Email)
+		account, err = repo.GetAccountByEmail(r.Context(), user.Email)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			a.logger.Error("Error checking user existence", slog.Any("error", err))
 			http.Error(w, "Error checking user existence", http.StatusInternalServerError)
@@ -92,7 +95,7 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// Create the user in the repository
-			createdUser, err := repo.CreateAccount(r.Context(), userParams)
+			account, err = repo.CreateAccount(r.Context(), userParams)
 			if err != nil {
 				a.logger.Error("Error creating user", slog.Any("error", err))
 				http.Error(w, "Error creating user", http.StatusInternalServerError)
@@ -102,7 +105,7 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 			// Create the social connection
 			socialParams := repository.CreateSocialParams{
 				UserID:            user.UserID,
-				AccountID:         createdUser.ID,
+				AccountID:         account.ID,
 				Provider:          provider,
 				Email:             &user.Email,
 				Name:              &user.Name,
@@ -126,7 +129,7 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			a.logger.Info("New social connection created for user",
-				slog.Any("created_user", createdUser), slog.Any("social_account", socialAccount),
+				slog.Any("created_user", account), slog.Any("social_account", socialAccount),
 			)
 		}
 	} else {
@@ -155,7 +158,13 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(socialAccount)
+	token, err := GenerateJWT(account, []string{}, []string{}, *a.config)
+	if err != nil {
+		http.Error(w, "Error while generating jwt token", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Add("Authorization", strings.Join([]string{"bearer", token}, " "))
+	json.NewEncoder(w).Encode(map[string]any{"account": account, "token": token})
 }
 
 // LogoutHandler logs the user out from the OAuth provider and clears Goth's session data.
