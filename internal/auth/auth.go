@@ -39,16 +39,21 @@ func NewAuthenticator(cfg *config.Config, logger *slog.Logger) *Auth {
 
 	gothic.Store = store
 
-	goth.UseProviders(
-		google.New(
-			cfg.AuthenticationConfig.GoogleClientID,
-			cfg.AuthenticationConfig.GoogleClientSecret,
-			fmt.Sprintf("http://%s:%d/auth/google/callback",
-				cfg.AppConfig.Addres,
-				cfg.AppConfig.Port,
-			),
-			"email", "profile",
+	googleProvider := google.New(
+		cfg.AuthenticationConfig.GoogleClientID,
+		cfg.AuthenticationConfig.GoogleClientSecret,
+		fmt.Sprintf("http://%s:%d/auth/google/callback",
+			cfg.AppConfig.Addres,
+			cfg.AppConfig.Port,
 		),
+		"email", "profile",
+		"https://www.googleapis.com/auth/calendar",
+	)
+
+	googleProvider.SetAccessType("offline")
+
+	goth.UseProviders(
+		googleProvider,
 	)
 
 	logger.Info("Goth Oauth2 providers initialized successfully")

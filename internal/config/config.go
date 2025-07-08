@@ -8,6 +8,12 @@ import (
 
 type Config struct {
 
+	// JWT token configuration
+	JWTConfig struct {
+		ApiSecret   string `envconfig:"API_SECRET"`
+		ExpireDelta int    `envconfig:"EXPIRE_DELTA"`
+	}
+
 	// Authentication configuration
 	AuthenticationConfig struct {
 		GoogleClientID     string `envconfig:"GOOGLE_CLIENT_ID"`
