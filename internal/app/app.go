@@ -6,11 +6,14 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"path/filepath"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/opencrafts-io/verisafe/internal/config"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
+	"github.com/pressly/goose/v3"
 )
 
 type App struct {
@@ -51,8 +54,29 @@ func New(logger *slog.Logger, config *config.Config) (*App, error) {
 	}, nil
 }
 
+// Runs the all Goose migrations.
+func (a *App) runMigrations() {
+
+	migrationsDir := filepath.Join("database", "migrations")
+
+	if err := goose.SetDialect(string(goose.DialectPostgres)); err != nil {
+		panic(err)
+	}
+
+	db := stdlib.OpenDBFromPool(a.pool)
+
+	// Run the migrations from the specified directory
+	if err := goose.Up(db, migrationsDir); err != nil {
+		panic(err)
+	}
+
+	a.logger.Info("Migrations ran successfully!")
+
+}
+
 // Starts the application server
 func (a *App) Start(ctx context.Context) error {
+	a.runMigrations()
 
 	middlewares := middleware.CreateStack(
 		middleware.Logging(a.logger),
