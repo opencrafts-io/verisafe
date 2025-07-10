@@ -44,6 +44,18 @@ jobs:
         with:
           go-version: '1.24.4'
           cache: true
+
+      - name: Cache Go build and mod data
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+            ~/go/bin
+          key: go-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            go-${{ runner.os }}-
+
       - name: Install Goose
         run: go install github.com/pressly/goose/v3/cmd/goose@latest
 
@@ -51,7 +63,7 @@ jobs:
         run: echo "$HOME/go/bin" >> $GITHUB_PATH
 
       - name: Run Goose migrations
-        run: goose -dir ./migrations postgres "host=localhost port=5432 user=verisafeuser password=secretpassword dbname=verisafe sslmode=disable" up
+        run: goose -dir ./database/migrations postgres "host=localhost port=5432 user=verisafeuser password=secretpassword dbname=verisafe sslmode=disable" up
 
       - name: Install dependencies
         run: go mod tidy
@@ -112,7 +124,7 @@ jobs:
 
           pack build "$IMAGE_BASE:$IMAGE_TAG" \
             --buildpack paketo-buildpacks/go \
-            --builder paketobuildpacks/builder-jammy-base
+            --builder paketobuildpacks/builder-jammy-base \
             --cache "type=build;format=volume"
 
           docker tag "$IMAGE_BASE:$IMAGE_TAG" "$IMAGE_BASE:$SHA_TAG"
