@@ -138,7 +138,6 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		err = nil
 		if socialAccount, err = repo.UpdateSocial(r.Context(),
 			repository.UpdateSocialParams{
-				UserID:            user.UserID,
 				AccountID:         account.ID,
 				Provider:          provider,
 				Email:             &user.Email,
@@ -171,14 +170,14 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
 	token, err := GenerateJWT(account, []string{}, []string{}, *a.config)
 	if err != nil {
 		http.Error(w, "Error while generating jwt token", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Add("Authorization", strings.Join([]string{"bearer", token}, " "))
-	json.NewEncoder(w).Encode(map[string]any{"account": account, "token": token})
+	redirectURI := fmt.Sprintf("academia://callback?token=%s", token)
+	http.Redirect(w, r, redirectURI, http.StatusFound)
 }
 
 // LogoutHandler logs the user out from the OAuth provider and clears Goth's session data.
