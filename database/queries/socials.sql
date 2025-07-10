@@ -61,13 +61,12 @@ SET
     last_name = COALESCE($6, last_name),
     nick_name = COALESCE($7, nick_name),
     description = COALESCE($8, description),
-    user_id = COALESCE($9, user_id),
-    avatar_url = COALESCE($10, avatar_url),
-    location = COALESCE($11, location),
-    access_token = COALESCE($12, access_token),
-    access_token_secret = COALESCE($13, access_token_secret),
-    refresh_token = COALESCE($14, refresh_token),
-    expires_at = COALESCE($15, expires_at),
+    avatar_url = COALESCE($9, avatar_url),
+    location = COALESCE($10, location),
+    access_token = COALESCE($11, access_token),
+    access_token_secret = COALESCE($12, access_token_secret),
+    refresh_token = COALESCE($13, refresh_token),
+    expires_at = COALESCE($14, expires_at),
     updated_at = NOW()
 WHERE account_id = $1
 RETURNING *;
