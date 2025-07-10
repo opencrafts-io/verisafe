@@ -104,7 +104,7 @@ jobs:
 
           pack build "$IMAGE_BASE:$IMAGE_TAG" \
             --buildpack paketo-buildpacks/go \
-            --builder paketobuildpacks/builder-jammy-base
+            --builder paketobuildpacks/builder-jammy-base \
             --cache "type=build;format=volume"
 
           docker tag "$IMAGE_BASE:$IMAGE_TAG" "$IMAGE_BASE:$SHA_TAG"
