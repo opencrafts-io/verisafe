@@ -29,7 +29,9 @@ func (a *App) loadRoutes() http.Handler {
 	))
 	router.HandleFunc("GET /roles/{id}", roleHandler.GetRoleByID)
 	router.HandleFunc("GET /roles/user/{id}", roleHandler.GetAllUserRoles)
-	router.HandleFunc("PATCH /roles/user/{id}", roleHandler.GetAllUserRoles)
+	router.HandleFunc("GET /roles/permissions/{id}", roleHandler.GetRolePermissions)
+	router.HandleFunc("PATCH /roles/{id}", roleHandler.UpdateRole)
+	router.HandleFunc("GET /roles/assign/{user_id}/{role_id}", roleHandler.AssignUserRole)
+	router.HandleFunc("DELETE /roles/revoke/{user_id}/{role_id}", roleHandler.RevokeUserRole)
 	return router
-
 }

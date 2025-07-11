@@ -11,6 +11,26 @@ import (
 	"github.com/google/uuid"
 )
 
+const assignRole = `-- name: AssignRole :one
+INSERT INTO user_roles  (
+  user_id, role_id
+) VALUES ( $1, $2 )
+RETURNING user_id, role_id
+`
+
+type AssignRoleParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	RoleID uuid.UUID `json:"role_id"`
+}
+
+// Assigns a role to a user
+func (q *Queries) AssignRole(ctx context.Context, arg AssignRoleParams) (UserRole, error) {
+	row := q.db.QueryRow(ctx, assignRole, arg.UserID, arg.RoleID)
+	var i UserRole
+	err := row.Scan(&i.UserID, &i.RoleID)
+	return i, err
+}
+
 const createRole = `-- name: CreateRole :one
 INSERT INTO roles ( 
   name, description
@@ -76,20 +96,28 @@ func (q *Queries) GetAllRoles(ctx context.Context, arg GetAllRolesParams) ([]Rol
 }
 
 const getAllUserRoles = `-- name: GetAllUserRoles :many
-SELECT user_id, role_id FROM user_roles WHERE user_id = $1
+SELECT user_id, email, name, role_id, role_name, role_description, role_created_at FROM user_roles_view WHERE user_id = $1
 `
 
 // Retrieves all roles that a user has
-func (q *Queries) GetAllUserRoles(ctx context.Context, userID uuid.UUID) ([]UserRole, error) {
+func (q *Queries) GetAllUserRoles(ctx context.Context, userID uuid.UUID) ([]UserRolesView, error) {
 	rows, err := q.db.Query(ctx, getAllUserRoles, userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []UserRole{}
+	items := []UserRolesView{}
 	for rows.Next() {
-		var i UserRole
-		if err := rows.Scan(&i.UserID, &i.RoleID); err != nil {
+		var i UserRolesView
+		if err := rows.Scan(
+			&i.UserID,
+			&i.Email,
+			&i.Name,
+			&i.RoleID,
+			&i.RoleName,
+			&i.RoleDescription,
+			&i.RoleCreatedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -119,21 +147,27 @@ func (q *Queries) GetRoleByID(ctx context.Context, id uuid.UUID) (Role, error) {
 }
 
 const getRolePermissions = `-- name: GetRolePermissions :many
-SELECT role_id, permission_id FROM role_permissions
+SELECT role_id, role_name, role_description, permission_id, permission_name FROM role_permissions_view
 WHERE role_id = $1
 `
 
 // Retrieves all permissions that a re assigned to a role
-func (q *Queries) GetRolePermissions(ctx context.Context, roleID uuid.UUID) ([]RolePermission, error) {
+func (q *Queries) GetRolePermissions(ctx context.Context, roleID uuid.UUID) ([]RolePermissionsView, error) {
 	rows, err := q.db.Query(ctx, getRolePermissions, roleID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []RolePermission{}
+	items := []RolePermissionsView{}
 	for rows.Next() {
-		var i RolePermission
-		if err := rows.Scan(&i.RoleID, &i.PermissionID); err != nil {
+		var i RolePermissionsView
+		if err := rows.Scan(
+			&i.RoleID,
+			&i.RoleName,
+			&i.RoleDescription,
+			&i.PermissionID,
+			&i.PermissionName,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -142,6 +176,22 @@ func (q *Queries) GetRolePermissions(ctx context.Context, roleID uuid.UUID) ([]R
 		return nil, err
 	}
 	return items, nil
+}
+
+const revokeRole = `-- name: RevokeRole :exec
+DELETE FROM user_roles
+  WHERE user_id = $1 AND role_id = $2
+`
+
+type RevokeRoleParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	RoleID uuid.UUID `json:"role_id"`
+}
+
+// Revokes a role from a user
+func (q *Queries) RevokeRole(ctx context.Context, arg RevokeRoleParams) error {
+	_, err := q.db.Exec(ctx, revokeRole, arg.UserID, arg.RoleID)
+	return err
 }
 
 const updateRole = `-- name: UpdateRole :one

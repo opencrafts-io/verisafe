@@ -244,3 +244,188 @@ func (rh *RoleHandler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(created)
 }
+
+func (rh *RoleHandler) GetRolePermissions(w http.ResponseWriter, r *http.Request) {
+	rawID := r.PathValue("id")
+	id, err := uuid.Parse(rawID)
+	if err != nil {
+		rh.Logger.Error("Failed to parse request body", slog.Any("error", err))
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Please check your request body and try again",
+		})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	conn, err := middleware.GetDBConnFromContext(r.Context())
+	if err != nil {
+		rh.Logger.Error("Error while processing request", slog.Any("error", err))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "We ran into a problem while servicing your request please try again later",
+		})
+		return
+	}
+
+	tx, _ := conn.Begin(r.Context())
+	defer tx.Rollback(r.Context())
+	repo := repository.New(tx)
+
+	roles, err := repo.GetRolePermissions(r.Context(), id)
+	if err != nil {
+		rh.Logger.Error("Failed to retrieve role permissions", slog.Any("error", err),
+			slog.Any("role", id.String()),
+		)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "We couldn't complete this request at the moment please try again later",
+		})
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(roles)
+
+}
+
+
+// Some work might be needed to check for both the assign and revoke roles
+// better error handling
+func (rh *RoleHandler) AssignUserRole(w http.ResponseWriter, r *http.Request) {
+	rawUserID := r.PathValue("user_id")
+	userID, err := uuid.Parse(rawUserID)
+	if err != nil {
+		rh.Logger.Error("Failed to parse request body", slog.Any("error", err))
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Please check your request body and try again",
+		})
+		return
+	}
+
+	rawRoleID := r.PathValue("role_id")
+	roleID, err := uuid.Parse(rawRoleID)
+	if err != nil {
+		rh.Logger.Error("Failed to parse request body", slog.Any("error", err))
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Please check your request body and try again",
+		})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	conn, err := middleware.GetDBConnFromContext(r.Context())
+	if err != nil {
+		rh.Logger.Error("Error while processing request", slog.Any("error", err))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "We ran into a problem while servicing your request please try again later",
+		})
+		return
+	}
+
+	tx, _ := conn.Begin(r.Context())
+	defer tx.Rollback(r.Context())
+	repo := repository.New(tx)
+
+	_, err = repo.AssignRole(r.Context(), repository.AssignRoleParams{
+		UserID: userID,
+		RoleID: roleID,
+	})
+	if err != nil {
+		rh.Logger.Error("Failed to assign role to user",
+			slog.Any("error", err),
+			slog.Any("role", roleID.String()),
+			slog.Any("user", userID.String()),
+		)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "We couldn't complete this request at the moment please try again later",
+		})
+		return
+	}
+
+	if err = tx.Commit(r.Context()); err != nil {
+		rh.Logger.Error("Error while committing transaction", slog.Any("error", err))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]any{
+			"error": "We ran into a problem while servicing your request please try again later",
+		})
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]any{"message": "Role successfully assigned"})
+
+}
+
+func (rh *RoleHandler) RevokeUserRole(w http.ResponseWriter, r *http.Request) {
+	rawUserID := r.PathValue("user_id")
+	userID, err := uuid.Parse(rawUserID)
+	if err != nil {
+		rh.Logger.Error("Failed to parse request body", slog.Any("error", err))
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Please check your request body and try again",
+		})
+		return
+	}
+
+	rawRoleID := r.PathValue("role_id")
+	roleID, err := uuid.Parse(rawRoleID)
+	if err != nil {
+		rh.Logger.Error("Failed to parse request body", slog.Any("error", err))
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Please check your request body and try again",
+		})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	conn, err := middleware.GetDBConnFromContext(r.Context())
+	if err != nil {
+		rh.Logger.Error("Error while processing request", slog.Any("error", err))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "We ran into a problem while servicing your request please try again later",
+		})
+		return
+	}
+
+	tx, _ := conn.Begin(r.Context())
+	defer tx.Rollback(r.Context())
+	repo := repository.New(tx)
+
+	err = repo.RevokeRole(r.Context(), repository.RevokeRoleParams{
+		UserID: userID,
+		RoleID: roleID,
+	})
+	if err != nil {
+		rh.Logger.Error("Failed to revoke role from user",
+			slog.Any("error", err),
+			slog.Any("role", roleID.String()),
+			slog.Any("user", userID.String()),
+		)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "We couldn't complete this request at the moment please try again later",
+		})
+		return
+	}
+
+	if err = tx.Commit(r.Context()); err != nil {
+		rh.Logger.Error("Error while committing transaction", slog.Any("error", err))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]any{
+			"error": "We ran into a problem while servicing your request please try again later",
+		})
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]any{"message": "Role successfully revoked"})
+
+}
