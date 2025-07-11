@@ -64,7 +64,7 @@ func (a *App) Start(ctx context.Context) error {
 	router := a.loadRoutes()
 
 	srv := &http.Server{
-		Addr:    fmt.Sprintf("%s:%d", a.config.AppConfig.Addres, a.config.AppConfig.Port),
+		Addr:    fmt.Sprintf("%s:%d", a.config.AppConfig.Address, a.config.AppConfig.Port),
 		Handler: middlewares(router),
 	}
 
@@ -80,7 +80,7 @@ func (a *App) Start(ctx context.Context) error {
 	}()
 
 	a.logger.Info("server running",
-		slog.String("Address", a.config.AppConfig.Addres),
+		slog.String("Address", a.config.AppConfig.Address),
 		slog.Int("port", a.config.AppConfig.Port),
 	)
 

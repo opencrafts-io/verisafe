@@ -23,12 +23,13 @@ type Config struct {
 		MaxAge        int    `envconfig:"AUTH_MAX_AGE"`
 		SessionSecret string `envconfig:"SESSION_SECRET"`
 		Environment   string `envconfig:"AUTH_ENV"`
+		AuthAddress string `envconfig:"AUTH_ADDRESS"`
 	}
 
 	// Application configuration
 	AppConfig struct {
 		Port   int    `envconfig:"VERISAFE_PORT"`
-		Addres string `envconfig:"VERISAFE_ADDRESS"`
+		Address string `envconfig:"VERISAFE_ADDRESS"`
 	}
 
 	// Database configuration
