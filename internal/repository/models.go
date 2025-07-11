@@ -19,6 +19,27 @@ type Account struct {
 	Onboarded     *bool            `json:"onboarded"`
 }
 
+type Permission struct {
+	ID          uuid.UUID        `json:"id"`
+	Name        string           `json:"name"`
+	Description *string          `json:"description"`
+	CreatedAt   pgtype.Timestamp `json:"created_at"`
+	UpdatedAt   pgtype.Timestamp `json:"updated_at"`
+}
+
+type Role struct {
+	ID          uuid.UUID        `json:"id"`
+	Name        string           `json:"name"`
+	Description *string          `json:"description"`
+	CreatedAt   pgtype.Timestamp `json:"created_at"`
+	UpdatedAt   pgtype.Timestamp `json:"updated_at"`
+}
+
+type RolePermission struct {
+	RoleID       uuid.UUID `json:"role_id"`
+	PermissionID uuid.UUID `json:"permission_id"`
+}
+
 type Social struct {
 	UserID            string           `json:"user_id"`
 	IDToken           *string          `json:"id_token"`
@@ -38,4 +59,9 @@ type Social struct {
 	ExpiresAt         pgtype.Timestamp `json:"expires_at"`
 	CreatedAt         pgtype.Timestamp `json:"created_at"`
 	UpdatedAt         pgtype.Timestamp `json:"updated_at"`
+}
+
+type UserRole struct {
+	UserID uuid.UUID `json:"user_id"`
+	RoleID uuid.UUID `json:"role_id"`
 }

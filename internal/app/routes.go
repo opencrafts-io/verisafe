@@ -5,12 +5,14 @@ import (
 
 	"github.com/opencrafts-io/verisafe/internal/auth"
 	"github.com/opencrafts-io/verisafe/internal/handlers"
+	"github.com/opencrafts-io/verisafe/internal/middleware"
 )
 
 func (a *App) loadRoutes() http.Handler {
 	router := http.NewServeMux()
 
 	auth := auth.NewAuthenticator(a.config, a.logger)
+	roleHandler := handlers.RoleHandler{Logger: a.logger}
 
 	// ping handler
 	router.HandleFunc("GET /ping", handlers.PingHandler)
@@ -19,6 +21,15 @@ func (a *App) loadRoutes() http.Handler {
 	router.HandleFunc("GET /auth/{provider}", auth.LoginHandler)
 	router.HandleFunc("GET /auth/{provider}/callback", auth.CallbackHandler)
 	router.HandleFunc("GET /auth/{provider}/logout", auth.LogoutHandler)
+
+	// roles
+	router.HandleFunc("POST /roles/create", roleHandler.CreateRole)
+	router.Handle("GET /roles", middleware.PaginationMiddleware(10, 100)(
+		http.HandlerFunc(roleHandler.GetAllRoles),
+	))
+	router.HandleFunc("GET /roles/{id}", roleHandler.GetRoleByID)
+	router.HandleFunc("GET /roles/user/{id}", roleHandler.GetAllUserRoles)
+	router.HandleFunc("PATCH /roles/user/{id}", roleHandler.GetAllUserRoles)
 	return router
 
 }
