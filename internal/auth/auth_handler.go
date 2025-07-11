@@ -2,7 +2,6 @@ package auth
 
 import (
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -40,7 +39,7 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	provider, err := GetProviderName(r)
 	if err != nil {
 		a.logger.Warn("Failed to get provider name for callback", "error", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "Failed to get provider name for callback", http.StatusBadRequest)
 		return
 	}
 
@@ -55,10 +54,7 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
 		a.logger.Error("Error while processing request", slog.Any("error", err))
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into a problem while servicing your request please try again later",
-		})
+		http.Error(w, "Failed to establish database connection", http.StatusInternalServerError)
 		return
 	}
 
@@ -87,8 +83,7 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		account, err = repo.CreateAccount(r.Context(), userParams)
 		if err != nil {
 			a.logger.Error("Error creating user", slog.Any("error", err))
-			w.WriteHeader(http.StatusInternalServerError)
-
+			http.Error(w, "Failed to create account", http.StatusInternalServerError)
 			return
 		}
 
@@ -98,10 +93,7 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	socialAccount, err = repo.GetSocialByExternalUserID(r.Context(), user.UserID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		a.logger.Error("Error while processing request", slog.Any("error", err))
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into a problem while servicing your request please try again later",
-		})
+		http.Error(w, "Failed to fetch social connection", http.StatusInternalServerError)
 		return
 	}
 
@@ -135,12 +127,11 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 			slog.Any("created_user", account), slog.Any("social_account", socialAccount),
 		)
 	} else {
-		println("Here man")
 
 		a.logger.Debug("Use", slog.Any("user", user))
 		//
 		// // Update the social account
-		updated, err := repo.UpdateSocial(r.Context(),
+		_, err := repo.UpdateSocial(r.Context(),
 			repository.UpdateSocialParams{
 				UserID:            user.UserID,
 				Provider:          provider,
@@ -161,14 +152,10 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			a.logger.Info("Error while trying to update social auth", slog.Any("error", err))
-			json.NewEncoder(w).Encode(map[string]any{
-				"error": "We ran into an error while trying to authenticate you"},
-			)
+			http.Error(w, "Error updating social connection", http.StatusInternalServerError)
 			return
-
 		}
 
-		a.logger.Debug("Use", slog.Any("updated social", updated))
 	}
 	userRoles, err := repo.GetAllUserRoles(r.Context(), account.ID)
 	if err != nil {
@@ -177,9 +164,8 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 			slog.Any("error", err),
 			slog.Any("roles", userRoles),
 		)
-		json.NewEncoder(w).Encode(map[string]any{
-			"error": "Failed to retrieve your user roles"},
-		)
+
+		http.Error(w, "Failed to fetch your authorization details", http.StatusInternalServerError)
 		return
 	}
 
@@ -190,9 +176,8 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 			slog.Any("error", err),
 			slog.Any("perms", userPerms),
 		)
-		json.NewEncoder(w).Encode(map[string]any{
-			"error": "Failed to retrieve your user roles"},
-		)
+
+		http.Error(w, "Failed to fetch your authorization details", http.StatusInternalServerError)
 		return
 	}
 
