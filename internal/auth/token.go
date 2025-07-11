@@ -11,17 +11,17 @@ import (
 
 // Claims structure for JWT
 type VerisafeClaims struct {
-	Account     repository.Account `json:"user"`
-	Roles       []string           `json:"roles"`
-	Permissions []string           `json:"permissions"`
+	Account     repository.Account               `json:"user"`
+	Roles       []repository.UserRolesView       `json:"roles"`
+	Permissions []repository.UserPermissionsView `json:"permissions"`
 	jwt.RegisteredClaims
 }
 
 // GenerateJWT creates a new token for a given user ID.
 func GenerateJWT(
 	account repository.Account,
-	roles []string,
-	permissions []string,
+	roles []repository.UserRolesView,
+	permissions []repository.UserPermissionsView,
 	cfg config.Config,
 ) (string, error) {
 

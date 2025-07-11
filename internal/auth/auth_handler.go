@@ -170,7 +170,33 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := GenerateJWT(account, []string{}, []string{}, *a.config)
+	userRoles, err := repo.GetAllUserRoles(r.Context(), account.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		a.logger.Info("Error while trying to retrieve user role",
+			slog.Any("error", err),
+			slog.Any("roles", userRoles),
+		)
+		json.NewEncoder(w).Encode(map[string]any{
+			"error": "Failed to retrieve your user roles"},
+		)
+		return
+	}
+
+	userPerms, err := repo.GetUserPermissions(r.Context(), account.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		a.logger.Info("Error while trying to retrieve user role",
+			slog.Any("error", err),
+			slog.Any("perms", userPerms),
+		)
+		json.NewEncoder(w).Encode(map[string]any{
+			"error": "Failed to retrieve your user roles"},
+		)
+		return
+	}
+
+	token, err := GenerateJWT(account, userRoles, userPerms, *a.config)
 	if err != nil {
 		http.Error(w, "Error while generating jwt token", http.StatusInternalServerError)
 		return
