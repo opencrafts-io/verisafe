@@ -138,7 +138,6 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		err = nil
 		if socialAccount, err = repo.UpdateSocial(r.Context(),
 			repository.UpdateSocialParams{
-				AccountID:         account.ID,
 				Provider:          provider,
 				Email:             &user.Email,
 				Name:              &user.Name,

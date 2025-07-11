@@ -212,12 +212,12 @@ SET
     refresh_token = COALESCE($13, refresh_token),
     expires_at = COALESCE($14, expires_at),
     updated_at = NOW()
-WHERE account_id = $1
+WHERE user_id = $1
 RETURNING user_id, id_token, account_id, provider, email, name, first_name, last_name, nick_name, description, avatar_url, location, access_token, access_token_secret, refresh_token, expires_at, created_at, updated_at
 `
 
 type UpdateSocialParams struct {
-	AccountID         uuid.UUID        `json:"account_id"`
+	UserID            string           `json:"user_id"`
 	Provider          string           `json:"provider"`
 	Email             *string          `json:"email"`
 	Name              *string          `json:"name"`
@@ -235,7 +235,7 @@ type UpdateSocialParams struct {
 
 func (q *Queries) UpdateSocial(ctx context.Context, arg UpdateSocialParams) (Social, error) {
 	row := q.db.QueryRow(ctx, updateSocial,
-		arg.AccountID,
+		arg.UserID,
 		arg.Provider,
 		arg.Email,
 		arg.Name,

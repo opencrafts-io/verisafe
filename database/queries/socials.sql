@@ -68,5 +68,5 @@ SET
     refresh_token = COALESCE($13, refresh_token),
     expires_at = COALESCE($14, expires_at),
     updated_at = NOW()
-WHERE account_id = $1
+WHERE user_id = $1
 RETURNING *;
