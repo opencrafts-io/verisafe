@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/sessions"
 	"github.com/markbates/goth"
@@ -40,13 +41,23 @@ func NewAuthenticator(cfg *config.Config, logger *slog.Logger) *Auth {
 
 	gothic.Store = store
 
+	address := ""
+
+	if cfg.AuthenticationConfig.Environment == "development" {
+		address = fmt.Sprintf("%s/auth/{oauth}/callback",
+			cfg.AuthenticationConfig.AuthAddress,
+		)
+	} else {
+		address = fmt.Sprintf("%s/auth/{oauth}/callback",
+			cfg.AuthenticationConfig.AuthAddress,
+		)
+
+	}
+
 	googleProvider := google.New(
 		cfg.AuthenticationConfig.GoogleClientID,
 		cfg.AuthenticationConfig.GoogleClientSecret,
-		fmt.Sprintf("http://%s:%d/auth/google/callback",
-			cfg.AppConfig.Addres,
-			cfg.AppConfig.Port,
-		),
+		strings.Replace(address, "{oauth}", "google",1),
 		"email", "profile",
 		"https://www.googleapis.com/auth/calendar",
 	)
@@ -56,11 +67,7 @@ func NewAuthenticator(cfg *config.Config, logger *slog.Logger) *Auth {
 	spotifyProvider := spotify.New(
 		cfg.AuthenticationConfig.SpotifyClientID,
 		cfg.AuthenticationConfig.SpotifyClientSecret,
-		fmt.Sprintf(
-			"http://%s:%d/auth/spotify/callback",
-			cfg.AppConfig.Addres,
-			cfg.AppConfig.Port,
-		),
+		strings.Replace(address, "{oauth}", "spotify",1),
 		"user-read-playback-state",
 		"user-modify-playback-state",
 		"user-read-currently-playing",

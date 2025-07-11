@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/opencrafts-io/verisafe/database"
 	"github.com/opencrafts-io/verisafe/internal/config"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 )
@@ -54,6 +55,8 @@ func New(logger *slog.Logger, config *config.Config) (*App, error) {
 // Starts the application server
 func (a *App) Start(ctx context.Context) error {
 
+	database.RunGooseMigrations(a.logger, a.pool)
+
 	middlewares := middleware.CreateStack(
 		middleware.Logging(a.logger),
 		middleware.WithDBConnection(a.logger, a.pool),
@@ -61,7 +64,7 @@ func (a *App) Start(ctx context.Context) error {
 	router := a.loadRoutes()
 
 	srv := &http.Server{
-		Addr:    fmt.Sprintf("%s:%d", a.config.AppConfig.Addres, a.config.AppConfig.Port),
+		Addr:    fmt.Sprintf("%s:%d", a.config.AppConfig.Address, a.config.AppConfig.Port),
 		Handler: middlewares(router),
 	}
 
@@ -77,7 +80,7 @@ func (a *App) Start(ctx context.Context) error {
 	}()
 
 	a.logger.Info("server running",
-		slog.String("Address", a.config.AppConfig.Addres),
+		slog.String("Address", a.config.AppConfig.Address),
 		slog.Int("port", a.config.AppConfig.Port),
 	)
 

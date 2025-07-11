@@ -31,5 +31,5 @@ go.work.sum
 tmp/
 
 # Editor/IDE
-# .idea/
-# .vscode/
+.idea/
+.vscode/
