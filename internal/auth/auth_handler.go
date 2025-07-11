@@ -192,7 +192,6 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error while generating jwt token", http.StatusInternalServerError)
 		return
 	}
-	w.Header().Add("Authorization", strings.Join([]string{"bearer", token}, " "))
 	redirectURI := fmt.Sprintf("academia://callback?token=%s", token)
 	http.Redirect(w, r, redirectURI, http.StatusFound)
 }
