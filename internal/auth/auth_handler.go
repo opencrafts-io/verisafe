@@ -13,6 +13,7 @@ import (
 	"github.com/markbates/goth/gothic"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/repository"
+	"github.com/opencrafts-io/verisafe/internal/utils"
 )
 
 // LoginHandler initiates the OAuth2 authentication flow.
@@ -107,6 +108,7 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	// If the social account does not exist yet create it
 	if errors.Is(err, sql.ErrNoRows) {
 		socialAccount, err = repo.CreateSocial(r.Context(), repository.CreateSocialParams{
+
 			UserID:            user.UserID,
 			AccountID:         account.ID,
 			Provider:          provider,
@@ -133,11 +135,14 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 			slog.Any("created_user", account), slog.Any("social_account", socialAccount),
 		)
 	} else {
+		println("Here man")
 
-		// Update the social account
-		err = nil
-		if socialAccount, err = repo.UpdateSocial(r.Context(),
+		a.logger.Debug("Use", slog.Any("user", user))
+		//
+		// // Update the social account
+		updated, err := repo.UpdateSocial(r.Context(),
 			repository.UpdateSocialParams{
+				UserID:            user.UserID,
 				Provider:          provider,
 				Email:             &user.Email,
 				Name:              &user.Name,
@@ -152,7 +157,8 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 				RefreshToken:      &user.RefreshToken,
 				ExpiresAt:         pgtype.Timestamp{Time: user.ExpiresAt},
 			},
-		); err != nil {
+		)
+		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			a.logger.Info("Error while trying to update social auth", slog.Any("error", err))
 			json.NewEncoder(w).Encode(map[string]any{
@@ -161,14 +167,9 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 			return
 
 		}
-	}
 
-	if err = tx.Commit(r.Context()); err != nil {
-		a.logger.Error("Error while processing request", slog.Any("error", err))
-		http.Error(w, "Error while committing transaction", http.StatusInternalServerError)
-		return
+		a.logger.Debug("Use", slog.Any("updated social", updated))
 	}
-
 	userRoles, err := repo.GetAllUserRoles(r.Context(), account.ID)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -195,7 +196,13 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := GenerateJWT(account, userRoles, userPerms, *a.config)
+	if err = tx.Commit(r.Context()); err != nil {
+		a.logger.Error("Error while processing request", slog.Any("error", err))
+		http.Error(w, "Error while committing transaction", http.StatusInternalServerError)
+		return
+	}
+
+	token, err := utils.GenerateJWT(account, userRoles, userPerms, *a.config)
 	if err != nil {
 		http.Error(w, "Error while generating jwt token", http.StatusInternalServerError)
 		return

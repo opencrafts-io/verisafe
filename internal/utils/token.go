@@ -1,4 +1,4 @@
-package auth
+package utils
 
 import (
 	"errors"
@@ -11,9 +11,9 @@ import (
 
 // Claims structure for JWT
 type VerisafeClaims struct {
-	Account     repository.Account               `json:"user"`
-	Roles       []repository.UserRolesView       `json:"roles"`
-	Permissions []repository.UserPermissionsView `json:"permissions"`
+	Account     repository.Account         `json:"user"`
+	Roles       []repository.UserRolesView `json:"roles"`
+	Permissions []string                   `json:"permissions"`
 	jwt.RegisteredClaims
 }
 
@@ -25,11 +25,17 @@ func GenerateJWT(
 	cfg config.Config,
 ) (string, error) {
 
+	var perms []string
+
+	for _, p := range permissions {
+		perms = append(perms, p.Permission)
+	}
+
 	claims :=
 		&VerisafeClaims{
 			Account:     account,
 			Roles:       roles,
-			Permissions: permissions,
+			Permissions: perms,
 			RegisteredClaims: jwt.RegisteredClaims{
 				ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * time.Duration(cfg.JWTConfig.ExpireDelta))),
 				Audience:  jwt.ClaimStrings{"https://academia.opencrafts.io/"},
@@ -45,7 +51,7 @@ func GenerateJWT(
 
 // ValidateJWT parses and validates the JWT token and checks expiration.
 func ValidateJWT(tokenString string, secret string) (*VerisafeClaims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &VerisafeClaims{}, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &VerisafeClaims{}, func(token *jwt.Token) (any, error) {
 		// Ensure the token is signed with the expected method
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("unexpected signing method")
