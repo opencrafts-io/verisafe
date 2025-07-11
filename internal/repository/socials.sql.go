@@ -198,7 +198,6 @@ func (q *Queries) GetSocialByExternalUserID(ctx context.Context, userID string) 
 const updateSocial = `-- name: UpdateSocial :one
 UPDATE socials
 SET
-    provider = COALESCE($2, provider),
     email = COALESCE($3, email),
     name = COALESCE($4, name),
     first_name = COALESCE($5, first_name),
@@ -212,7 +211,7 @@ SET
     refresh_token = COALESCE($13, refresh_token),
     expires_at = COALESCE($14, expires_at),
     updated_at = NOW()
-WHERE user_id = $1
+WHERE user_id = $1 AND provider = $2
 RETURNING user_id, id_token, account_id, provider, email, name, first_name, last_name, nick_name, description, avatar_url, location, access_token, access_token_secret, refresh_token, expires_at, created_at, updated_at
 `
 

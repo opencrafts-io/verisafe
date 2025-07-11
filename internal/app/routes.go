@@ -46,5 +46,10 @@ func (a *App) loadRoutes() http.Handler {
 	router.HandleFunc("GET /permissions/assign/{perm_id}/{role_id}", permHandler.AssignRolePermission)
 	router.HandleFunc("DELETE /permissions/revoke/{perm_id}/{role_id}", permHandler.RevokeRolePermission)
 
-	return router
+	publicPaths := []string{
+		"/ping",
+		"/auth/",
+	}
+
+	return middleware.ConditionalAuthMiddleware(publicPaths, middleware.IsAuthenticated)(router)
 }
