@@ -40,6 +40,14 @@ type RolePermission struct {
 	PermissionID uuid.UUID `json:"permission_id"`
 }
 
+type RolePermissionsView struct {
+	RoleID          uuid.UUID `json:"role_id"`
+	RoleName        string    `json:"role_name"`
+	RoleDescription *string   `json:"role_description"`
+	PermissionID    uuid.UUID `json:"permission_id"`
+	PermissionName  string    `json:"permission_name"`
+}
+
 type Social struct {
 	UserID            string           `json:"user_id"`
 	IDToken           *string          `json:"id_token"`
@@ -61,7 +69,25 @@ type Social struct {
 	UpdatedAt         pgtype.Timestamp `json:"updated_at"`
 }
 
+type UserPermissionsView struct {
+	UserID       uuid.UUID `json:"user_id"`
+	RoleID       uuid.UUID `json:"role_id"`
+	RoleName     string    `json:"role_name"`
+	PermissionID uuid.UUID `json:"permission_id"`
+	Permission   string    `json:"permission"`
+}
+
 type UserRole struct {
 	UserID uuid.UUID `json:"user_id"`
 	RoleID uuid.UUID `json:"role_id"`
+}
+
+type UserRolesView struct {
+	UserID          uuid.UUID        `json:"user_id"`
+	Email           string           `json:"email"`
+	Name            string           `json:"name"`
+	RoleID          uuid.UUID        `json:"role_id"`
+	RoleName        string           `json:"role_name"`
+	RoleDescription *string          `json:"role_description"`
+	RoleCreatedAt   pgtype.Timestamp `json:"role_created_at"`
 }

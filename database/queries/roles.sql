@@ -21,8 +21,7 @@ OFFSET $2;
 
 -- name: GetAllUserRoles :many
 -- Retrieves all roles that a user has 
-SELECT * FROM user_roles WHERE user_id = $1;
-
+SELECT * FROM user_roles_view WHERE user_id = $1;
 
 -- name: UpdateRole :one
 UPDATE roles
@@ -34,5 +33,19 @@ RETURNING *;
 
 -- name: GetRolePermissions :many
 -- Retrieves all permissions that a re assigned to a role
-SELECT * FROM role_permissions
+SELECT * FROM role_permissions_view
 WHERE role_id = $1;
+
+
+-- name: AssignRole :one
+-- Assigns a role to a user
+INSERT INTO user_roles  (
+  user_id, role_id
+) VALUES ( $1, $2 )
+RETURNING *;
+
+
+-- name: RevokeRole :exec
+-- Revokes a role from a user
+DELETE FROM user_roles
+  WHERE user_id = $1 AND role_id = $2;
