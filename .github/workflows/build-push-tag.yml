@@ -8,32 +8,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: verisafeuser
-          POSTGRES_PASSWORD: secretpassword
-          POSTGRES_DB: verisafe
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U verisafeuser -d verisafe"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 5
-
-    env:
-      DB_USER: verisafeuser
-      DB_PASSWORD: secretpassword
-      DB_NAME: verisafe
-      DB_HOST: localhost
-      DB_PORT: 5432
-      PGUSER: verisafeuser
-      PGPASSWORD: secretpassword
-      PGDATABASE: verisafe
-      PGHOST: localhost
-      PGPORT: 5432
 
     steps:
       - name: Checkout code
@@ -44,36 +18,6 @@ jobs:
         with:
           go-version: '1.24.4'
           cache: true
-
-      # Improved caching strategy
-      - name: Cache Go modules and build cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-${{ github.run_id }}
-          restore-keys: |
-            ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-
-            ${{ runner.os }}-go-
-
-      # Separate cache for Go binaries to avoid conflicts
-      - name: Cache Go binaries
-        uses: actions/cache@v4
-        with:
-          path: ~/go/bin
-          key: ${{ runner.os }}-go-bin-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-bin-
-
-      - name: Install Goose
-        run: go install github.com/pressly/goose/v3/cmd/goose@latest
-
-      - name: Add Go bin to PATH
-        run: echo "$HOME/go/bin" >> $GITHUB_PATH
-
-      - name: Run Goose migrations
-        run: goose -dir ./database/migrations postgres "host=localhost port=5432 user=verisafeuser password=secretpassword dbname=verisafe sslmode=disable" up
 
       - name: Install dependencies
         run: go mod tidy
