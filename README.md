@@ -48,16 +48,6 @@ and client ids for the various oauth providers
 cp example.env .env
 ```
 
-#### Run the goose migrator tool
-
-I'll not talk about how to install goose you can google up "goose migrator" there are tons of resources
-on how to do that for your target platform
-
-
-```
-goose up
-```
-
 The above command should setup a database for you compatible with the current version of verisafe as
 at the moment you cloned
 
@@ -67,6 +57,8 @@ Then once you've configured the variables and migrations run the server using th
 ```
 go run main.go
 ```
+
+> Note that the above command by default will attempt to run migrations and launch the server.
 
 To check whether everything went well you can try performing a simple get request to
 ```
