@@ -44,7 +44,7 @@ func NewAuthenticator(cfg *config.Config, logger *slog.Logger) *Auth {
 		cfg.AuthenticationConfig.GoogleClientID,
 		cfg.AuthenticationConfig.GoogleClientSecret,
 		fmt.Sprintf("http://%s:%d/auth/google/callback",
-			cfg.AppConfig.Addres,
+			cfg.AuthenticationConfig.AuthAddress,
 			cfg.AppConfig.Port,
 		),
 		"email", "profile",
@@ -58,7 +58,7 @@ func NewAuthenticator(cfg *config.Config, logger *slog.Logger) *Auth {
 		cfg.AuthenticationConfig.SpotifyClientSecret,
 		fmt.Sprintf(
 			"http://%s:%d/auth/spotify/callback",
-			cfg.AppConfig.Addres,
+			cfg.AuthenticationConfig.AuthAddress,
 			cfg.AppConfig.Port,
 		),
 		"user-read-playback-state",
