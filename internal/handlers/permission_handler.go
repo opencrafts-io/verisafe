@@ -8,12 +8,66 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/opencrafts-io/verisafe/internal/config"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/repository"
 )
 
 type PermissionHandler struct {
 	Logger *slog.Logger
+}
+
+// Registers all the necessary routes associated with this handler group
+func (ph *PermissionHandler) RegisterRoutes(cfg *config.Config, router *http.ServeMux) {
+	router.Handle("POST /permissions/create",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(cfg),
+			middleware.HasPermission([]string{"create:permission"}),
+		)(http.HandlerFunc(ph.CreatePermission)),
+	)
+
+	router.Handle("GET /permissions",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(cfg),
+			middleware.HasPermission([]string{"read:permission:any"}),
+			middleware.PaginationMiddleware(10, 100),
+		)(http.HandlerFunc(ph.GetAllPermissions)),
+	)
+
+	router.Handle("GET /permissions/{id}",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(cfg),
+			middleware.HasPermission([]string{"read:permission:any"}),
+		)(http.HandlerFunc(ph.GetPermissionByID)),
+	)
+
+	router.Handle("GET /permissions/user/{id}",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(cfg),
+			middleware.HasPermission([]string{"read:permission:user"}),
+		)(http.HandlerFunc(ph.GetAllUserPermissions)),
+	)
+
+	router.Handle("PATCH /permissions/{id}",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(cfg),
+			middleware.HasPermission([]string{"update:permission:any"}),
+		)(http.HandlerFunc(ph.UpdatePermission)),
+	)
+
+	router.Handle("GET /permissions/assign/{perm_id}/{role_id}",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(cfg),
+			middleware.HasPermission([]string{"assign:permission:role"}),
+		)(http.HandlerFunc(ph.AssignRolePermission)),
+	)
+
+	router.Handle("DELETE /permissions/revoke/{perm_id}/{role_id}",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(cfg),
+			middleware.HasPermission([]string{"revoke:permission:role"}),
+		)(http.HandlerFunc(ph.RevokeRolePermission)),
+	)
 }
 
 // Creates a permission
