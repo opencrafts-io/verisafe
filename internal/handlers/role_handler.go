@@ -8,12 +8,73 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/opencrafts-io/verisafe/internal/config"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/repository"
 )
 
 type RoleHandler struct {
 	Logger *slog.Logger
+}
+
+// Registers all the necessary routes associated with this handler group
+func (rh *RoleHandler) RegisterRoutes(cfg *config.Config, router *http.ServeMux) {
+	router.Handle("POST /roles/create",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(cfg),
+			middleware.HasPermission([]string{"create:role"}),
+		)(http.HandlerFunc(rh.CreateRole)),
+	)
+
+	router.Handle("GET /roles",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(cfg),
+			middleware.HasPermission([]string{"read:role:any"}),
+			middleware.PaginationMiddleware(10, 100),
+		)(http.HandlerFunc(rh.GetAllRoles)),
+	)
+
+	router.Handle("GET /roles/{id}",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(cfg),
+			middleware.HasPermission([]string{"read:role:any"}),
+		)(http.HandlerFunc(rh.GetRoleByID)),
+	)
+
+	router.Handle("GET /roles/user/{id}",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(cfg),
+			middleware.HasPermission([]string{"read:role:any"}),
+		)(http.HandlerFunc(rh.GetAllUserRoles)),
+	)
+
+	router.Handle("GET /roles/permissions/{id}",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(cfg),
+			middleware.HasPermission([]string{"read:role:permissions"}),
+		)(http.HandlerFunc(rh.GetRolePermissions)),
+	)
+
+	router.Handle("PATCH /roles/{id}",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(cfg),
+			middleware.HasPermission([]string{"update:role:any"}),
+		)(http.HandlerFunc(rh.UpdateRole)),
+	)
+
+	router.Handle("GET /roles/assign/{user_id}/{role_id}",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(cfg),
+			middleware.HasPermission([]string{"assign:role:any"}),
+		)(http.HandlerFunc(rh.AssignUserRole)),
+	)
+
+	router.Handle("DELETE /roles/revoke/{user_id}/{role_id}",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(cfg),
+			middleware.HasPermission([]string{"assign:role:any"}),
+		)(http.HandlerFunc(rh.RevokeUserRole)),
+	)
 }
 
 // Creates a role
@@ -288,7 +349,6 @@ func (rh *RoleHandler) GetRolePermissions(w http.ResponseWriter, r *http.Request
 	json.NewEncoder(w).Encode(roles)
 
 }
-
 
 // Some work might be needed to check for both the assign and revoke roles
 // better error handling
