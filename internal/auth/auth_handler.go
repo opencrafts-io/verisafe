@@ -1,12 +1,16 @@
 package auth
 
 import (
+	"crypto/sha256"
 	"database/sql"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/markbates/goth/gothic"
@@ -14,6 +18,21 @@ import (
 	"github.com/opencrafts-io/verisafe/internal/repository"
 	"github.com/opencrafts-io/verisafe/internal/utils"
 )
+
+func (a *Auth) RegisterRoutes(router *http.ServeMux) {
+	router.HandleFunc("GET /auth/{provider}", a.LoginHandler)
+	router.HandleFunc("GET /auth/{provider}/callback", a.CallbackHandler)
+	router.HandleFunc("GET /auth/{provider}/logout", a.LogoutHandler)
+
+	// Secret management
+	router.Handle("GET /auth/generate/token",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(a.config),
+			middleware.HasPermission([]string{"create:service_token:own"}),
+		)(http.HandlerFunc(a.CreateServiceToken)),
+	)
+
+}
 
 // LoginHandler initiates the OAuth2 authentication flow.
 // It redirects the user to the selected OAuth provider's login page.
@@ -217,5 +236,106 @@ func (a *Auth) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	// e.g., if using gorilla/sessions: sessions.Default(r).Clear() or sessions.Default(r).Options.MaxAge = -1
 
 	a.logger.Info("Successfully logged out", "provider", provider)
-	http.Redirect(w, r, "/", http.StatusTemporaryRedirect) // Redirect to homepage
+	http.Redirect(w, r, "/", http.StatusTemporaryRedirect) // Redirectto to homepage
+}
+
+// / Creates a service token
+func (a *Auth) CreateServiceToken(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value(middleware.AuthUserClaims).(*utils.VerisafeClaims)
+
+	if claims.Account.Type != repository.AccountTypeBot {
+		a.logger.Error(
+			"Attempting to generate service token on a non bot account",
+			slog.Any("account", claims.Account),
+		)
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]any{
+			"error": "Only bot accounts can generate service tokens",
+		})
+		return
+	}
+
+	var serviceTokenParams repository.CreateServiceTokenParams
+
+	if err := json.NewDecoder(r.Body).Decode(&serviceTokenParams); err != nil || strings.TrimSpace(serviceTokenParams.Name) == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]any{
+			"error": "Please check your form details and try that again",
+		})
+		return
+	}
+
+	conn, err := middleware.GetDBConnFromContext(r.Context())
+	if err != nil {
+		a.logger.Error("failed to get db conn", slog.String("err", err.Error()))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]any{"error": "Internal server error"})
+		return
+	}
+
+	tx, err := conn.Begin(r.Context())
+	if err != nil {
+		a.logger.Error("failed to begin tx", slog.String("err", err.Error()))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]any{"error": "Internal server error"})
+		return
+	}
+	defer tx.Rollback(r.Context())
+
+	repo := repository.New(tx)
+
+	roles, err := repo.GetAllUserRoles(r.Context(), claims.Account.ID)
+	if err != nil {
+		a.logger.Error("failed to get roles", slog.String("err", err.Error()))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]any{"error": "Could not get roles"})
+		return
+	}
+
+	permissions, err := repo.GetUserPermissions(r.Context(), claims.Account.ID)
+	if err != nil {
+		a.logger.Error("failed to get permissions", slog.String("err", err.Error()))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]any{"error": "Could not get permissions"})
+		return
+	}
+
+	jwtToken, err := utils.GenerateServiceToken(claims.Account,
+		roles,
+		permissions,
+		a.config)
+	if err != nil {
+		a.logger.Error("failed to generate token", slog.String("err", err.Error()))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]any{"error": "Could not generate service token"})
+		return
+	}
+
+	hash := sha256.Sum256([]byte(jwtToken))
+	hashed := base64.StdEncoding.EncodeToString(hash[:])
+
+	_, err = repo.CreateServiceToken(r.Context(), repository.CreateServiceTokenParams{
+		Name:      serviceTokenParams.Name,
+		TokenHash: hashed,
+		ExpiresAt: time.Now().Add(time.Hour * 24),
+	})
+	if err != nil {
+		a.logger.Error("failed to store service token", slog.String("err", err.Error()))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]any{"error": "Could not save service token"})
+		return
+	}
+
+	if err := tx.Commit(r.Context()); err != nil {
+		a.logger.Error("failed to commit tx", slog.String("err", err.Error()))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]any{"error": "Could not save token, try again"})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"token":   jwtToken,
+		"message": "Token generated successfully do not loose it",
+	})
 }

@@ -5,9 +5,57 @@
 package repository
 
 import (
+	"database/sql/driver"
+	"fmt"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
+
+type AccountType string
+
+const (
+	AccountTypeHuman        AccountType = "human"
+	AccountTypeService      AccountType = "service"
+	AccountTypeBot          AccountType = "bot"
+	AccountTypeOrganization AccountType = "organization"
+)
+
+func (e *AccountType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = AccountType(s)
+	case string:
+		*e = AccountType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for AccountType: %T", src)
+	}
+	return nil
+}
+
+type NullAccountType struct {
+	AccountType AccountType `json:"account_type"`
+	Valid       bool        `json:"valid"` // Valid is true if AccountType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullAccountType) Scan(value interface{}) error {
+	if value == nil {
+		ns.AccountType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.AccountType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullAccountType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.AccountType), nil
+}
 
 type Account struct {
 	ID            uuid.UUID        `json:"id"`
@@ -17,6 +65,7 @@ type Account struct {
 	UpdatedAt     pgtype.Timestamp `json:"updated_at"`
 	TermsAccepted *bool            `json:"terms_accepted"`
 	Onboarded     *bool            `json:"onboarded"`
+	Type          AccountType      `json:"type"`
 }
 
 type Permission struct {
@@ -33,6 +82,7 @@ type Role struct {
 	Description *string          `json:"description"`
 	CreatedAt   pgtype.Timestamp `json:"created_at"`
 	UpdatedAt   pgtype.Timestamp `json:"updated_at"`
+	IsDefault   bool             `json:"is_default"`
 }
 
 type RolePermission struct {
@@ -46,6 +96,18 @@ type RolePermissionsView struct {
 	RoleDescription *string   `json:"role_description"`
 	PermissionID    uuid.UUID `json:"permission_id"`
 	PermissionName  string    `json:"permission_name"`
+}
+
+type ServiceToken struct {
+	ID         uuid.UUID `json:"id"`
+	AccountID  uuid.UUID `json:"account_id"`
+	Name       string    `json:"name"`
+	TokenHash  string    `json:"token_hash"`
+	CreatedAt  time.Time `json:"created_at"`
+	LastUsedAt time.Time `json:"last_used_at"`
+	ExpiresAt  time.Time `json:"expires_at"`
+	RotatedAt  time.Time `json:"rotated_at"`
+	RevokedAt  time.Time `json:"revoked_at"`
 }
 
 type Social struct {
