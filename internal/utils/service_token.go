@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -10,22 +12,14 @@ import (
 
 func GenerateServiceToken(
 	account repository.Account,
-	roles []repository.UserRolesView,
-	permissions []repository.UserPermissionsView,
 	cfg *config.Config,
 ) (string, error) {
-
-	var perms []string
-
-	for _, p := range permissions {
-		perms = append(perms, p.Permission)
-	}
 
 	claims :=
 		&VerisafeClaims{
 			Account:     account,
-			Roles:       roles,
-			Permissions: perms,
+			Roles:       []repository.UserRolesView{},
+			Permissions: []string{},
 			RegisteredClaims: jwt.RegisteredClaims{
 				ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 24)),
 				Audience:  jwt.ClaimStrings{"https://academia.opencrafts.io/"},
@@ -37,4 +31,10 @@ func GenerateServiceToken(
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(cfg.JWTConfig.ApiSecret))
+}
+
+// HashToken returns the SHA256 hash of the token as base64 string
+func HashToken(token string) string {
+	hash := sha256.Sum256([]byte(token))
+	return base64.StdEncoding.EncodeToString(hash[:])
 }

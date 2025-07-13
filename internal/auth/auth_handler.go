@@ -239,7 +239,7 @@ func (a *Auth) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusTemporaryRedirect) // Redirectto to homepage
 }
 
-// / Creates a service token
+// Creates a service token
 func (a *Auth) CreateServiceToken(w http.ResponseWriter, r *http.Request) {
 	claims := r.Context().Value(middleware.AuthUserClaims).(*utils.VerisafeClaims)
 
@@ -284,25 +284,8 @@ func (a *Auth) CreateServiceToken(w http.ResponseWriter, r *http.Request) {
 
 	repo := repository.New(tx)
 
-	roles, err := repo.GetAllUserRoles(r.Context(), claims.Account.ID)
-	if err != nil {
-		a.logger.Error("failed to get roles", slog.String("err", err.Error()))
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]any{"error": "Could not get roles"})
-		return
-	}
-
-	permissions, err := repo.GetUserPermissions(r.Context(), claims.Account.ID)
-	if err != nil {
-		a.logger.Error("failed to get permissions", slog.String("err", err.Error()))
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]any{"error": "Could not get permissions"})
-		return
-	}
-
-	jwtToken, err := utils.GenerateServiceToken(claims.Account,
-		roles,
-		permissions,
+	jwtToken, err := utils.GenerateServiceToken(
+		claims.Account,
 		a.config)
 	if err != nil {
 		a.logger.Error("failed to generate token", slog.String("err", err.Error()))
@@ -314,10 +297,12 @@ func (a *Auth) CreateServiceToken(w http.ResponseWriter, r *http.Request) {
 	hash := sha256.Sum256([]byte(jwtToken))
 	hashed := base64.StdEncoding.EncodeToString(hash[:])
 
+	expiry := time.Now().Add(time.Hour * 24 * 30)
+
 	_, err = repo.CreateServiceToken(r.Context(), repository.CreateServiceTokenParams{
 		Name:      serviceTokenParams.Name,
 		TokenHash: hashed,
-		ExpiresAt: time.Now().Add(time.Hour * 24),
+		ExpiresAt: &expiry,
 	})
 	if err != nil {
 		a.logger.Error("failed to store service token", slog.String("err", err.Error()))

@@ -19,6 +19,11 @@ LIMIT $1
 OFFSET $2;
 
 
+-- name: GetRoleByName :one
+SELECT * FROM roles 
+WHERE name = $1;
+
+
 -- name: GetAllUserRoles :many
 -- Retrieves all roles that a user has 
 SELECT * FROM user_roles_view WHERE user_id = $1;

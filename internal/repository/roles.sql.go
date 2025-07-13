@@ -149,6 +149,25 @@ func (q *Queries) GetRoleByID(ctx context.Context, id uuid.UUID) (Role, error) {
 	return i, err
 }
 
+const getRoleByName = `-- name: GetRoleByName :one
+SELECT id, name, description, created_at, updated_at, is_default FROM roles 
+WHERE name = $1
+`
+
+func (q *Queries) GetRoleByName(ctx context.Context, name string) (Role, error) {
+	row := q.db.QueryRow(ctx, getRoleByName, name)
+	var i Role
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Description,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.IsDefault,
+	)
+	return i, err
+}
+
 const getRolePermissions = `-- name: GetRolePermissions :many
 SELECT role_id, role_name, role_description, permission_id, permission_name FROM role_permissions_view
 WHERE role_id = $1

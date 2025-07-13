@@ -34,9 +34,5 @@ sql:
             go_type:
               import: "time"
               type: "Time"
-          - db_type: "timestamptz"
-            go_type:
-              import: "time"
-              type: "Time"
-              pointer: false
+              pointer: true
             nullable: true
