@@ -99,15 +99,15 @@ type RolePermissionsView struct {
 }
 
 type ServiceToken struct {
-	ID         uuid.UUID `json:"id"`
-	AccountID  uuid.UUID `json:"account_id"`
-	Name       string    `json:"name"`
-	TokenHash  string    `json:"token_hash"`
-	CreatedAt  time.Time `json:"created_at"`
-	LastUsedAt time.Time `json:"last_used_at"`
-	ExpiresAt  time.Time `json:"expires_at"`
-	RotatedAt  time.Time `json:"rotated_at"`
-	RevokedAt  time.Time `json:"revoked_at"`
+	ID         uuid.UUID          `json:"id"`
+	AccountID  uuid.UUID          `json:"account_id"`
+	Name       string             `json:"name"`
+	TokenHash  string             `json:"token_hash"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	LastUsedAt *time.Time         `json:"last_used_at"`
+	ExpiresAt  *time.Time         `json:"expires_at"`
+	RotatedAt  *time.Time         `json:"rotated_at"`
+	RevokedAt  *time.Time         `json:"revoked_at"`
 }
 
 type Social struct {

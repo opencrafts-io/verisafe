@@ -4,8 +4,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/opencrafts-io/verisafe/internal/config"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
@@ -15,26 +17,27 @@ import (
 
 type AccountHandler struct {
 	Logger *slog.Logger
+	Cfg    *config.Config
 }
 
-func (ah *AccountHandler) RegisterHandlers(cfg *config.Config, router *http.ServeMux) {
+func (ah *AccountHandler) RegisterHandlers(router *http.ServeMux) {
 	router.Handle("POST /accounts/bot/create",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg),
+			middleware.IsAuthenticated(ah.Cfg),
 			middleware.HasPermission([]string{"create:account:any"}),
 		)(http.HandlerFunc(ah.CreateBotAccount)),
 	)
 
 	router.Handle("GET /accounts/me",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg),
+			middleware.IsAuthenticated(ah.Cfg),
 			middleware.HasPermission([]string{"read:account:own"}),
 		)(http.HandlerFunc(ah.GetPersonalAccount)),
 	)
 
 }
 
-// Creates a bot account
+// Creates a bot account and an initial access token
 func (ah *AccountHandler) CreateBotAccount(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	conn, err := middleware.GetDBConnFromContext(r.Context())
@@ -77,6 +80,65 @@ func (ah *AccountHandler) CreateBotAccount(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	role, err := repo.GetRoleByName(r.Context(), "bot")
+	if err != nil {
+		ah.Logger.Error("Failed to retrieve bot role",
+			slog.Any("error", err),
+			slog.Any("account", accData),
+		)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "We couldn't found a suitable role to assign to your bot",
+		})
+		return
+	}
+
+	if _, err := repo.AssignRole(r.Context(), repository.AssignRoleParams{
+		UserID: created.ID, RoleID: role.ID,
+	}); err != nil {
+		ah.Logger.Error("Failed to assign role",
+			slog.Any("error", err),
+			slog.Any("account", accData),
+		)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "We couldn't assign default bot role",
+		})
+		return
+	}
+
+	// Generate an access key for the bot account
+	token, err := utils.GenerateServiceToken(created, ah.Cfg)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		ah.Logger.Info("Error while trying to retrieve user perms",
+			slog.Any("error", err),
+		)
+		http.Error(w, "Failed to fetch your authorization details", http.StatusInternalServerError)
+		return
+	}
+
+	expiry := time.Now().Add(time.Hour * 24 * 30)
+
+	// store the token hash
+	cachedToken, err := repo.CreateServiceToken(r.Context(), repository.CreateServiceTokenParams{
+		AccountID: created.ID,
+		Name:      fmt.Sprintf("Default token for %s", created.Name),
+		TokenHash: utils.HashToken(token),
+		ExpiresAt: &expiry,
+	})
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		ah.Logger.Info("Error while trying to store token",
+			slog.Any("error", err),
+		)
+		json.NewEncoder(w).Encode(map[string]any{
+			"error": "Failed to cache service token",
+		})
+		return
+
+	}
+
 	if err = tx.Commit(r.Context()); err != nil {
 		ah.Logger.Error("Error while committing transaction", slog.Any("error", err))
 		w.WriteHeader(http.StatusInternalServerError)
@@ -87,7 +149,11 @@ func (ah *AccountHandler) CreateBotAccount(w http.ResponseWriter, r *http.Reques
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(created)
+	json.NewEncoder(w).Encode(map[string]any{
+		"x-api-key": cachedToken.TokenHash,
+		"expiry":    cachedToken.ExpiresAt,
+		"account":   created,
+	})
 }
 
 func (ah *AccountHandler) GetPersonalAccount(w http.ResponseWriter, r *http.Request) {

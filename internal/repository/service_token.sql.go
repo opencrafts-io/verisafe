@@ -22,10 +22,10 @@ RETURNING id, account_id, name, token_hash, created_at, last_used_at, expires_at
 `
 
 type CreateServiceTokenParams struct {
-	AccountID uuid.UUID `json:"account_id"`
-	Name      string    `json:"name"`
-	TokenHash string    `json:"token_hash"`
-	ExpiresAt time.Time `json:"expires_at"`
+	AccountID uuid.UUID  `json:"account_id"`
+	Name      string     `json:"name"`
+	TokenHash string     `json:"token_hash"`
+	ExpiresAt *time.Time `json:"expires_at"`
 }
 
 func (q *Queries) CreateServiceToken(ctx context.Context, arg CreateServiceTokenParams) (ServiceToken, error) {
@@ -143,9 +143,9 @@ WHERE id = $1
 `
 
 type RotateServiceTokenParams struct {
-	ID        uuid.UUID `json:"id"`
-	TokenHash string    `json:"token_hash"`
-	ExpiresAt time.Time `json:"expires_at"`
+	ID        uuid.UUID  `json:"id"`
+	TokenHash string     `json:"token_hash"`
+	ExpiresAt *time.Time `json:"expires_at"`
 }
 
 func (q *Queries) RotateServiceToken(ctx context.Context, arg RotateServiceTokenParams) error {
