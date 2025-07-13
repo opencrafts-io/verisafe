@@ -21,14 +21,14 @@ type RoleHandler struct {
 func (rh *RoleHandler) RegisterRoutes(cfg *config.Config, router *http.ServeMux) {
 	router.Handle("POST /roles/create",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg),
+			middleware.IsAuthenticated(cfg,rh.Logger),
 			middleware.HasPermission([]string{"create:role"}),
 		)(http.HandlerFunc(rh.CreateRole)),
 	)
 
 	router.Handle("GET /roles",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg),
+			middleware.IsAuthenticated(cfg,rh.Logger),
 			middleware.HasPermission([]string{"read:role:any"}),
 			middleware.PaginationMiddleware(10, 100),
 		)(http.HandlerFunc(rh.GetAllRoles)),
@@ -36,42 +36,42 @@ func (rh *RoleHandler) RegisterRoutes(cfg *config.Config, router *http.ServeMux)
 
 	router.Handle("GET /roles/{id}",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg),
+			middleware.IsAuthenticated(cfg,rh.Logger),
 			middleware.HasPermission([]string{"read:role:any"}),
 		)(http.HandlerFunc(rh.GetRoleByID)),
 	)
 
 	router.Handle("GET /roles/user/{id}",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg),
+			middleware.IsAuthenticated(cfg,rh.Logger),
 			middleware.HasPermission([]string{"read:role:any"}),
 		)(http.HandlerFunc(rh.GetAllUserRoles)),
 	)
 
 	router.Handle("GET /roles/permissions/{id}",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg),
+			middleware.IsAuthenticated(cfg,rh.Logger),
 			middleware.HasPermission([]string{"read:role:permissions"}),
 		)(http.HandlerFunc(rh.GetRolePermissions)),
 	)
 
 	router.Handle("PATCH /roles/{id}",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg),
+			middleware.IsAuthenticated(cfg,rh.Logger),
 			middleware.HasPermission([]string{"update:role:any"}),
 		)(http.HandlerFunc(rh.UpdateRole)),
 	)
 
 	router.Handle("GET /roles/assign/{user_id}/{role_id}",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg),
+			middleware.IsAuthenticated(cfg,rh.Logger),
 			middleware.HasPermission([]string{"assign:role:any"}),
 		)(http.HandlerFunc(rh.AssignUserRole)),
 	)
 
 	router.Handle("DELETE /roles/revoke/{user_id}/{role_id}",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg),
+			middleware.IsAuthenticated(cfg,rh.Logger),
 			middleware.HasPermission([]string{"assign:role:any"}),
 		)(http.HandlerFunc(rh.RevokeUserRole)),
 	)
