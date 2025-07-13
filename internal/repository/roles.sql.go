@@ -35,7 +35,7 @@ const createRole = `-- name: CreateRole :one
 INSERT INTO roles ( 
   name, description
 ) VALUES ( $1, $2 )
-RETURNING id, name, description, created_at, updated_at
+RETURNING id, name, description, created_at, updated_at, is_default
 `
 
 type CreateRoleParams struct {
@@ -53,12 +53,13 @@ func (q *Queries) CreateRole(ctx context.Context, arg CreateRoleParams) (Role, e
 		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsDefault,
 	)
 	return i, err
 }
 
 const getAllRoles = `-- name: GetAllRoles :many
-SELECT id, name, description, created_at, updated_at FROM roles 
+SELECT id, name, description, created_at, updated_at, is_default FROM roles 
 LIMIT $1
 OFFSET $2
 `
@@ -84,6 +85,7 @@ func (q *Queries) GetAllRoles(ctx context.Context, arg GetAllRolesParams) ([]Rol
 			&i.Description,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.IsDefault,
 		); err != nil {
 			return nil, err
 		}
@@ -129,7 +131,7 @@ func (q *Queries) GetAllUserRoles(ctx context.Context, userID uuid.UUID) ([]User
 }
 
 const getRoleByID = `-- name: GetRoleByID :one
-SELECT id, name, description, created_at, updated_at FROM roles WHERE id = $1
+SELECT id, name, description, created_at, updated_at, is_default FROM roles WHERE id = $1
 `
 
 // Retrieves a role specified by its id
@@ -142,6 +144,7 @@ func (q *Queries) GetRoleByID(ctx context.Context, id uuid.UUID) (Role, error) {
 		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsDefault,
 	)
 	return i, err
 }
@@ -199,7 +202,7 @@ UPDATE roles
   SET name =  COALESCE($2, name),
   description = COALESCE($3, description)
   WHERE id = $1
-RETURNING id, name, description, created_at, updated_at
+RETURNING id, name, description, created_at, updated_at, is_default
 `
 
 type UpdateRoleParams struct {
@@ -217,6 +220,7 @@ func (q *Queries) UpdateRole(ctx context.Context, arg UpdateRoleParams) (Role, e
 		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsDefault,
 	)
 	return i, err
 }

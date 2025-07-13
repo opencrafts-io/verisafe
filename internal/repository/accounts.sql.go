@@ -7,21 +7,24 @@ package repository
 
 import (
 	"context"
+
+	"github.com/google/uuid"
 )
 
 const createAccount = `-- name: CreateAccount :one
-INSERT INTO accounts (email, name)
-VALUES ($1, $2)
-RETURNING id, email, name, created_at, updated_at, terms_accepted, onboarded
+INSERT INTO accounts (email, name, type)
+VALUES ($1, $2, $3)
+RETURNING id, email, name, created_at, updated_at, terms_accepted, onboarded, type
 `
 
 type CreateAccountParams struct {
-	Email string `json:"email"`
-	Name  string `json:"name"`
+	Email string      `json:"email"`
+	Name  string      `json:"name"`
+	Type  AccountType `json:"type"`
 }
 
 func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error) {
-	row := q.db.QueryRow(ctx, createAccount, arg.Email, arg.Name)
+	row := q.db.QueryRow(ctx, createAccount, arg.Email, arg.Name, arg.Type)
 	var i Account
 	err := row.Scan(
 		&i.ID,
@@ -31,12 +34,13 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (A
 		&i.UpdatedAt,
 		&i.TermsAccepted,
 		&i.Onboarded,
+		&i.Type,
 	)
 	return i, err
 }
 
 const getAccountByEmail = `-- name: GetAccountByEmail :one
-SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded FROM accounts 
+SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type FROM accounts 
 WHERE lower(email) = lower($1)
 LIMIT 1
 `
@@ -52,18 +56,18 @@ func (q *Queries) GetAccountByEmail(ctx context.Context, lower string) (Account,
 		&i.UpdatedAt,
 		&i.TermsAccepted,
 		&i.Onboarded,
+		&i.Type,
 	)
 	return i, err
 }
 
 const getAccountByID = `-- name: GetAccountByID :one
-SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded FROM accounts 
+SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type FROM accounts 
 WHERE id = $1
-LIMIT $1
 `
 
-func (q *Queries) GetAccountByID(ctx context.Context, limit int32) (Account, error) {
-	row := q.db.QueryRow(ctx, getAccountByID, limit)
+func (q *Queries) GetAccountByID(ctx context.Context, id uuid.UUID) (Account, error) {
+	row := q.db.QueryRow(ctx, getAccountByID, id)
 	var i Account
 	err := row.Scan(
 		&i.ID,
@@ -73,12 +77,13 @@ func (q *Queries) GetAccountByID(ctx context.Context, limit int32) (Account, err
 		&i.UpdatedAt,
 		&i.TermsAccepted,
 		&i.Onboarded,
+		&i.Type,
 	)
 	return i, err
 }
 
 const getAllAccounts = `-- name: GetAllAccounts :many
-SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded FROM accounts 
+SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type FROM accounts 
 LIMIT $1
 OFFSET $2
 `
@@ -105,6 +110,7 @@ func (q *Queries) GetAllAccounts(ctx context.Context, arg GetAllAccountsParams) 
 			&i.UpdatedAt,
 			&i.TermsAccepted,
 			&i.Onboarded,
+			&i.Type,
 		); err != nil {
 			return nil, err
 		}
@@ -117,7 +123,7 @@ func (q *Queries) GetAllAccounts(ctx context.Context, arg GetAllAccountsParams) 
 }
 
 const searchAccountByEmail = `-- name: SearchAccountByEmail :many
-SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded FROM accounts 
+SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type FROM accounts 
 WHERE lower(email) LIKE '%' || lower($1) || '%'
 LIMIT $1
 OFFSET $2
@@ -145,6 +151,7 @@ func (q *Queries) SearchAccountByEmail(ctx context.Context, arg SearchAccountByE
 			&i.UpdatedAt,
 			&i.TermsAccepted,
 			&i.Onboarded,
+			&i.Type,
 		); err != nil {
 			return nil, err
 		}
@@ -157,7 +164,7 @@ func (q *Queries) SearchAccountByEmail(ctx context.Context, arg SearchAccountByE
 }
 
 const searchAccountByName = `-- name: SearchAccountByName :many
-SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded FROM accounts 
+SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type FROM accounts 
 WHERE lower(name) LIKE '%' || lower($1) || '%'
 LIMIT $2
 OFFSET $3
@@ -186,6 +193,7 @@ func (q *Queries) SearchAccountByName(ctx context.Context, arg SearchAccountByNa
 			&i.UpdatedAt,
 			&i.TermsAccepted,
 			&i.Onboarded,
+			&i.Type,
 		); err != nil {
 			return nil, err
 		}
