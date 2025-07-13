@@ -23,14 +23,14 @@ type AccountHandler struct {
 func (ah *AccountHandler) RegisterHandlers(router *http.ServeMux) {
 	router.Handle("POST /accounts/bot/create",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(ah.Cfg),
+			middleware.IsAuthenticated(ah.Cfg,ah.Logger),
 			middleware.HasPermission([]string{"create:account:any"}),
 		)(http.HandlerFunc(ah.CreateBotAccount)),
 	)
 
 	router.Handle("GET /accounts/me",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(ah.Cfg),
+			middleware.IsAuthenticated(ah.Cfg,ah.Logger),
 			middleware.HasPermission([]string{"read:account:own"}),
 		)(http.HandlerFunc(ah.GetPersonalAccount)),
 	)
@@ -150,7 +150,7 @@ func (ah *AccountHandler) CreateBotAccount(w http.ResponseWriter, r *http.Reques
 
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]any{
-		"x-api-key": cachedToken.TokenHash,
+		"x-api-key": token,
 		"expiry":    cachedToken.ExpiresAt,
 		"account":   created,
 	})

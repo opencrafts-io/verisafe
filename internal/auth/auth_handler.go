@@ -27,7 +27,7 @@ func (a *Auth) RegisterRoutes(router *http.ServeMux) {
 	// Secret management
 	router.Handle("GET /auth/generate/token",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(a.config),
+			middleware.IsAuthenticated(a.config,a.logger),
 			middleware.HasPermission([]string{"create:service_token:own"}),
 		)(http.HandlerFunc(a.CreateServiceToken)),
 	)
