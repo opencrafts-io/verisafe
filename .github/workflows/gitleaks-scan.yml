@@ -1,8 +1,6 @@
 name: gitleaks automatic scanner(Every Day 6am/pm UTC)
 on:
-  pull_request:
   push:
-  workflow_dispatch:
   schedule:
     - cron: "0 6,18 * * *"
 jobs:
