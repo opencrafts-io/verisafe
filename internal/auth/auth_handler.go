@@ -96,6 +96,7 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		userParams := repository.CreateAccountParams{
 			Email: user.Email,
 			Name:  strings.Join([]string{user.FirstName, user.LastName}, " "),
+			Type: repository.AccountTypeHuman,
 		}
 
 		// Create the user in the repository
