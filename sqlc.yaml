@@ -30,19 +30,9 @@ sql:
             go_type:
               type: "string"
               pointer: true                 # Optional: No pointer, assumes non-NULL values
-          - db_type: "TIMESTAMPZ"
+          - db_type: "timestamptz"
             go_type:
-              import: "github.com/dromara/carbon/v2"
-              type: "Carbon"
-          - db_type: "TIMESTAMP"
-            go_type:
-              import: "github.com/dromara/carbon/v2"
-              type: "carbon.Carbon"
-          - db_type: "DATE"
-            go_type:
-              import: "github.com/dromara/carbon/v2"
-              type: "carbon.Carbon"
-          - db_type: "jsonb"
-            go_type:
-              import: "encoding/json"
-              type: "RawMessage"
+              import: "time"
+              type: "Time"
+              pointer: true
+            nullable: true

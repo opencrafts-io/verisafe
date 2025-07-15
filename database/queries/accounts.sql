@@ -1,7 +1,8 @@
 -- name: CreateAccount :one
-INSERT INTO accounts (email, name)
-VALUES ($1, $2)
+INSERT INTO accounts (email, name, type)
+VALUES ($1, $2, $3)
 RETURNING *;
+
 -- name: GetAllAccounts :many
 SELECT * FROM accounts 
 LIMIT $1
@@ -9,8 +10,7 @@ OFFSET $2;
 
 -- name: GetAccountByID :one
 SELECT * FROM accounts 
-WHERE id = $1
-LIMIT $1;
+WHERE id = $1;
 
 -- name: SearchAccountByEmail :many
 SELECT * FROM accounts 
