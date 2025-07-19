@@ -26,6 +26,9 @@ LIMIT 1
 ;
 
 
+-- name: GetAccountByUsername :one
+SELECT * FROM accounts WHERE lower(username) = lower($1);
+
 -- name: SearchAccountByName :many
 SELECT * FROM accounts 
 WHERE lower(name) LIKE '%' || lower($1) || '%'
@@ -33,3 +36,19 @@ LIMIT $2
 OFFSET $3
 ;
 
+
+
+-- name: UpdateAccountDetails :exec
+UPDATE accounts
+  SET
+    username = COALESCE(NULLIF(@username::varchar,''), username),
+    email = COALESCE(NULLIF(@email::varchar, ''), email),
+    name = COALESCE(NULLIF(@name::varchar,''), name),
+    terms_accepted = COALESCE(@terms_accepted::boolean, terms_accepted),
+    onboarded = COALESCE(@onboarded::boolean, onboarded),
+    national_id = COALESCE(NULLIF(@national_id::varchar,''), national_id),
+    avatar_url = COALESCE(NULLIF(@avatar_url::text,''), avatar_url),
+    bio = COALESCE(NULLIF(@bio::text,''), bio),
+    updated_at = NOW()
+  WHERE id = $1
+  ;

@@ -66,6 +66,12 @@ type Account struct {
 	TermsAccepted *bool            `json:"terms_accepted"`
 	Onboarded     *bool            `json:"onboarded"`
 	Type          AccountType      `json:"type"`
+	NationalID    *string          `json:"national_id"`
+	Username      *string          `json:"username"`
+	AvatarUrl     *string          `json:"avatar_url"`
+	Bio           *string          `json:"bio"`
+	VibePoints    int64            `json:"vibe_points"`
+	Phone         *string          `json:"phone"`
 }
 
 type Permission struct {
