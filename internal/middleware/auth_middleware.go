@@ -10,12 +10,15 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/opencrafts-io/verisafe/internal/config"
 	"github.com/opencrafts-io/verisafe/internal/repository"
 	"github.com/opencrafts-io/verisafe/internal/utils"
 )
 
 const AuthUserClaims = "middleware.auth.claims"
+const AuthUserPerms = "middleware.auth.perms"
+const AuthUserRoles = "middleware.auth.roles"
 
 func IsAuthenticated(cfg *config.Config, logger *slog.Logger) Middleware {
 	return func(next http.Handler) http.Handler {
@@ -63,9 +66,14 @@ func IsAuthenticated(cfg *config.Config, logger *slog.Logger) Middleware {
 
 				hashed := utils.HashToken(apiKey)
 				serviceToken, err := repo.GetServiceTokenByHash(r.Context(), hashed)
+				if err != nil {
+					w.WriteHeader(http.StatusUnauthorized)
+					json.NewEncoder(w).Encode(map[string]any{"error": "Invalid or expired API key"})
+					return
+				}
 
-				isInvalid := serviceToken.RevokedAt != nil || serviceToken.ExpiresAt.Before(time.Now())	
-				if err != nil || isInvalid  {
+				isInvalid := serviceToken.RevokedAt != nil || serviceToken.ExpiresAt.Before(time.Now())
+				if isInvalid {
 					w.WriteHeader(http.StatusUnauthorized)
 					json.NewEncoder(w).Encode(map[string]any{"error": "Invalid or expired API key"})
 					return
@@ -80,7 +88,6 @@ func IsAuthenticated(cfg *config.Config, logger *slog.Logger) Middleware {
 					return
 				}
 
-				roles, _ := repo.GetAllUserRoles(r.Context(), account.ID)
 				perms, _ := repo.GetUserPermissions(r.Context(), account.ID)
 
 				var permissionStrings []string
@@ -89,9 +96,6 @@ func IsAuthenticated(cfg *config.Config, logger *slog.Logger) Middleware {
 				}
 
 				claims = &utils.VerisafeClaims{
-					Account:     account,
-					Roles:       roles,
-					Permissions: permissionStrings,
 					RegisteredClaims: jwt.RegisteredClaims{
 						Subject: account.ID.String(),
 					},
@@ -103,9 +107,43 @@ func IsAuthenticated(cfg *config.Config, logger *slog.Logger) Middleware {
 				return
 			}
 
-			// Inject the unified claims into context
-			ctx := context.WithValue(r.Context(), AuthUserClaims, claims)
-			next.ServeHTTP(w, r.WithContext(ctx))
+			// Inject the unified claims, perms and roles into context
+			// Retrieve the roles & perms
+			subID, err := uuid.Parse(claims.Subject)
+			if err != nil {
+				logger.Error("Failed to retrieve id from token", slog.Any("error", err))
+				w.WriteHeader(http.StatusUnauthorized)
+				json.NewEncoder(w).Encode(map[string]any{"error": "We couldn't decode your token please relogin"})
+				return
+			}
+
+			roles, err := repo.GetAllUserRoleNames(r.Context(), subID)
+			if err != nil {
+				logger.Error("Failed to retrieve user roles",
+					slog.Any("error", err),
+					slog.Any("account_id", subID),
+				)
+				w.WriteHeader(http.StatusUnauthorized)
+				json.NewEncoder(w).Encode(map[string]any{"error": "We couldn't retrieve your roles"})
+				return
+			}
+
+			perms, err := repo.GetUserPermissionNames(r.Context(), subID)
+			if err != nil {
+				logger.Error("Failed to retrieve user permissions",
+					slog.Any("error", err),
+					slog.Any("account_id", subID),
+				)
+				w.WriteHeader(http.StatusUnauthorized)
+				json.NewEncoder(w).Encode(map[string]any{"error": "We couldn't retrieve your roles"})
+				return
+			}
+
+			authContext := context.WithValue(r.Context(), AuthUserClaims, claims)
+			rolesContext := context.WithValue(authContext, AuthUserRoles, roles)
+			permsContext := context.WithValue(rolesContext, AuthUserPerms, perms)
+
+			next.ServeHTTP(w, r.WithContext(permsContext))
 		})
 	}
 }
@@ -116,13 +154,17 @@ func IsAuthenticated(cfg *config.Config, logger *slog.Logger) Middleware {
 func HasPermission(permissions []string) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Extract claims from the context (Assuming it was set by IsAuthenticated middleware)
-			var claims = r.Context().Value(AuthUserClaims).(*utils.VerisafeClaims)
+
+			// Extract user permissions from the context
+			var perms []string
+			if permsVal := r.Context().Value(AuthUserPerms); permsVal != nil {
+				perms = permsVal.([]string)
+			}
 
 			// Check if the user has the required permissions
-			for _, perm := range permissions {
-				if !slices.Contains(claims.Permissions, perm) {
-					w.WriteHeader(http.StatusUnauthorized)
+			for _, requiredPermission := range permissions {
+				if !slices.Contains(perms, requiredPermission) {
+					w.WriteHeader(http.StatusForbidden)
 					json.NewEncoder(w).Encode(map[string]any{
 						"error": "You do not have the necessary permissions to perform this action",
 					})

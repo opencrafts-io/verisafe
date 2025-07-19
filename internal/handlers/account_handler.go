@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/opencrafts-io/verisafe/internal/config"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/repository"
@@ -115,7 +116,7 @@ func (ah *AccountHandler) CreateBotAccount(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Generate an access key for the bot account
-	token, err := utils.GenerateServiceToken(created, ah.Cfg)
+	token, err := utils.GenerateJWT(created.ID, *ah.Cfg)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		ah.Logger.Info("Error while trying to retrieve user perms",
@@ -180,7 +181,17 @@ func (ah *AccountHandler) GetPersonalAccount(w http.ResponseWriter, r *http.Requ
 	defer tx.Rollback(r.Context())
 	repo := repository.New(tx)
 
-	user, err := repo.GetAccountByID(r.Context(), claims.Account.ID)
+	id, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		ah.Logger.Error("Error while parsing user id", slog.Any("error", err))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "We ran into an error while trying to fetch your account",
+		})
+		return
+	}
+
+	user, err := repo.GetAccountByID(r.Context(), id)
 	if errors.Is(err, sql.ErrNoRows) {
 		ah.Logger.Error("Error while processing request", slog.Any("error", err))
 		w.WriteHeader(http.StatusInternalServerError)
@@ -270,9 +281,8 @@ func (ah *AccountHandler) UpdatePersonalAccount(w http.ResponseWriter, r *http.R
 	json.NewEncoder(w).Encode(updated)
 }
 
-
 // TODO: implement verifying mechanisms
 // Use a provider such as AT or One Signal etc
-func (ah* AccountHandler)VerifyPhone(w http.ResponseWriter, r* http.Request)  {
-	
+func (ah *AccountHandler) VerifyPhone(w http.ResponseWriter, r *http.Request) {
+
 }

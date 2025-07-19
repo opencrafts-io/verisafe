@@ -23,6 +23,10 @@ OFFSET $2;
 SELECT * FROM user_permissions_view
 WHERE user_id = $1;
 
+-- name: GetUserPermissionNames :many
+-- Returns all permission names that have been granted to a user
+SELECT permission FROM user_permissions_view
+WHERE user_id = $1;
 
 -- name: UpdatePermission :one
 UPDATE permissions

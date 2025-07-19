@@ -97,6 +97,31 @@ func (q *Queries) GetAllRoles(ctx context.Context, arg GetAllRolesParams) ([]Rol
 	return items, nil
 }
 
+const getAllUserRoleNames = `-- name: GetAllUserRoleNames :many
+SELECT name FROM user_roles_view WHERE user_id = $1
+`
+
+// Retrieves only the role name that the user has been granted
+func (q *Queries) GetAllUserRoleNames(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, getAllUserRoleNames, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		items = append(items, name)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getAllUserRoles = `-- name: GetAllUserRoles :many
 SELECT user_id, email, name, role_id, role_name, role_description, role_created_at FROM user_roles_view WHERE user_id = $1
 `
