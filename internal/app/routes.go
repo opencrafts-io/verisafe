@@ -11,14 +11,19 @@ func (a *App) loadRoutes() http.Handler {
 	router := http.NewServeMux()
 
 	auth := auth.NewAuthenticator(a.config, a.logger)
+	accountHandler := handlers.AccountHandler{Logger: a.logger, Cfg: a.config}
+	roleHandler := handlers.RoleHandler{Logger: a.logger}
+	permHandler := handlers.PermissionHandler{Logger: a.logger}
 
 	// ping handler
 	router.HandleFunc("GET /ping", handlers.PingHandler)
 
 	// Auth handlers
-	router.HandleFunc("GET /auth/{provider}", auth.LoginHandler)
-	router.HandleFunc("GET /auth/{provider}/callback", auth.CallbackHandler)
-	router.HandleFunc("GET /auth/{provider}/logout", auth.LogoutHandler)
+	auth.RegisterRoutes(router)
+	accountHandler.RegisterHandlers(router)
+	// Roles
+	roleHandler.RegisterRoutes(a.config, router)
+	// Permissions
+	permHandler.RegisterRoutes(a.config, router)
 	return router
-
 }

@@ -13,7 +13,23 @@ import (
 	"github.com/markbates/goth/gothic"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/repository"
+	"github.com/opencrafts-io/verisafe/internal/utils"
 )
+
+func (a *Auth) RegisterRoutes(router *http.ServeMux) {
+	router.HandleFunc("GET /auth/{provider}", a.LoginHandler)
+	router.HandleFunc("GET /auth/{provider}/callback", a.CallbackHandler)
+	router.HandleFunc("GET /auth/{provider}/logout", a.LogoutHandler)
+
+	// Secret management
+	router.Handle("GET /auth/generate/token",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(a.config, a.logger),
+			middleware.HasPermission([]string{"create:service_token:own"}),
+		)(http.HandlerFunc(a.CreateServiceToken)),
+	)
+
+}
 
 // LoginHandler initiates the OAuth2 authentication flow.
 // It redirects the user to the selected OAuth provider's login page.
@@ -39,7 +55,7 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	provider, err := GetProviderName(r)
 	if err != nil {
 		a.logger.Warn("Failed to get provider name for callback", "error", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "Failed to get provider name for callback", http.StatusBadRequest)
 		return
 	}
 
@@ -54,10 +70,7 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
 		a.logger.Error("Error while processing request", slog.Any("error", err))
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into a problem while servicing your request please try again later",
-		})
+		http.Error(w, "Failed to establish database connection", http.StatusInternalServerError)
 		return
 	}
 
@@ -80,14 +93,14 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		userParams := repository.CreateAccountParams{
 			Email: user.Email,
 			Name:  strings.Join([]string{user.FirstName, user.LastName}, " "),
+			Type:  repository.AccountTypeHuman,
 		}
 
 		// Create the user in the repository
 		account, err = repo.CreateAccount(r.Context(), userParams)
 		if err != nil {
 			a.logger.Error("Error creating user", slog.Any("error", err))
-			w.WriteHeader(http.StatusInternalServerError)
-
+			http.Error(w, "Failed to create account", http.StatusInternalServerError)
 			return
 		}
 
@@ -97,16 +110,14 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	socialAccount, err = repo.GetSocialByExternalUserID(r.Context(), user.UserID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		a.logger.Error("Error while processing request", slog.Any("error", err))
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into a problem while servicing your request please try again later",
-		})
+		http.Error(w, "Failed to fetch social connection", http.StatusInternalServerError)
 		return
 	}
 
 	// If the social account does not exist yet create it
 	if errors.Is(err, sql.ErrNoRows) {
 		socialAccount, err = repo.CreateSocial(r.Context(), repository.CreateSocialParams{
+
 			UserID:            user.UserID,
 			AccountID:         account.ID,
 			Provider:          provider,
@@ -134,11 +145,12 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		)
 	} else {
 
-		// Update the social account
-		err = nil
-		if socialAccount, err = repo.UpdateSocial(r.Context(),
+		a.logger.Debug("Use", slog.Any("user", user))
+		//
+		// // Update the social account
+		_, err := repo.UpdateSocial(r.Context(),
 			repository.UpdateSocialParams{
-				AccountID:         account.ID,
+				UserID:            user.UserID,
 				Provider:          provider,
 				Email:             &user.Email,
 				Name:              &user.Name,
@@ -153,15 +165,37 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 				RefreshToken:      &user.RefreshToken,
 				ExpiresAt:         pgtype.Timestamp{Time: user.ExpiresAt},
 			},
-		); err != nil {
+		)
+		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			a.logger.Info("Error while trying to update social auth", slog.Any("error", err))
-			json.NewEncoder(w).Encode(map[string]any{
-				"error": "We ran into an error while trying to authenticate you"},
-			)
+			http.Error(w, "Error updating social connection", http.StatusInternalServerError)
 			return
-
 		}
+
+	}
+	userRoles, err := repo.GetAllUserRoles(r.Context(), account.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		a.logger.Info("Error while trying to retrieve user role",
+			slog.Any("error", err),
+			slog.Any("roles", userRoles),
+		)
+
+		http.Error(w, "Failed to fetch your authorization details", http.StatusInternalServerError)
+		return
+	}
+
+	userPerms, err := repo.GetUserPermissions(r.Context(), account.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		a.logger.Info("Error while trying to retrieve user role",
+			slog.Any("error", err),
+			slog.Any("perms", userPerms),
+		)
+
+		http.Error(w, "Failed to fetch your authorization details", http.StatusInternalServerError)
+		return
 	}
 
 	if err = tx.Commit(r.Context()); err != nil {
@@ -170,12 +204,11 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := GenerateJWT(account, []string{}, []string{}, *a.config)
+	token, err := utils.GenerateJWT(account.ID, *a.config)
 	if err != nil {
 		http.Error(w, "Error while generating jwt token", http.StatusInternalServerError)
 		return
 	}
-	w.Header().Add("Authorization", strings.Join([]string{"bearer", token}, " "))
 	redirectURI := fmt.Sprintf("academia://callback?token=%s", token)
 	http.Redirect(w, r, redirectURI, http.StatusFound)
 }
@@ -201,5 +234,91 @@ func (a *Auth) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	// e.g., if using gorilla/sessions: sessions.Default(r).Clear() or sessions.Default(r).Options.MaxAge = -1
 
 	a.logger.Info("Successfully logged out", "provider", provider)
-	http.Redirect(w, r, "/", http.StatusTemporaryRedirect) // Redirect to homepage
+	http.Redirect(w, r, "/", http.StatusTemporaryRedirect) // Redirectto to homepage
+}
+
+// Creates a service token
+func (a *Auth) CreateServiceToken(w http.ResponseWriter, r *http.Request) {
+	// claims := r.Context().Value(middleware.AuthUserClaims).(*utils.VerisafeClaims)
+	//
+	// if claims.Account.Type != repository.AccountTypeBot {
+	// 	a.logger.Error(
+	// 		"Attempting to generate service token on a non bot account",
+	// 		slog.Any("account", claims.Account),
+	// 	)
+	// 	w.WriteHeader(http.StatusUnauthorized)
+	// 	json.NewEncoder(w).Encode(map[string]any{
+	// 		"error": "Only bot accounts can generate service tokens",
+	// 	})
+	// 	return
+	// }
+
+	var serviceTokenParams repository.CreateServiceTokenParams
+
+	if err := json.NewDecoder(r.Body).Decode(&serviceTokenParams); err != nil || strings.TrimSpace(serviceTokenParams.Name) == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]any{
+			"error": "Please check your form details and try that again",
+		})
+		return
+	}
+
+	conn, err := middleware.GetDBConnFromContext(r.Context())
+	if err != nil {
+		a.logger.Error("failed to get db conn", slog.String("err", err.Error()))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]any{"error": "Internal server error"})
+		return
+	}
+
+	tx, err := conn.Begin(r.Context())
+	if err != nil {
+		a.logger.Error("failed to begin tx", slog.String("err", err.Error()))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]any{"error": "Internal server error"})
+		return
+	}
+	defer tx.Rollback(r.Context())
+
+	// repo := repository.New(tx)
+	//
+	// jwtToken, err := utils.GenerateJWT(
+	// 	claims.Account.ID,
+	// 	*a.config)
+	// if err != nil {
+	// 	a.logger.Error("failed to generate token", slog.String("err", err.Error()))
+	// 	w.WriteHeader(http.StatusInternalServerError)
+	// 	json.NewEncoder(w).Encode(map[string]any{"error": "Could not generate service token"})
+	// 	return
+	// }
+	//
+	// hash := sha256.Sum256([]byte(jwtToken))
+	// hashed := base64.StdEncoding.EncodeToString(hash[:])
+	//
+	// expiry := time.Now().Add(time.Hour * 24 * 30)
+	//
+	// _, err = repo.CreateServiceToken(r.Context(), repository.CreateServiceTokenParams{
+	// 	Name:      serviceTokenParams.Name,
+	// 	TokenHash: hashed,
+	// 	ExpiresAt: &expiry,
+	// })
+	// if err != nil {
+	// 	a.logger.Error("failed to store service token", slog.String("err", err.Error()))
+	// 	w.WriteHeader(http.StatusInternalServerError)
+	// 	json.NewEncoder(w).Encode(map[string]any{"error": "Could not save service token"})
+	// 	return
+	// }
+	//
+	// if err := tx.Commit(r.Context()); err != nil {
+	// 	a.logger.Error("failed to commit tx", slog.String("err", err.Error()))
+	// 	w.WriteHeader(http.StatusInternalServerError)
+	// 	json.NewEncoder(w).Encode(map[string]any{"error": "Could not save token, try again"})
+	// 	return
+	// }
+	//
+	w.Header().Set("Content-Type", "application/json")
+	// json.NewEncoder(w).Encode(map[string]any{
+	// 	"token":   jwtToken,
+	// 	"message": "Token generated successfully do not loose it",
+	// })
 }
