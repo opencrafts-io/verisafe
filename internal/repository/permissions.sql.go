@@ -125,6 +125,32 @@ func (q *Queries) GetPermissionByID(ctx context.Context, id uuid.UUID) ([]Permis
 	return items, nil
 }
 
+const getUserPermissionNames = `-- name: GetUserPermissionNames :many
+SELECT permission FROM user_permissions_view
+WHERE user_id = $1
+`
+
+// Returns all permission names that have been granted to a user
+func (q *Queries) GetUserPermissionNames(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, getUserPermissionNames, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var permission string
+		if err := rows.Scan(&permission); err != nil {
+			return nil, err
+		}
+		items = append(items, permission)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getUserPermissions = `-- name: GetUserPermissions :many
 SELECT user_id, role_id, role_name, permission_id, permission FROM user_permissions_view
 WHERE user_id = $1

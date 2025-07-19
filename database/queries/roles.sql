@@ -28,6 +28,11 @@ WHERE name = $1;
 -- Retrieves all roles that a user has 
 SELECT * FROM user_roles_view WHERE user_id = $1;
 
+
+-- name: GetAllUserRoleNames :many 
+-- Retrieves only the role name that the user has been granted
+SELECT name FROM user_roles_view WHERE user_id = $1;
+
 -- name: UpdateRole :one
 UPDATE roles
   SET name =  COALESCE($2, name),
