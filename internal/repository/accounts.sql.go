@@ -14,7 +14,7 @@ import (
 const createAccount = `-- name: CreateAccount :one
 INSERT INTO accounts (email, name, type)
 VALUES ($1, $2, $3)
-RETURNING id, email, name, created_at, updated_at, terms_accepted, onboarded, type
+RETURNING id, email, name, created_at, updated_at, terms_accepted, onboarded, type, national_id, username, avatar_url, bio, vibe_points, phone
 `
 
 type CreateAccountParams struct {
@@ -35,12 +35,18 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (A
 		&i.TermsAccepted,
 		&i.Onboarded,
 		&i.Type,
+		&i.NationalID,
+		&i.Username,
+		&i.AvatarUrl,
+		&i.Bio,
+		&i.VibePoints,
+		&i.Phone,
 	)
 	return i, err
 }
 
 const getAccountByEmail = `-- name: GetAccountByEmail :one
-SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type FROM accounts 
+SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type, national_id, username, avatar_url, bio, vibe_points, phone FROM accounts 
 WHERE lower(email) = lower($1)
 LIMIT 1
 `
@@ -57,12 +63,18 @@ func (q *Queries) GetAccountByEmail(ctx context.Context, lower string) (Account,
 		&i.TermsAccepted,
 		&i.Onboarded,
 		&i.Type,
+		&i.NationalID,
+		&i.Username,
+		&i.AvatarUrl,
+		&i.Bio,
+		&i.VibePoints,
+		&i.Phone,
 	)
 	return i, err
 }
 
 const getAccountByID = `-- name: GetAccountByID :one
-SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type FROM accounts 
+SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type, national_id, username, avatar_url, bio, vibe_points, phone FROM accounts 
 WHERE id = $1
 `
 
@@ -78,12 +90,44 @@ func (q *Queries) GetAccountByID(ctx context.Context, id uuid.UUID) (Account, er
 		&i.TermsAccepted,
 		&i.Onboarded,
 		&i.Type,
+		&i.NationalID,
+		&i.Username,
+		&i.AvatarUrl,
+		&i.Bio,
+		&i.VibePoints,
+		&i.Phone,
+	)
+	return i, err
+}
+
+const getAccountByUsername = `-- name: GetAccountByUsername :one
+SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type, national_id, username, avatar_url, bio, vibe_points, phone FROM accounts WHERE lower(username) = lower($1)
+`
+
+func (q *Queries) GetAccountByUsername(ctx context.Context, lower string) (Account, error) {
+	row := q.db.QueryRow(ctx, getAccountByUsername, lower)
+	var i Account
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Name,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.TermsAccepted,
+		&i.Onboarded,
+		&i.Type,
+		&i.NationalID,
+		&i.Username,
+		&i.AvatarUrl,
+		&i.Bio,
+		&i.VibePoints,
+		&i.Phone,
 	)
 	return i, err
 }
 
 const getAllAccounts = `-- name: GetAllAccounts :many
-SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type FROM accounts 
+SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type, national_id, username, avatar_url, bio, vibe_points, phone FROM accounts 
 LIMIT $1
 OFFSET $2
 `
@@ -111,6 +155,12 @@ func (q *Queries) GetAllAccounts(ctx context.Context, arg GetAllAccountsParams) 
 			&i.TermsAccepted,
 			&i.Onboarded,
 			&i.Type,
+			&i.NationalID,
+			&i.Username,
+			&i.AvatarUrl,
+			&i.Bio,
+			&i.VibePoints,
+			&i.Phone,
 		); err != nil {
 			return nil, err
 		}
@@ -123,7 +173,7 @@ func (q *Queries) GetAllAccounts(ctx context.Context, arg GetAllAccountsParams) 
 }
 
 const searchAccountByEmail = `-- name: SearchAccountByEmail :many
-SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type FROM accounts 
+SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type, national_id, username, avatar_url, bio, vibe_points, phone FROM accounts 
 WHERE lower(email) LIKE '%' || lower($1) || '%'
 LIMIT $1
 OFFSET $2
@@ -152,6 +202,12 @@ func (q *Queries) SearchAccountByEmail(ctx context.Context, arg SearchAccountByE
 			&i.TermsAccepted,
 			&i.Onboarded,
 			&i.Type,
+			&i.NationalID,
+			&i.Username,
+			&i.AvatarUrl,
+			&i.Bio,
+			&i.VibePoints,
+			&i.Phone,
 		); err != nil {
 			return nil, err
 		}
@@ -164,7 +220,7 @@ func (q *Queries) SearchAccountByEmail(ctx context.Context, arg SearchAccountByE
 }
 
 const searchAccountByName = `-- name: SearchAccountByName :many
-SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type FROM accounts 
+SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type, national_id, username, avatar_url, bio, vibe_points, phone FROM accounts 
 WHERE lower(name) LIKE '%' || lower($1) || '%'
 LIMIT $2
 OFFSET $3
@@ -194,6 +250,12 @@ func (q *Queries) SearchAccountByName(ctx context.Context, arg SearchAccountByNa
 			&i.TermsAccepted,
 			&i.Onboarded,
 			&i.Type,
+			&i.NationalID,
+			&i.Username,
+			&i.AvatarUrl,
+			&i.Bio,
+			&i.VibePoints,
+			&i.Phone,
 		); err != nil {
 			return nil, err
 		}
@@ -203,4 +265,46 @@ func (q *Queries) SearchAccountByName(ctx context.Context, arg SearchAccountByNa
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateAccountDetails = `-- name: UpdateAccountDetails :exec
+UPDATE accounts
+  SET
+    username = COALESCE(NULLIF($2::varchar,''), username),
+    email = COALESCE(NULLIF($3::varchar, ''), email),
+    name = COALESCE(NULLIF($4::varchar,''), name),
+    terms_accepted = COALESCE($5::boolean, terms_accepted),
+    onboarded = COALESCE($6::boolean, onboarded),
+    national_id = COALESCE(NULLIF($7::varchar,''), national_id),
+    avatar_url = COALESCE(NULLIF($8::text,''), avatar_url),
+    bio = COALESCE(NULLIF($9::text,''), bio),
+    updated_at = NOW()
+  WHERE id = $1
+`
+
+type UpdateAccountDetailsParams struct {
+	ID            uuid.UUID `json:"id"`
+	Username      string    `json:"username"`
+	Email         string    `json:"email"`
+	Name          string    `json:"name"`
+	TermsAccepted bool      `json:"terms_accepted"`
+	Onboarded     bool      `json:"onboarded"`
+	NationalID    string    `json:"national_id"`
+	AvatarUrl     string    `json:"avatar_url"`
+	Bio           string    `json:"bio"`
+}
+
+func (q *Queries) UpdateAccountDetails(ctx context.Context, arg UpdateAccountDetailsParams) error {
+	_, err := q.db.Exec(ctx, updateAccountDetails,
+		arg.ID,
+		arg.Username,
+		arg.Email,
+		arg.Name,
+		arg.TermsAccepted,
+		arg.Onboarded,
+		arg.NationalID,
+		arg.AvatarUrl,
+		arg.Bio,
+	)
+	return err
 }
