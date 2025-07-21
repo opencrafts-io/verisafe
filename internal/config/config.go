@@ -12,6 +12,8 @@ type Config struct {
 	JWTConfig struct {
 		ApiSecret   string `envconfig:"API_SECRET"`
 		ExpireDelta int    `envconfig:"EXPIRE_DELTA"`
+		RefreshExpireDelta int    `envconfig:"REFRESH_EXPIRE_DELTA"`
+		ServiceExpireDelta int    `envconfig:"SERVICE_EXPIRE_DELTA"`
 	}
 
 	// Authentication configuration

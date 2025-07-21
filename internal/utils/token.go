@@ -11,6 +11,14 @@ import (
 	"github.com/opencrafts-io/verisafe/internal/config"
 )
 
+type VerisafeTokenType int
+
+const (
+	UserToken VerisafeTokenType = iota
+	UserRefreshToken
+	ServiceToken
+)
+
 // HashToken returns the SHA256 hash of the token as base64 string
 func HashToken(token string) string {
 	hash := sha256.Sum256([]byte(token))
@@ -18,14 +26,32 @@ func HashToken(token string) string {
 }
 
 // GenerateJWT creates a new token for a given user ID.
+// Provide an optional token type although by default its goin 
+// to generate a basic user token
 func GenerateJWT(
 	subject uuid.UUID,
 	cfg config.Config,
+	tokenTypeOptional ...VerisafeTokenType,
 ) (string, error) {
+
+	tokenType := UserToken
+	tokenType = tokenTypeOptional[0]
+
+	var expiry time.Time
+
+	switch tokenType {
+	case UserToken:
+		expiry = time.Now().Add(time.Hour * time.Duration(cfg.JWTConfig.ExpireDelta))
+	case UserRefreshToken:
+		expiry = time.Now().Add(time.Hour * 24 * time.Duration(cfg.JWTConfig.RefreshExpireDelta))
+	case ServiceToken:
+		expiry = time.Now().Add(time.Hour * 24 * time.Duration(cfg.JWTConfig.RefreshExpireDelta))
+	}
+
 	claims :=
 		&VerisafeClaims{
 			RegisteredClaims: jwt.RegisteredClaims{
-				ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * time.Duration(cfg.JWTConfig.ExpireDelta))),
+				ExpiresAt: jwt.NewNumericDate(expiry),
 				Audience:  jwt.ClaimStrings{"https://academia.opencrafts.io/"},
 				Issuer:    "https://verisafe.opencrafts.io/",
 				Subject:   subject.String(),
