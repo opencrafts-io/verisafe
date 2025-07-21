@@ -26,7 +26,7 @@ func HashToken(token string) string {
 }
 
 // GenerateJWT creates a new token for a given user ID.
-// Provide an optional token type although by default its goin 
+// Provide an optional token type although by default its goin
 // to generate a basic user token
 func GenerateJWT(
 	subject uuid.UUID,
@@ -35,7 +35,10 @@ func GenerateJWT(
 ) (string, error) {
 
 	tokenType := UserToken
-	tokenType = tokenTypeOptional[0]
+
+	if len(tokenTypeOptional) > 0 {
+		tokenType = tokenTypeOptional[0]
+	}
 
 	var expiry time.Time
 
