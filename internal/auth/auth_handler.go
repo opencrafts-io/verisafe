@@ -91,9 +91,10 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	// Create user if they don't exist
 	if errors.Is(err, sql.ErrNoRows) {
 		userParams := repository.CreateAccountParams{
-			Email: user.Email,
-			Name:  strings.Join([]string{user.FirstName, user.LastName}, " "),
-			Type:  repository.AccountTypeHuman,
+			Email:     user.Email,
+			Name:      strings.Join([]string{user.FirstName, user.LastName}, " "),
+			Type:      repository.AccountTypeHuman,
+			AvatarUrl: &user.AvatarURL,
 		}
 
 		// Create the user in the repository
@@ -117,7 +118,6 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	// If the social account does not exist yet create it
 	if errors.Is(err, sql.ErrNoRows) {
 		socialAccount, err = repo.CreateSocial(r.Context(), repository.CreateSocialParams{
-
 			UserID:            user.UserID,
 			AccountID:         account.ID,
 			Provider:          provider,
@@ -173,29 +173,6 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-	}
-	userRoles, err := repo.GetAllUserRoles(r.Context(), account.ID)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		a.logger.Info("Error while trying to retrieve user role",
-			slog.Any("error", err),
-			slog.Any("roles", userRoles),
-		)
-
-		http.Error(w, "Failed to fetch your authorization details", http.StatusInternalServerError)
-		return
-	}
-
-	userPerms, err := repo.GetUserPermissions(r.Context(), account.ID)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		a.logger.Info("Error while trying to retrieve user role",
-			slog.Any("error", err),
-			slog.Any("perms", userPerms),
-		)
-
-		http.Error(w, "Failed to fetch your authorization details", http.StatusInternalServerError)
-		return
 	}
 
 	if err = tx.Commit(r.Context()); err != nil {

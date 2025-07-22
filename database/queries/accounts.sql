@@ -1,6 +1,6 @@
 -- name: CreateAccount :one
-INSERT INTO accounts (email, name, type)
-VALUES ($1, $2, $3)
+INSERT INTO accounts (email, name, type, avatar_url)
+VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- name: GetAllAccounts :many

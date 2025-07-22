@@ -12,19 +12,25 @@ import (
 )
 
 const createAccount = `-- name: CreateAccount :one
-INSERT INTO accounts (email, name, type)
-VALUES ($1, $2, $3)
+INSERT INTO accounts (email, name, type, avatar_url)
+VALUES ($1, $2, $3, $4)
 RETURNING id, email, name, created_at, updated_at, terms_accepted, onboarded, type, national_id, username, avatar_url, bio, vibe_points, phone
 `
 
 type CreateAccountParams struct {
-	Email string      `json:"email"`
-	Name  string      `json:"name"`
-	Type  AccountType `json:"type"`
+	Email     string      `json:"email"`
+	Name      string      `json:"name"`
+	Type      AccountType `json:"type"`
+	AvatarUrl *string     `json:"avatar_url"`
 }
 
 func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error) {
-	row := q.db.QueryRow(ctx, createAccount, arg.Email, arg.Name, arg.Type)
+	row := q.db.QueryRow(ctx, createAccount,
+		arg.Email,
+		arg.Name,
+		arg.Type,
+		arg.AvatarUrl,
+	)
 	var i Account
 	err := row.Scan(
 		&i.ID,
