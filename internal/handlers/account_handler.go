@@ -43,6 +43,12 @@ func (ah *AccountHandler) RegisterHandlers(router *http.ServeMux) {
 		)(http.HandlerFunc(ah.UpdatePersonalAccount)),
 	)
 
+	router.Handle("PATCH /accounts/me/phone",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(ah.Cfg, ah.Logger),
+			middleware.HasPermission([]string{"update:account:own"}),
+		)(http.HandlerFunc(ah.VerifyPhone)),
+	)
 }
 
 // Creates a bot account and an initial access token
