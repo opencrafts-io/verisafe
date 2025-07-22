@@ -308,3 +308,22 @@ func (q *Queries) UpdateAccountDetails(ctx context.Context, arg UpdateAccountDet
 	)
 	return err
 }
+
+const updateAccountPhoneNumber = `-- name: UpdateAccountPhoneNumber :exec
+UPDATE accounts
+  SET
+    phone = COALESCE(NULLIF($2::varchar,''), phone),
+    updated_at = NOW()
+  WHERE id = $1
+`
+
+type UpdateAccountPhoneNumberParams struct {
+	ID    uuid.UUID `json:"id"`
+	Phone string    `json:"phone"`
+}
+
+// Only updates the primary phone number for an account
+func (q *Queries) UpdateAccountPhoneNumber(ctx context.Context, arg UpdateAccountPhoneNumberParams) error {
+	_, err := q.db.Exec(ctx, updateAccountPhoneNumber, arg.ID, arg.Phone)
+	return err
+}

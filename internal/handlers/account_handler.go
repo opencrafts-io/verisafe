@@ -284,5 +284,69 @@ func (ah *AccountHandler) UpdatePersonalAccount(w http.ResponseWriter, r *http.R
 // TODO: implement verifying mechanisms
 // Use a provider such as AT or One Signal etc
 func (ah *AccountHandler) VerifyPhone(w http.ResponseWriter, r *http.Request) {
+	var accData repository.UpdateAccountPhoneNumberParams
+	if err := json.NewDecoder(r.Body).Decode(&accData); err != nil || len(accData.Phone) < 5 {
+		ah.Logger.Error("Failed to parse request body", slog.Any("error", err))
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Please check your request body and try again",
+		})
+		return
+	}
+	claims := r.Context().Value(middleware.AuthUserClaims).(*utils.VerisafeClaims)
 
+	// Check if the user is indeed the owner of the account
+	if accData.ID.String() != claims.Subject {
+		ah.Logger.Error("Attempting to update wrong account")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "You dont have permissions to update this account",
+		})
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	conn, err := middleware.GetDBConnFromContext(r.Context())
+	if err != nil {
+		ah.Logger.Error("Error while processing request", slog.Any("error", err))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "We ran into a problem while servicing your request please try again later",
+		})
+		return
+	}
+
+	tx, _ := conn.Begin(r.Context())
+	defer tx.Rollback(r.Context())
+	repo := repository.New(tx)
+
+	err = repo.UpdateAccountPhoneNumber(r.Context(), accData)
+	if err != nil {
+		ah.Logger.Error("Error while processing request", slog.Any("error", err))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "We ran into an error while trying to update your account",
+		})
+		return
+	}
+	updated, err := repo.GetAccountByID(r.Context(), accData.ID)
+	if err != nil {
+		ah.Logger.Error("Error while processing request", slog.Any("error", err))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "We ran into an error while trying to fetch your account",
+		})
+		return
+	}
+
+	if err = tx.Commit(r.Context()); err != nil {
+		ah.Logger.Error("Error while committing transaction", slog.Any("error", err))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]any{
+			"error": "We ran into a problem while servicing your request please try again later",
+		})
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(updated)
 }

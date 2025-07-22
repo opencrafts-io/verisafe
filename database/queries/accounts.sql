@@ -52,3 +52,13 @@ UPDATE accounts
     updated_at = NOW()
   WHERE id = $1
   ;
+
+
+-- name: UpdateAccountPhoneNumber :exec
+-- Only updates the primary phone number for an account
+UPDATE accounts
+  SET
+    phone = COALESCE(NULLIF(@phone::varchar,''), phone),
+    updated_at = NOW()
+  WHERE id = $1
+  ;
