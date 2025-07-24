@@ -50,11 +50,16 @@ LIMIT $2
 OFFSET $3;
 
 
+-- name: GetAllAccountSocials :many
+-- Returns a list of oauth providers that they've granted
+-- note that the results are not paginated since we dont support a 
+-- whole lot of social oauth providers
+SELECT * FROM socials
+WHERE account_id = $1;
 
 -- name: UpdateSocial :one
 UPDATE socials
 SET
-    provider = COALESCE($2, provider),
     email = COALESCE($3, email),
     name = COALESCE($4, name),
     first_name = COALESCE($5, first_name),
@@ -68,5 +73,5 @@ SET
     refresh_token = COALESCE($13, refresh_token),
     expires_at = COALESCE($14, expires_at),
     updated_at = NOW()
-WHERE account_id = $1
+WHERE user_id = $1 AND provider = $2
 RETURNING *;

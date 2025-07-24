@@ -1,0 +1,453 @@
+{
+	"info": {
+		"_postman_id": "7938aa41-56c5-4661-aa98-628d4afb5c9c",
+		"name": "Verisafe",
+		"description": "# Verisafe API Collection\n\n**Verisafe** is the authentication and authorization service for the Academia platform. It is responsible for:\n\n- Managing user accounts and sessions for the Academia Platform\n    \n- Enforcing role-based access control (RBAC)\n    \n- Issuing and verifying JWTs for secure communication\n    \n- Assigning roles and permissions to users\n    \n- Providing endpoints for managing accounts, roles, and permissions\n    \n\nThis Postman collection provides a complete set of requests to interact with Verisafe's public and admin APIs. Use it to:\n\n- Create and authenticate users\n    \n- Assign roles and permissions\n    \n- Inspect access control rules\n    \n- Test protected endpoints with JWTs\n    \n\n> 🔐 Verisafe is built using Go and PostgreSQL, leveraging `sqlc` for type-safe database access. \n  \n\n---\n\nMake sure to set your `Authorization` header with a valid bearer token where required. You can use the pre-request scripts or environment variables provided in this collection.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "30801636"
+	},
+	"item": [
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "authenticate",
+					"request": {
+						"method": "GET",
+						"header": []
+					},
+					"response": []
+				}
+			],
+			"description": "# 🔐 Verisafe Auth Module\n\nVerisafe handles **OAuth-based authentication** for the Academia ecosystem. It supports multiple third-party providers and does **not** use traditional email/password login.\n\n## ✅ Supported OAuth Providers\n\n- Google\n    \n- Microsoft\n    \n- Apple\n    \n- Spotify\n    \n- Discord\n    \n\nUsers authenticate using their provider of choice. Upon successful login, Verisafe issues a **JWT token** used for authenticating with protected services.\n\n---\n\n## 🚀 Authentication Flow\n\n1. **Frontend** initiates OAuth login via the desired provider.\n    \n2. After successful OAuth login, the frontend obtains an **OAuth access token** from the provider.\n    \n3. This token is sent to Verisafe for verification and user provisioning (if new).\n    \n4. Verisafe returns a signed **JWT access token** and **refresh token**.\n    \n\n---\n\n## 🔄 Exchange OAuth Token for Verisafe Token\n\n**Endpoint:** `POST /auth/exchange`\n\n**Description:** Verifies a provider-issued access token and issues Verisafe tokens\n\n> **Warning** The authentication endpoints might not work with postman. Please try them on the browser to prevent issues"
+		},
+		{
+			"name": "Roles & Permissions",
+			"item": [
+				{
+					"name": "Roles",
+					"item": [
+						{
+							"name": "Create Role",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\":\"Administrator\",\n    \"description\": \"Default role for administrative purposes\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/roles/create",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"roles",
+										"create"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Retrieve Role By ID",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/roles/:id",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"roles",
+										":id"
+									],
+									"variable": [
+										{
+											"key": "id",
+											"value": "aca69d59-ec22-4dc2-8ecf-0b5fc1af63da"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get All Roles",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/roles?limit=10&offset=0",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"roles"
+									],
+									"query": [
+										{
+											"key": "limit",
+											"value": "10"
+										},
+										{
+											"key": "offset",
+											"value": "0"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Retrieve User Roles",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/roles/user/:id",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"roles",
+										"user",
+										":id"
+									],
+									"variable": [
+										{
+											"key": "id",
+											"value": "f40d371f-2e36-4ed4-be75-f242a47b5b3e"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Retrieve Role Permissions",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/roles/permissions/:id",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"roles",
+										"permissions",
+										":id"
+									],
+									"variable": [
+										{
+											"key": "id",
+											"value": "23112f94-b295-42b5-ad9b-255594ef8fdd"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Assign Role To User",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/roles/assign/:user_id/:role_id",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"roles",
+										"assign",
+										":user_id",
+										":role_id"
+									],
+									"variable": [
+										{
+											"key": "user_id",
+											"value": "c07fbcf9-f01d-4d6b-bbd7-a70b5489578b"
+										},
+										{
+											"key": "role_id",
+											"value": "aca69d59-ec22-4dc2-8ecf-0b5fc1af63da"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Revoke Role From User",
+							"request": {
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/roles/revoke/:user_id/:role_id",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"roles",
+										"revoke",
+										":user_id",
+										":role_id"
+									],
+									"variable": [
+										{
+											"key": "user_id",
+											"value": "c07fbcf9-f01d-4d6b-bbd7-a70b5489578b"
+										},
+										{
+											"key": "role_id",
+											"value": "aca69d59-ec22-4dc2-8ecf-0b5fc1af63da"
+										}
+									]
+								}
+							},
+							"response": []
+						}
+					],
+					"description": "# 🧱 Roles in Verisafe\n\nIn Verisafe, a **Role** is a named collection of permissions that define what actions a user can perform within the Academia ecosystem.\n\nRoles simplify access management by grouping relevant permissions under a single name. Instead of assigning individual permissions to users, you assign them one or more roles.\n\n---\n\n## 🧩 Role Structure\n\nEach role contains:\n\n- **`id`** – Unique identifier\n    \n- **`name`** – Human-readable name (e.g. `admin`, `student`, `moderator`, `system`)\n    \n- **`description`** – Optional summary of the role's purpose\n    \n- **`created_at`****,** **`updated_at`** – Audit timestamps\n    \n\n---\n\n## 🧑‍🤝‍🧑 Assigning Roles to Users\n\nUsers can have multiple roles. Each role grants its full set of permissions.\n\n> A user's final access is the union of all permissions granted by their roles. \n  \n\n### Example:\n\nIf a user has both `student` and `club_admin` roles, they inherit all permissions from both roles.\n\n---\n\n## 🚨 Special Role: `system`\n\nVerisafe includes a default role called `system`:\n\n- It is intended for internal services and superusers\n    \n- It is automatically granted **all permissions**\n    \n- Use it with caution — ideal for automated jobs or admin consoles\n    \n\n---\n\n---\n\n## 🛡️ Common Roles\n\n| Role Name | Description |\n| --- | --- |\n| `student` | Basic user of the platform |\n| `admin` | Full control of system resources |\n| `moderator` | Limited admin powers (e.g. content review) |\n| `org_owner` | Manages an organization and its users |\n| `system` | Reserved for internal platform use |\n\n---\n\nTo view or assign permissions to a role, see the **Permissions** section."
+				},
+				{
+					"name": "Permissions",
+					"item": [
+						{
+							"name": "Create Permission",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"delete:task:own\",\n    \"description\":\"Allows for the deletion of only talsks owned by the user\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/permissions/create",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"permissions",
+										"create"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get All Permissions",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/permissions?limit=10&offset=0",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"permissions"
+									],
+									"query": [
+										{
+											"key": "limit",
+											"value": "10"
+										},
+										{
+											"key": "offset",
+											"value": "0"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Retrieve Permission By ID",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/permissions/:id",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"permissions",
+										":id"
+									],
+									"variable": [
+										{
+											"key": "id",
+											"value": "7568297b-1d08-4aee-9795-615e113796e9"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get All User Permissions",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/permissions/user/:id",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"permissions",
+										"user",
+										":id"
+									],
+									"variable": [
+										{
+											"key": "id",
+											"value": "c07fbcf9-f01d-4d6b-bbd7-a70b5489578b"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Update Permission",
+							"request": {
+								"method": "PATCH",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"id\": \"eb63ea68-2dae-4591-84a1-0c9e2d4dbd7c\",\n    \"name\": \"delete:task:any\",\n    \"description\": \"Allows for the deletion of only talsks owned by any user\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/permissions/",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"permissions",
+										""
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Assign Permission to Role",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/permissions/assign/:perm_id/:role_id",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"permissions",
+										"assign",
+										":perm_id",
+										":role_id"
+									],
+									"variable": [
+										{
+											"key": "perm_id",
+											"value": "eb63ea68-2dae-4591-84a1-0c9e2d4dbd7c"
+										},
+										{
+											"key": "role_id",
+											"value": "aca69d59-ec22-4dc2-8ecf-0b5fc1af63da"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Revoke Permission From Role",
+							"request": {
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/permissions/revoke/:perm_id/:role_id",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"permissions",
+										"revoke",
+										":perm_id",
+										":role_id"
+									],
+									"variable": [
+										{
+											"key": "perm_id",
+											"value": "eb63ea68-2dae-4591-84a1-0c9e2d4dbd7c"
+										},
+										{
+											"key": "role_id",
+											"value": "aca69d59-ec22-4dc2-8ecf-0b5fc1af63da"
+										}
+									]
+								}
+							},
+							"response": []
+						}
+					],
+					"description": "# 🛡️ Permissions in Verisafe\n\nPermissions in Verisafe define **what actions a user can perform** in the system. They are the core units of access control, and are always assigned **via roles** — users do not receive permissions directly.\n\n---\n\n## 🎯 Permission Format\n\nEach permission is a string following the format:  \n  \n\n```\naction:entity:scope\n\n ```\n\n### 🔍 Breakdown:\n\n- **action**: What the user can do (`create`, `read`, `update`, `delete`, etc.)\n    \n- **entity**: What the action applies to (`task`, `course`, `account`, etc.)\n    \n- **scope**: Who or what the permission applies to (`own`, `any`, or custom values)\n    \n\n### ✅ Examples:\n\n| Permission | Meaning |\n| --- | --- |\n| `read:task:own` | Can read their own tasks |\n| `delete:course:any` | Can delete any course |\n| `update:account:own` | Can update their own account details |\n| `manage:organization:own` | Can manage the organization they belong to |\n\n---\n\n## 📌 Defining Permissions\n\nPermissions are stored centrally in a `permissions` table and associated with roles via a join table (`role_permissions`). This makes it easy to:\n\n- Reuse permissions across roles\n    \n- Add/remove permissions without modifying role logic\n    \n- Enforce access checks consistently across services\n    \n\n---\n\n## ⚙️ Assigning Permissions\n\nPermissions are **not assigned directly to users**. Instead:\n\n1. Permissions are linked to **Roles**\n    \n2. Roles are assigned to **Users**\n    \n\nThis makes permission management scalable and easier to reason about.\n\n---\n\n## 🚨 Important Notes\n\n- The `system` role automatically receives **all permissions**.\n    \n- Permissions should be **as granular as needed** for fine control.\n    \n- Always use consistent naming to avoid confusion.\n    \n\n---\n\n## 🔄 Common Permissions Examples\n\n| Permission | Use Case |\n| --- | --- |\n| `create:post:own` | A user creating their own post |\n| `approve:comment:any` | A moderator approving any comment |\n| `view:grades:own` | A student viewing their own grades |\n| `export:report:any` | An admin exporting platform-wide data |\n\n---\n\n> 🔐 Verisafe's authorization layer uses these permissions to enforce Role-Based Access Control (RBAC) across Academia and its microservices."
+				}
+			],
+			"description": "# 🛡️ Roles & Permissions\n\nVerisafe uses **Role-Based Access Control (RBAC)** to manage what users can and cannot do across the Academia platform and its microservices.\n\n---\n\n## 🧱 Roles\n\nA **role** is a named group of permissions.\n\n- Users can have one or more roles.\n    \n- Roles are assigned at the account level.\n    \n- Each role represents a level of access or responsibility (e.g. `admin`, `student`, `moderator`, `system`).\n    \n\n---\n\n## 🧾 Permissions\n\nEach permission follows the format:\n\n```\naction:entity:scope\n\n ```\n\n### ✅ Components:\n\n- **`action`** — What is being done (`create`, `read`, `update`, `delete`, etc.)\n    \n- **`entity`** — The resource or object (`task`, `account`, `course`, `message`, etc.)\n    \n- **`scope`** — Context or boundary of access (`own`, `any`, `global`, `organization`, etc.)\n    \n\n### 🔍 Examples:\n\n| Permission | Meaning |\n| --- | --- |\n| `read:task:own` | Can read their own tasks |\n| `update:account:own` | Can update their own account profile |\n| `delete:course:any` | Can delete any course (admin-level) |\n| `create:message:global` | Can create messages platform-wide |\n\n---\n\n## 🛠️ Assigning Roles & Permissions\n\n- Roles are created with a name and description.\n    \n- Permissions are then linked to roles.\n    \n- When a user is assigned a role, they inherit all its permissions.\n    \n\n### Example Flow:\n\n1. Create role `student`\n    \n2. Add permissions:\n    \n    - `read:task:own`\n        \n    - `update:account:own`\n        \n3. Assign role `student` to user `john.doe@campus.edu`\n    \n\n---\n\n## 🔐 System Role\n\nVerisafe has a special role called `system` that contains **all permissions**. It is reserved for internal services and trusted automation agents.\n\nUse this role cautiously.\n\n---\n\n## 📌 Enforcement\n\nAuthorization is enforced by:\n\n- Checking if a user's roles contain the required permission\n    \n- Matching the requested action with `action:entity:scope`\n    \n\nServices using Verisafe should enforce permissions via middleware or guards at the application level.\n\n---\n\nFor more on how to check and evaluate permissions, see the Authorization endpoints section."
+		}
+	],
+	"auth": {
+		"type": "bearer"
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://127.0.0.1:8080",
+			"type": "string"
+		}
+	]
+}
