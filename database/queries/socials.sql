@@ -50,6 +50,12 @@ LIMIT $2
 OFFSET $3;
 
 
+-- name: GetAllAccountSocials :many
+-- Returns a list of oauth providers that they've granted
+-- note that the results are not paginated since we dont support a 
+-- whole lot of social oauth providers
+SELECT * FROM socials
+WHERE account_id = $1;
 
 -- name: UpdateSocial :one
 UPDATE socials

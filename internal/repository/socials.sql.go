@@ -164,6 +164,53 @@ func (q *Queries) GetAccountByProvider(ctx context.Context, arg GetAccountByProv
 	return items, nil
 }
 
+const getAllAccountSocials = `-- name: GetAllAccountSocials :many
+SELECT user_id, id_token, account_id, provider, email, name, first_name, last_name, nick_name, description, avatar_url, location, access_token, access_token_secret, refresh_token, expires_at, created_at, updated_at FROM socials
+WHERE account_id = $1
+`
+
+// Returns a list of oauth providers that they've granted
+// note that the results are not paginated since we dont support a
+// whole lot of social oauth providers
+func (q *Queries) GetAllAccountSocials(ctx context.Context, accountID uuid.UUID) ([]Social, error) {
+	rows, err := q.db.Query(ctx, getAllAccountSocials, accountID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Social{}
+	for rows.Next() {
+		var i Social
+		if err := rows.Scan(
+			&i.UserID,
+			&i.IDToken,
+			&i.AccountID,
+			&i.Provider,
+			&i.Email,
+			&i.Name,
+			&i.FirstName,
+			&i.LastName,
+			&i.NickName,
+			&i.Description,
+			&i.AvatarUrl,
+			&i.Location,
+			&i.AccessToken,
+			&i.AccessTokenSecret,
+			&i.RefreshToken,
+			&i.ExpiresAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getSocialByExternalUserID = `-- name: GetSocialByExternalUserID :one
 SELECT user_id, id_token, account_id, provider, email, name, first_name, last_name, nick_name, description, avatar_url, location, access_token, access_token_secret, refresh_token, expires_at, created_at, updated_at FROM socials
 WHERE user_id = $1
