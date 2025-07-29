@@ -60,6 +60,7 @@ func NewAuthenticator(cfg *config.Config, logger *slog.Logger) *Auth {
 		strings.Replace(address, "{oauth}", "google",1),
 		"email", "profile",
 		"https://www.googleapis.com/auth/calendar",
+		"https://www.googleapis.com/auth/tasks",
 	)
 
 	googleProvider.SetAccessType("offline")
