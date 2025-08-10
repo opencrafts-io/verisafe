@@ -186,7 +186,14 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error while generating jwt token", http.StatusInternalServerError)
 		return
 	}
-	redirectURI := fmt.Sprintf("academia://callback?token=%s", token)
+
+	refreshToken, err := utils.GenerateJWT(account.ID, *a.config, utils.UserRefreshToken)
+	if err != nil {
+		http.Error(w, "Error while generating jwt token", http.StatusInternalServerError)
+		return
+	}
+
+	redirectURI := fmt.Sprintf("academia://callback?token=%s?refresh_token=%s", token, refreshToken)
 	http.Redirect(w, r, redirectURI, http.StatusFound)
 }
 
