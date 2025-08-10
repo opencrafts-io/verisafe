@@ -46,9 +46,9 @@ func GenerateJWT(
 	case UserToken:
 		expiry = time.Now().Add(time.Hour * time.Duration(cfg.JWTConfig.ExpireDelta))
 	case UserRefreshToken:
-		expiry = time.Now().Add(time.Hour * 24 * time.Duration(cfg.JWTConfig.RefreshExpireDelta))
+		expiry = time.Now().Add(time.Hour * 24 * 7 * time.Duration(cfg.JWTConfig.RefreshExpireDelta))
 	case ServiceToken:
-		expiry = time.Now().Add(time.Hour * 24 * time.Duration(cfg.JWTConfig.RefreshExpireDelta))
+		expiry = time.Now().Add(time.Hour * 24 * 31 * time.Duration(cfg.JWTConfig.RefreshExpireDelta))
 	}
 
 	claims :=
