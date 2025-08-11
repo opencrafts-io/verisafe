@@ -1,17 +1,13 @@
 package auth
 
 import (
-	"crypto/sha256"
 	"database/sql"
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/markbates/goth/gothic"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
@@ -25,12 +21,12 @@ func (a *Auth) RegisterRoutes(router *http.ServeMux) {
 	router.HandleFunc("GET /auth/{provider}/logout", a.LogoutHandler)
 
 	// Secret management
-	router.Handle("GET /auth/generate/token",
-		middleware.CreateStack(
-			middleware.IsAuthenticated(a.config, a.logger),
-			middleware.HasPermission([]string{"create:service_token:own"}),
-		)(http.HandlerFunc(a.CreateServiceToken)),
-	)
+	// router.Handle("GET /auth/generate/token",
+	// 	middleware.CreateStack(
+	// 		middleware.IsAuthenticated(a.config, a.logger),
+	// 		middleware.HasPermission([]string{"create:service_token:own"}),
+	// 	)(http.HandlerFunc(a.CreateServiceToken)),
+	// )
 
 }
 
