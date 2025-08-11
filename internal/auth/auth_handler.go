@@ -1,7 +1,9 @@
 package auth
 
 import (
+	"crypto/sha256"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +11,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/markbates/goth/gothic"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
@@ -193,7 +196,7 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	redirectURI := fmt.Sprintf("academia://callback?token=%s?refresh_token=%s", token, refreshToken)
+	redirectURI := fmt.Sprintf("academia://callback?token=%s&refresh_token=%s", token, refreshToken)
 	http.Redirect(w, r, redirectURI, http.StatusFound)
 }
 
@@ -222,87 +225,108 @@ func (a *Auth) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // Creates a service token
-func (a *Auth) CreateServiceToken(w http.ResponseWriter, r *http.Request) {
-	// claims := r.Context().Value(middleware.AuthUserClaims).(*utils.VerisafeClaims)
-	//
-	// if claims.Account.Type != repository.AccountTypeBot {
-	// 	a.logger.Error(
-	// 		"Attempting to generate service token on a non bot account",
-	// 		slog.Any("account", claims.Account),
-	// 	)
-	// 	w.WriteHeader(http.StatusUnauthorized)
-	// 	json.NewEncoder(w).Encode(map[string]any{
-	// 		"error": "Only bot accounts can generate service tokens",
-	// 	})
-	// 	return
-	// }
-
-	var serviceTokenParams repository.CreateServiceTokenParams
-
-	if err := json.NewDecoder(r.Body).Decode(&serviceTokenParams); err != nil || strings.TrimSpace(serviceTokenParams.Name) == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]any{
-			"error": "Please check your form details and try that again",
-		})
-		return
-	}
-
-	conn, err := middleware.GetDBConnFromContext(r.Context())
-	if err != nil {
-		a.logger.Error("failed to get db conn", slog.String("err", err.Error()))
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]any{"error": "Internal server error"})
-		return
-	}
-
-	tx, err := conn.Begin(r.Context())
-	if err != nil {
-		a.logger.Error("failed to begin tx", slog.String("err", err.Error()))
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]any{"error": "Internal server error"})
-		return
-	}
-	defer tx.Rollback(r.Context())
-
-	// repo := repository.New(tx)
-	//
-	// jwtToken, err := utils.GenerateJWT(
-	// 	claims.Account.ID,
-	// 	*a.config)
-	// if err != nil {
-	// 	a.logger.Error("failed to generate token", slog.String("err", err.Error()))
-	// 	w.WriteHeader(http.StatusInternalServerError)
-	// 	json.NewEncoder(w).Encode(map[string]any{"error": "Could not generate service token"})
-	// 	return
-	// }
-	//
-	// hash := sha256.Sum256([]byte(jwtToken))
-	// hashed := base64.StdEncoding.EncodeToString(hash[:])
-	//
-	// expiry := time.Now().Add(time.Hour * 24 * 30)
-	//
-	// _, err = repo.CreateServiceToken(r.Context(), repository.CreateServiceTokenParams{
-	// 	Name:      serviceTokenParams.Name,
-	// 	TokenHash: hashed,
-	// 	ExpiresAt: &expiry,
-	// })
-	// if err != nil {
-	// 	a.logger.Error("failed to store service token", slog.String("err", err.Error()))
-	// 	w.WriteHeader(http.StatusInternalServerError)
-	// 	json.NewEncoder(w).Encode(map[string]any{"error": "Could not save service token"})
-	// 	return
-	// }
-	//
-	// if err := tx.Commit(r.Context()); err != nil {
-	// 	a.logger.Error("failed to commit tx", slog.String("err", err.Error()))
-	// 	w.WriteHeader(http.StatusInternalServerError)
-	// 	json.NewEncoder(w).Encode(map[string]any{"error": "Could not save token, try again"})
-	// 	return
-	// }
-	//
-	w.Header().Set("Content-Type", "application/json")
-	// json.NewEncoder(w).Encode(map[string]any{
-	// 	"token":   jwtToken,
-	// 	"message": "Token generated successfully do not loose it",
-	// })
-}
+// func (a *Auth) CreateServiceToken(w http.ResponseWriter, r *http.Request) {
+// 	// claims := r.Context().Value(middleware.AuthUserClaims).(*utils.VerisafeClaims)
+// 	//
+// 	// if claims.Account.Type != repository.AccountTypeBot {
+// 	// 	a.logger.Error(
+// 	// 		"Attempting to generate service token on a non bot account",
+// 	// 		slog.Any("account", claims.Account),
+// 	// 	)
+// 	// 	w.WriteHeader(http.StatusUnauthorized)
+// 	// 	json.NewEncoder(w).Encode(map[string]any{
+// 	// 		"error": "Only bot accounts can generate service tokens",
+// 	// 	})
+// 	// 	return
+// 	// }
+//
+// 	conn, err := middleware.GetDBConnFromContext(r.Context())
+// 	if err != nil {
+// 		a.logger.Error("failed to get db conn", slog.String("err", err.Error()))
+// 		w.WriteHeader(http.StatusInternalServerError)
+// 		json.NewEncoder(w).Encode(map[string]any{"error": "Internal server error"})
+// 		return
+// 	}
+//
+// 	tx, err := conn.Begin(r.Context())
+// 	if err != nil {
+// 		a.logger.Error("failed to begin tx", slog.String("err", err.Error()))
+// 		w.WriteHeader(http.StatusInternalServerError)
+// 		json.NewEncoder(w).Encode(map[string]any{"error": "Internal server error"})
+// 		return
+// 	}
+// 	defer tx.Rollback(r.Context())
+//
+// 	repo := repository.New(tx)
+//
+// 	// Get if the service is a bot account
+// 	claims := r.Context().Value(middleware.AuthUserClaims).(*utils.VerisafeClaims)
+// 	accountID, err := uuid.Parse(claims.ID)
+// 	if err != nil {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		json.NewEncoder(w).Encode(map[string]any{
+// 			"error": "Failed to decode your token.",
+// 		})
+// 		return
+// 	}
+//
+// 	botAccount, err := repo.GetAccountByID(r.Context(), accountID)
+//
+// 	if botAccount.Type != "bot" {
+// 		w.WriteHeader(http.StatusForbidden)
+// 		json.NewEncoder(w).Encode(map[string]any{
+// 			"error": "Only bot accounts can perform this action",
+// 		})
+// 		return
+// 	}
+//
+// 	var serviceTokenParams repository.CreateServiceTokenParams
+//
+// 	if err := json.NewDecoder(r.Body).Decode(&serviceTokenParams); err != nil || strings.TrimSpace(serviceTokenParams.Name) == "" {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		json.NewEncoder(w).Encode(map[string]any{
+// 			"error": "Please check your form details and try that again",
+// 		})
+// 		return
+// 	}
+// 	//
+// 	jwtToken, err := utils.GenerateJWT(
+// 		accountID,
+// 		*a.config, utils.ServiceToken)
+// 	if err != nil {
+// 		a.logger.Error("failed to generate service token token", slog.String("err", err.Error()))
+// 		w.WriteHeader(http.StatusInternalServerError)
+// 		json.NewEncoder(w).Encode(map[string]any{"error": "Could not generate service token"})
+// 		return
+// 	}
+//
+// 	hash := sha256.Sum256([]byte(jwtToken))
+// 	hashed := base64.StdEncoding.EncodeToString(hash[:])
+//
+// 	expiry := time.Now().Add(time.Hour * 24 * 30)
+//
+// 	_, err = repo.CreateServiceToken(r.Context(), repository.CreateServiceTokenParams{
+// 		Name:      serviceTokenParams.Name,
+// 		TokenHash: hashed,
+// 		ExpiresAt: &expiry,
+// 	})
+// 	if err != nil {
+// 		a.logger.Error("failed to store service token", slog.String("err", err.Error()))
+// 		w.WriteHeader(http.StatusInternalServerError)
+// 		json.NewEncoder(w).Encode(map[string]any{"error": "Could not save service token"})
+// 		return
+// 	}
+//
+// 	if err := tx.Commit(r.Context()); err != nil {
+// 		a.logger.Error("failed to commit tx", slog.String("err", err.Error()))
+// 		w.WriteHeader(http.StatusInternalServerError)
+// 		json.NewEncoder(w).Encode(map[string]any{"error": "Could not save token, try again"})
+// 		return
+// 	}
+// 	//
+// 	w.Header().Set("Content-Type", "application/json")
+// 	// json.NewEncoder(w).Encode(map[string]any{
+// 	// 	"token":   jwtToken,
+// 	// 	"message": "Token generated successfully do not loose it",
+// 	// })
+// }
