@@ -12,6 +12,7 @@ func (a *App) loadRoutes() http.Handler {
 
 	auth := auth.NewAuthenticator(a.config, a.logger)
 	accountHandler := handlers.AccountHandler{Logger: a.logger, Cfg: a.config}
+	serviceTokenHandler := handlers.ServiceTokenHandler{Logger: a.logger, Cfg: a.config}
 	socialHandler := handlers.SocialHandler{Logger: a.logger}
 	roleHandler := handlers.RoleHandler{Logger: a.logger}
 	permHandler := handlers.PermissionHandler{Logger: a.logger}
@@ -22,6 +23,7 @@ func (a *App) loadRoutes() http.Handler {
 	// Auth handlers
 	auth.RegisterRoutes(router)
 	accountHandler.RegisterHandlers(router)
+	serviceTokenHandler.RegisterHandlers(router)
 	socialHandler.RegisterRoutes(a.config, router)
 	// Roles
 	roleHandler.RegisterRoutes(a.config, router)

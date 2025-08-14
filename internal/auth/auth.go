@@ -31,7 +31,7 @@ func NewAuthenticator(cfg *config.Config, logger *slog.Logger) *Auth {
 	store.MaxAge(86400 * cfg.AuthenticationConfig.MaxAge) // Session expires in 30 days
 	store.Options.Path = "/"
 	store.Options.HttpOnly = true
-	store.Options.SameSite = http.SameSiteLaxMode
+	store.Options.SameSite = http.SameSiteNoneMode
 
 	if cfg.AuthenticationConfig.Environment == "production" {
 		store.Options.Secure = true
