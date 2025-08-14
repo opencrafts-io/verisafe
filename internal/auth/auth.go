@@ -31,12 +31,13 @@ func NewAuthenticator(cfg *config.Config, logger *slog.Logger) *Auth {
 	store.MaxAge(86400 * cfg.AuthenticationConfig.MaxAge) // Session expires in 30 days
 	store.Options.Path = "/"
 	store.Options.HttpOnly = true
-	store.Options.SameSite = http.SameSiteNoneMode
 
 	if cfg.AuthenticationConfig.Environment == "production" {
 		store.Options.Secure = true
+		store.Options.SameSite = http.SameSiteNoneMode
 	} else {
 		store.Options.Secure = false
+		store.Options.SameSite = http.SameSiteLaxMode
 	}
 
 	gothic.Store = store
@@ -57,7 +58,7 @@ func NewAuthenticator(cfg *config.Config, logger *slog.Logger) *Auth {
 	googleProvider := google.New(
 		cfg.AuthenticationConfig.GoogleClientID,
 		cfg.AuthenticationConfig.GoogleClientSecret,
-		strings.Replace(address, "{oauth}", "google",1),
+		strings.Replace(address, "{oauth}", "google", 1),
 		"email", "profile",
 		"https://www.googleapis.com/auth/calendar",
 		"https://www.googleapis.com/auth/tasks",
@@ -68,7 +69,7 @@ func NewAuthenticator(cfg *config.Config, logger *slog.Logger) *Auth {
 	spotifyProvider := spotify.New(
 		cfg.AuthenticationConfig.SpotifyClientID,
 		cfg.AuthenticationConfig.SpotifyClientSecret,
-		strings.Replace(address, "{oauth}", "spotify",1),
+		strings.Replace(address, "{oauth}", "spotify", 1),
 		"user-read-playback-state",
 		"user-modify-playback-state",
 		"user-read-currently-playing",
