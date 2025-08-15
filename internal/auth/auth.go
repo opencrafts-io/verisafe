@@ -29,10 +29,21 @@ func NewAuthenticator(cfg *config.Config, logger *slog.Logger) *Auth {
 
 	store := sessions.NewCookieStore([]byte(sessionSecret))
 	store.MaxAge(86400 * cfg.AuthenticationConfig.MaxAge) // Session expires in 30 days
+	// store.Options.Path = "/"
+	// store.Options.HttpOnly = true
+	//
+	// if cfg.AuthenticationConfig.Environment == "production" {
+	// 	store.Options.Secure = true
+	// 	store.Options.SameSite = http.SameSiteNoneMode
+	// } else {
+	// 	store.Options.Secure = false
+	// 	store.Options.SameSite = http.SameSiteLaxMode
+	// }
+
 	store.Options.Path = "/"
 	store.Options.HttpOnly = true
 
-	if cfg.AuthenticationConfig.Environment == "production" {
+	if cfg.AuthenticationConfig.Environment == "production" || cfg.AuthenticationConfig.Environment == "staging" {
 		store.Options.Secure = true
 		store.Options.SameSite = http.SameSiteNoneMode
 	} else {
