@@ -57,9 +57,15 @@ func (a *App) Start(ctx context.Context) error {
 
 	database.RunGooseMigrations(a.logger, a.pool)
 
+	allowedOrigins := []string{
+		"http://localhost:1337",
+		"https://academia.opencrafts.io",
+	}
+
 	middlewares := middleware.CreateStack(
 		middleware.Logging(a.logger),
 		middleware.WithDBConnection(a.logger, a.pool),
+		middleware.CORSMiddleware(allowedOrigins),
 	)
 	router := a.loadRoutes()
 

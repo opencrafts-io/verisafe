@@ -2,6 +2,7 @@ package auth
 
 import (
 	"database/sql"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -14,6 +15,11 @@ import (
 	"github.com/opencrafts-io/verisafe/internal/repository"
 	"github.com/opencrafts-io/verisafe/internal/utils"
 )
+
+const authPlatformKey = "auth.platform.key"
+const authPlatformWebValue = "auth.platform.value.web"
+const authPlatformMobileValue = "auth.platform.value.mobile"
+const authRedirectKey = "auth.redirect.key"
 
 func (a *Auth) RegisterRoutes(router *http.ServeMux) {
 	router.HandleFunc("GET /auth/{provider}", a.LoginHandler)
@@ -42,8 +48,44 @@ func (a *Auth) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.logger.Info("Initiating OAuth login", "provider", provider)
-	gothic.BeginAuthHandler(w, r)
+	platform := authPlatformMobileValue
+	redirectURI := ""
+
+	if r.URL.Query().Get("platform") == "web" {
+		platform = authPlatformWebValue
+
+		redirectURI = r.URL.Query().Get("redirect_uri")
+		if redirectURI == "" {
+			http.Error(w, "Programming error: missing redirect_uri", http.StatusBadRequest)
+			return
+		}
+	}
+
+	// encode platform + redirect_uri into state
+	stateData := fmt.Sprintf("%s|%s", platform, redirectURI)
+	state := base64.URLEncoding.EncodeToString([]byte(stateData))
+
+	a.logger.Info("Initiating OAuth login",
+		"provider", provider,
+		"platform", platform,
+		"redirect_uri", redirectURI,
+	)
+
+	// Clone request and inject state query param (gothic looks for it here)
+	q := r.URL.Query()
+	q.Set("state", state)
+	r.URL.RawQuery = q.Encode()
+
+	// Get provider auth URL
+	url, err := gothic.GetAuthURL(w, r)
+	if err != nil {
+		a.logger.Error("Failed to get auth URL", "error", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Redirect user to provider login page
+	http.Redirect(w, r, url, http.StatusFound)
 }
 
 // CallbackHandler processes the OAuth2 callback from the provider.
@@ -57,6 +99,27 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to get provider name for callback", http.StatusBadRequest)
 		return
 	}
+
+	state := r.URL.Query().Get("state")
+	if state == "" {
+		http.Error(w, "Missing state", http.StatusBadRequest)
+		return
+	}
+
+	stateBytes, err := base64.URLEncoding.DecodeString(state)
+	if err != nil {
+		http.Error(w, "Invalid state", http.StatusBadRequest)
+		return
+	}
+
+	parts := strings.SplitN(string(stateBytes), "|", 2)
+	if len(parts) != 2 {
+		http.Error(w, "Malformed state", http.StatusBadRequest)
+		return
+	}
+
+	platform := parts[0]
+	redirectURI := parts[1]
 
 	user, err := gothic.CompleteUserAuth(w, r)
 	if err != nil {
@@ -192,8 +255,23 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	redirectURI := fmt.Sprintf("academia://callback?token=%s&refresh_token=%s", token, refreshToken)
-	http.Redirect(w, r, redirectURI, http.StatusFound)
+	// redirectURI := fmt.Sprintf("academia://callback?token=%s&refresh_token=%s", token, refreshToken)
+	// http.Redirect(w, r, redirectURI, http.StatusFound)
+	if platform == authPlatformWebValue {
+		// Web: redirect back to client
+		finalURL := fmt.Sprintf("%s?token=%s&refresh_token=%s", redirectURI, token, refreshToken)
+		http.Redirect(w, r, finalURL, http.StatusFound)
+		return
+	}
+
+	if platform == authPlatformMobileValue {
+		// Mobile: use deep link
+		finalURL := fmt.Sprintf("academia://callback?token=%s&refresh_token=%s", token, refreshToken)
+		http.Redirect(w, r, finalURL, http.StatusFound)
+		return
+	}
+
+	http.Error(w, "Unknown platform", http.StatusBadRequest)
 }
 
 // LogoutHandler logs the user out from the OAuth provider and clears Goth's session data.
