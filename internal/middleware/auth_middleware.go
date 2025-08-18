@@ -3,8 +3,10 @@ package middleware
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -72,11 +74,17 @@ func IsAuthenticated(cfg *config.Config, logger *slog.Logger) Middleware {
 					return
 				}
 
-				isInvalid := serviceToken.RevokedAt != nil || serviceToken.ExpiresAt.Before(time.Now())
-				if isInvalid {
+				// Enhanced validation for service tokens
+				if err := validateServiceToken(serviceToken, r); err != nil {
 					w.WriteHeader(http.StatusUnauthorized)
-					json.NewEncoder(w).Encode(map[string]any{"error": "Invalid or expired API key"})
+					json.NewEncoder(w).Encode(map[string]any{"error": err.Error()})
 					return
+				}
+
+				// Update last used timestamp
+				if err := repo.UpdateServiceTokenLastUsed(r.Context(), serviceToken.ID); err != nil {
+					logger.Error("Failed to update service token last used", slog.String("error", err.Error()))
+					// Don't fail the request for this, just log it
 				}
 
 				// Get account and perms
@@ -85,6 +93,14 @@ func IsAuthenticated(cfg *config.Config, logger *slog.Logger) Middleware {
 					logger.Error("Failed to load account from API key", slog.Any("error", err))
 					w.WriteHeader(http.StatusUnauthorized)
 					json.NewEncoder(w).Encode(map[string]any{"error": "Unauthorized"})
+					return
+				}
+
+				// Verify account is a bot account
+				if account.Type != repository.AccountTypeBot {
+					logger.Error("Service token used by non-bot account", slog.String("account_id", account.ID.String()), slog.String("account_type", string(account.Type)))
+					w.WriteHeader(http.StatusUnauthorized)
+					json.NewEncoder(w).Encode(map[string]any{"error": "Service tokens can only be used by bot accounts"})
 					return
 				}
 
@@ -175,4 +191,82 @@ func HasPermission(permissions []string) Middleware {
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// validateServiceToken performs comprehensive validation of a service token
+func validateServiceToken(token repository.ServiceToken, r *http.Request) error {
+	// Check if token is revoked
+	if token.RevokedAt != nil {
+		return fmt.Errorf("token has been revoked")
+	}
+
+	// Check if token is expired
+	if token.ExpiresAt != nil && token.ExpiresAt.Before(time.Now()) {
+		return fmt.Errorf("token has expired")
+	}
+
+	// Check usage limits
+	if token.MaxUses != nil && token.UseCount != nil && *token.UseCount >= *token.MaxUses {
+		return fmt.Errorf("token usage limit exceeded")
+	}
+
+	// Check IP whitelist if configured
+	if len(token.IpWhitelist) > 0 {
+		clientIP := getClientIP(r)
+		allowed := false
+		for _, allowedIP := range token.IpWhitelist {
+			if clientIP == allowedIP {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
+			return fmt.Errorf("access denied from IP address")
+		}
+	}
+
+	// Check user agent pattern if configured
+	if token.UserAgentPattern != nil && *token.UserAgentPattern != "" {
+		userAgent := r.Header.Get("User-Agent")
+		matched, err := regexp.MatchString(*token.UserAgentPattern, userAgent)
+		if err != nil {
+			return fmt.Errorf("invalid user agent pattern configuration")
+		}
+		if !matched {
+			return fmt.Errorf("user agent not allowed")
+		}
+	}
+
+	return nil
+}
+
+// getClientIP extracts the client IP address from the request
+func getClientIP(r *http.Request) string {
+	// Check for forwarded headers first
+	if ip := r.Header.Get("X-Forwarded-For"); ip != "" {
+		// X-Forwarded-For can contain multiple IPs, take the first one
+		if commaIndex := strings.Index(ip, ","); commaIndex != -1 {
+			return strings.TrimSpace(ip[:commaIndex])
+		}
+		return strings.TrimSpace(ip)
+	}
+
+	if ip := r.Header.Get("X-Real-IP"); ip != "" {
+		return strings.TrimSpace(ip)
+	}
+
+	if ip := r.Header.Get("X-Client-IP"); ip != "" {
+		return strings.TrimSpace(ip)
+	}
+
+	// Fall back to remote address
+	if r.RemoteAddr != "" {
+		// Remove port if present
+		if colonIndex := strings.LastIndex(r.RemoteAddr, ":"); colonIndex != -1 {
+			return r.RemoteAddr[:colonIndex]
+		}
+		return r.RemoteAddr
+	}
+
+	return ""
 }
