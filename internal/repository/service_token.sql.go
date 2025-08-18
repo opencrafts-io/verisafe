@@ -10,30 +10,57 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const cleanupExpiredServiceTokens = `-- name: CleanupExpiredServiceTokens :exec
+SELECT cleanup_expired_service_tokens()
+`
+
+func (q *Queries) CleanupExpiredServiceTokens(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, cleanupExpiredServiceTokens)
+	return err
+}
 
 const createServiceToken = `-- name: CreateServiceToken :one
 INSERT INTO service_tokens (
-  account_id, name, token_hash, expires_at
+  account_id, name, description, token_hash, expires_at, scopes, max_uses, 
+  rotation_policy, ip_whitelist, user_agent_pattern, created_by, metadata
 ) VALUES (
-  $1, $2, $3, $4
+  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
 )
-RETURNING id, account_id, name, token_hash, created_at, last_used_at, expires_at, rotated_at, revoked_at
+RETURNING id, account_id, name, token_hash, created_at, last_used_at, expires_at, rotated_at, revoked_at, description, scopes, max_uses, use_count, rotation_policy, ip_whitelist, user_agent_pattern, created_by, metadata
 `
 
 type CreateServiceTokenParams struct {
-	AccountID uuid.UUID  `json:"account_id"`
-	Name      string     `json:"name"`
-	TokenHash string     `json:"token_hash"`
-	ExpiresAt *time.Time `json:"expires_at"`
+	AccountID        uuid.UUID   `json:"account_id"`
+	Name             string      `json:"name"`
+	Description      *string     `json:"description"`
+	TokenHash        string      `json:"token_hash"`
+	ExpiresAt        *time.Time  `json:"expires_at"`
+	Scopes           []string    `json:"scopes"`
+	MaxUses          *int32      `json:"max_uses"`
+	RotationPolicy   []byte      `json:"rotation_policy"`
+	IpWhitelist      []string    `json:"ip_whitelist"`
+	UserAgentPattern *string     `json:"user_agent_pattern"`
+	CreatedBy        pgtype.UUID `json:"created_by"`
+	Metadata         []byte      `json:"metadata"`
 }
 
 func (q *Queries) CreateServiceToken(ctx context.Context, arg CreateServiceTokenParams) (ServiceToken, error) {
 	row := q.db.QueryRow(ctx, createServiceToken,
 		arg.AccountID,
 		arg.Name,
+		arg.Description,
 		arg.TokenHash,
 		arg.ExpiresAt,
+		arg.Scopes,
+		arg.MaxUses,
+		arg.RotationPolicy,
+		arg.IpWhitelist,
+		arg.UserAgentPattern,
+		arg.CreatedBy,
+		arg.Metadata,
 	)
 	var i ServiceToken
 	err := row.Scan(
@@ -46,6 +73,15 @@ func (q *Queries) CreateServiceToken(ctx context.Context, arg CreateServiceToken
 		&i.ExpiresAt,
 		&i.RotatedAt,
 		&i.RevokedAt,
+		&i.Description,
+		&i.Scopes,
+		&i.MaxUses,
+		&i.UseCount,
+		&i.RotationPolicy,
+		&i.IpWhitelist,
+		&i.UserAgentPattern,
+		&i.CreatedBy,
+		&i.Metadata,
 	)
 	return i, err
 }
@@ -61,10 +97,11 @@ func (q *Queries) DeleteServiceToken(ctx context.Context, id uuid.UUID) error {
 }
 
 const getServiceTokenByHash = `-- name: GetServiceTokenByHash :one
-SELECT id, account_id, name, token_hash, created_at, last_used_at, expires_at, rotated_at, revoked_at FROM service_tokens
+SELECT id, account_id, name, token_hash, created_at, last_used_at, expires_at, rotated_at, revoked_at, description, scopes, max_uses, use_count, rotation_policy, ip_whitelist, user_agent_pattern, created_by, metadata FROM service_tokens
 WHERE token_hash = $1
   AND revoked_at IS NULL
   AND (expires_at IS NULL OR expires_at > NOW())
+  AND (max_uses IS NULL OR use_count < max_uses)
 `
 
 func (q *Queries) GetServiceTokenByHash(ctx context.Context, tokenHash string) (ServiceToken, error) {
@@ -80,12 +117,131 @@ func (q *Queries) GetServiceTokenByHash(ctx context.Context, tokenHash string) (
 		&i.ExpiresAt,
 		&i.RotatedAt,
 		&i.RevokedAt,
+		&i.Description,
+		&i.Scopes,
+		&i.MaxUses,
+		&i.UseCount,
+		&i.RotationPolicy,
+		&i.IpWhitelist,
+		&i.UserAgentPattern,
+		&i.CreatedBy,
+		&i.Metadata,
 	)
 	return i, err
 }
 
+const getServiceTokenByID = `-- name: GetServiceTokenByID :one
+SELECT id, account_id, name, token_hash, created_at, last_used_at, expires_at, rotated_at, revoked_at, description, scopes, max_uses, use_count, rotation_policy, ip_whitelist, user_agent_pattern, created_by, metadata FROM service_tokens
+WHERE id = $1
+`
+
+func (q *Queries) GetServiceTokenByID(ctx context.Context, id uuid.UUID) (ServiceToken, error) {
+	row := q.db.QueryRow(ctx, getServiceTokenByID, id)
+	var i ServiceToken
+	err := row.Scan(
+		&i.ID,
+		&i.AccountID,
+		&i.Name,
+		&i.TokenHash,
+		&i.CreatedAt,
+		&i.LastUsedAt,
+		&i.ExpiresAt,
+		&i.RotatedAt,
+		&i.RevokedAt,
+		&i.Description,
+		&i.Scopes,
+		&i.MaxUses,
+		&i.UseCount,
+		&i.RotationPolicy,
+		&i.IpWhitelist,
+		&i.UserAgentPattern,
+		&i.CreatedBy,
+		&i.Metadata,
+	)
+	return i, err
+}
+
+const getServiceTokenUsageStats = `-- name: GetServiceTokenUsageStats :one
+SELECT 
+  COUNT(*) as total_tokens,
+  COUNT(*) FILTER (WHERE revoked_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())) as active_tokens,
+  COUNT(*) FILTER (WHERE revoked_at IS NOT NULL) as revoked_tokens,
+  COUNT(*) FILTER (WHERE expires_at IS NOT NULL AND expires_at < NOW()) as expired_tokens,
+  COUNT(*) FILTER (WHERE last_used_at IS NOT NULL AND last_used_at > NOW() - INTERVAL '30 days') as recently_used_tokens
+FROM service_tokens
+WHERE account_id = $1
+`
+
+type GetServiceTokenUsageStatsRow struct {
+	TotalTokens        int64 `json:"total_tokens"`
+	ActiveTokens       int64 `json:"active_tokens"`
+	RevokedTokens      int64 `json:"revoked_tokens"`
+	ExpiredTokens      int64 `json:"expired_tokens"`
+	RecentlyUsedTokens int64 `json:"recently_used_tokens"`
+}
+
+func (q *Queries) GetServiceTokenUsageStats(ctx context.Context, accountID uuid.UUID) (GetServiceTokenUsageStatsRow, error) {
+	row := q.db.QueryRow(ctx, getServiceTokenUsageStats, accountID)
+	var i GetServiceTokenUsageStatsRow
+	err := row.Scan(
+		&i.TotalTokens,
+		&i.ActiveTokens,
+		&i.RevokedTokens,
+		&i.ExpiredTokens,
+		&i.RecentlyUsedTokens,
+	)
+	return i, err
+}
+
+const listActiveServiceTokens = `-- name: ListActiveServiceTokens :many
+SELECT id, account_id, name, token_hash, created_at, last_used_at, expires_at, rotated_at, revoked_at, description, scopes, max_uses, use_count, rotation_policy, ip_whitelist, user_agent_pattern, created_by, metadata, account_email, account_name, account_type FROM active_service_tokens
+ORDER BY created_at DESC
+`
+
+func (q *Queries) ListActiveServiceTokens(ctx context.Context) ([]ActiveServiceToken, error) {
+	rows, err := q.db.Query(ctx, listActiveServiceTokens)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ActiveServiceToken{}
+	for rows.Next() {
+		var i ActiveServiceToken
+		if err := rows.Scan(
+			&i.ID,
+			&i.AccountID,
+			&i.Name,
+			&i.TokenHash,
+			&i.CreatedAt,
+			&i.LastUsedAt,
+			&i.ExpiresAt,
+			&i.RotatedAt,
+			&i.RevokedAt,
+			&i.Description,
+			&i.Scopes,
+			&i.MaxUses,
+			&i.UseCount,
+			&i.RotationPolicy,
+			&i.IpWhitelist,
+			&i.UserAgentPattern,
+			&i.CreatedBy,
+			&i.Metadata,
+			&i.AccountEmail,
+			&i.AccountName,
+			&i.AccountType,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listServiceTokensByAccount = `-- name: ListServiceTokensByAccount :many
-SELECT id, account_id, name, token_hash, created_at, last_used_at, expires_at, rotated_at, revoked_at FROM service_tokens
+SELECT id, account_id, name, token_hash, created_at, last_used_at, expires_at, rotated_at, revoked_at, description, scopes, max_uses, use_count, rotation_policy, ip_whitelist, user_agent_pattern, created_by, metadata FROM service_tokens
 WHERE account_id = $1
 ORDER BY created_at DESC
 `
@@ -109,6 +265,15 @@ func (q *Queries) ListServiceTokensByAccount(ctx context.Context, accountID uuid
 			&i.ExpiresAt,
 			&i.RotatedAt,
 			&i.RevokedAt,
+			&i.Description,
+			&i.Scopes,
+			&i.MaxUses,
+			&i.UseCount,
+			&i.RotationPolicy,
+			&i.IpWhitelist,
+			&i.UserAgentPattern,
+			&i.CreatedBy,
+			&i.Metadata,
 		); err != nil {
 			return nil, err
 		}
@@ -118,6 +283,64 @@ func (q *Queries) ListServiceTokensByAccount(ctx context.Context, accountID uuid
 		return nil, err
 	}
 	return items, nil
+}
+
+const listServiceTokensNeedingRotation = `-- name: ListServiceTokensNeedingRotation :many
+SELECT id, account_id, name, token_hash, created_at, last_used_at, expires_at, rotated_at, revoked_at, description, scopes, max_uses, use_count, rotation_policy, ip_whitelist, user_agent_pattern, created_by, metadata FROM service_tokens
+WHERE revoked_at IS NULL
+  AND rotation_policy IS NOT NULL
+  AND rotation_policy->>'auto_rotate' = 'true'
+  AND rotation_policy->>'rotation_interval_days' IS NOT NULL
+  AND rotated_at IS NOT NULL
+  AND rotated_at + (rotation_policy->>'rotation_interval_days')::INTEGER * INTERVAL '1 day' < NOW()
+`
+
+func (q *Queries) ListServiceTokensNeedingRotation(ctx context.Context) ([]ServiceToken, error) {
+	rows, err := q.db.Query(ctx, listServiceTokensNeedingRotation)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ServiceToken{}
+	for rows.Next() {
+		var i ServiceToken
+		if err := rows.Scan(
+			&i.ID,
+			&i.AccountID,
+			&i.Name,
+			&i.TokenHash,
+			&i.CreatedAt,
+			&i.LastUsedAt,
+			&i.ExpiresAt,
+			&i.RotatedAt,
+			&i.RevokedAt,
+			&i.Description,
+			&i.Scopes,
+			&i.MaxUses,
+			&i.UseCount,
+			&i.RotationPolicy,
+			&i.IpWhitelist,
+			&i.UserAgentPattern,
+			&i.CreatedBy,
+			&i.Metadata,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const markTokensForRotation = `-- name: MarkTokensForRotation :exec
+SELECT auto_rotate_service_tokens()
+`
+
+func (q *Queries) MarkTokensForRotation(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, markTokensForRotation)
+	return err
 }
 
 const revokeServiceToken = `-- name: RevokeServiceToken :exec
@@ -138,7 +361,9 @@ SET
   rotated_at = NOW(),
   created_at = NOW(),
   expires_at = $3,
-  last_used_at = NULL
+  last_used_at = NULL,
+  use_count = 0,
+  metadata = COALESCE(metadata, '{}'::jsonb) - 'needs_rotation'
 WHERE id = $1
 `
 
@@ -153,9 +378,52 @@ func (q *Queries) RotateServiceToken(ctx context.Context, arg RotateServiceToken
 	return err
 }
 
+const updateServiceToken = `-- name: UpdateServiceToken :exec
+UPDATE service_tokens
+SET
+  name = $2,
+  description = $3,
+  scopes = $4,
+  max_uses = $5,
+  rotation_policy = $6,
+  ip_whitelist = $7,
+  user_agent_pattern = $8,
+  metadata = $9
+WHERE id = $1
+`
+
+type UpdateServiceTokenParams struct {
+	ID               uuid.UUID `json:"id"`
+	Name             string    `json:"name"`
+	Description      *string   `json:"description"`
+	Scopes           []string  `json:"scopes"`
+	MaxUses          *int32    `json:"max_uses"`
+	RotationPolicy   []byte    `json:"rotation_policy"`
+	IpWhitelist      []string  `json:"ip_whitelist"`
+	UserAgentPattern *string   `json:"user_agent_pattern"`
+	Metadata         []byte    `json:"metadata"`
+}
+
+func (q *Queries) UpdateServiceToken(ctx context.Context, arg UpdateServiceTokenParams) error {
+	_, err := q.db.Exec(ctx, updateServiceToken,
+		arg.ID,
+		arg.Name,
+		arg.Description,
+		arg.Scopes,
+		arg.MaxUses,
+		arg.RotationPolicy,
+		arg.IpWhitelist,
+		arg.UserAgentPattern,
+		arg.Metadata,
+	)
+	return err
+}
+
 const updateServiceTokenLastUsed = `-- name: UpdateServiceTokenLastUsed :exec
 UPDATE service_tokens
-SET last_used_at = NOW()
+SET 
+  last_used_at = NOW(),
+  use_count = use_count + 1
 WHERE id = $1
 `
 

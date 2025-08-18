@@ -74,6 +74,30 @@ type Account struct {
 	Phone         *string          `json:"phone"`
 }
 
+type ActiveServiceToken struct {
+	ID               uuid.UUID          `json:"id"`
+	AccountID        uuid.UUID          `json:"account_id"`
+	Name             string             `json:"name"`
+	TokenHash        string             `json:"token_hash"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	LastUsedAt       *time.Time         `json:"last_used_at"`
+	ExpiresAt        *time.Time         `json:"expires_at"`
+	RotatedAt        *time.Time         `json:"rotated_at"`
+	RevokedAt        *time.Time         `json:"revoked_at"`
+	Description      *string            `json:"description"`
+	Scopes           []string           `json:"scopes"`
+	MaxUses          *int32             `json:"max_uses"`
+	UseCount         *int32             `json:"use_count"`
+	RotationPolicy   []byte             `json:"rotation_policy"`
+	IpWhitelist      []string           `json:"ip_whitelist"`
+	UserAgentPattern *string            `json:"user_agent_pattern"`
+	CreatedBy        pgtype.UUID        `json:"created_by"`
+	Metadata         []byte             `json:"metadata"`
+	AccountEmail     string             `json:"account_email"`
+	AccountName      string             `json:"account_name"`
+	AccountType      AccountType        `json:"account_type"`
+}
+
 type Permission struct {
 	ID          uuid.UUID        `json:"id"`
 	Name        string           `json:"name"`
@@ -105,15 +129,24 @@ type RolePermissionsView struct {
 }
 
 type ServiceToken struct {
-	ID         uuid.UUID          `json:"id"`
-	AccountID  uuid.UUID          `json:"account_id"`
-	Name       string             `json:"name"`
-	TokenHash  string             `json:"token_hash"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	LastUsedAt *time.Time         `json:"last_used_at"`
-	ExpiresAt  *time.Time         `json:"expires_at"`
-	RotatedAt  *time.Time         `json:"rotated_at"`
-	RevokedAt  *time.Time         `json:"revoked_at"`
+	ID               uuid.UUID          `json:"id"`
+	AccountID        uuid.UUID          `json:"account_id"`
+	Name             string             `json:"name"`
+	TokenHash        string             `json:"token_hash"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	LastUsedAt       *time.Time         `json:"last_used_at"`
+	ExpiresAt        *time.Time         `json:"expires_at"`
+	RotatedAt        *time.Time         `json:"rotated_at"`
+	RevokedAt        *time.Time         `json:"revoked_at"`
+	Description      *string            `json:"description"`
+	Scopes           []string           `json:"scopes"`
+	MaxUses          *int32             `json:"max_uses"`
+	UseCount         *int32             `json:"use_count"`
+	RotationPolicy   []byte             `json:"rotation_policy"`
+	IpWhitelist      []string           `json:"ip_whitelist"`
+	UserAgentPattern *string            `json:"user_agent_pattern"`
+	CreatedBy        pgtype.UUID        `json:"created_by"`
+	Metadata         []byte             `json:"metadata"`
 }
 
 type Social struct {

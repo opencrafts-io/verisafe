@@ -1,15 +1,17 @@
 package handlers
 
 import (
+	"crypto/rand"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/opencrafts-io/verisafe/internal/config"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/repository"
@@ -51,9 +53,87 @@ func (ah *AccountHandler) RegisterHandlers(router *http.ServeMux) {
 	)
 }
 
-// Creates a bot account and an initial access token
+// BotAccountRequest represents the request to create a bot account with enhanced service token
+type BotAccountRequest struct {
+	Account struct {
+		Email     string  `json:"email" validate:"required,email"`
+		Name      string  `json:"name" validate:"required,min=1,max=100"`
+		AvatarUrl *string `json:"avatar_url"`
+	} `json:"account"`
+	ServiceToken struct {
+		Name             string                 `json:"name" validate:"required,min=1,max=100"`
+		Description      *string                `json:"description"`
+		ExpiresInDays    *int                   `json:"expires_in_days" validate:"omitempty,min=1,max=3650"`
+		Scopes           []string               `json:"scopes"`
+		MaxUses          *int                   `json:"max_uses" validate:"omitempty,min=1"`
+		RotationPolicy   *RotationPolicy        `json:"rotation_policy"`
+		IPWhitelist      []string               `json:"ip_whitelist"`
+		UserAgentPattern *string                `json:"user_agent_pattern"`
+		Metadata         map[string]interface{} `json:"metadata"`
+	} `json:"service_token"`
+}
+
+// RotationPolicy defines token rotation behavior
+type RotationPolicy struct {
+	AutoRotate           bool `json:"auto_rotate"`
+	RotationIntervalDays int  `json:"rotation_interval_days" validate:"omitempty,min=1,max=365"`
+	NotifyBeforeDays     int  `json:"notify_before_days" validate:"omitempty,min=1,max=30"`
+}
+
+// BotAccountResponse represents the response for bot account creation with token
+type BotAccountResponse struct {
+	Account struct {
+		ID        uuid.UUID `json:"id"`
+		Email     string    `json:"email"`
+		Name      string    `json:"name"`
+		Type      string    `json:"type"`
+		CreatedAt time.Time `json:"created_at"`
+	} `json:"account"`
+	ServiceToken struct {
+		ID          uuid.UUID              `json:"id"`
+		Name        string                 `json:"name"`
+		Description *string                `json:"description"`
+		Token       string                 `json:"token"`
+		ExpiresAt   *time.Time             `json:"expires_at"`
+		Scopes      []string               `json:"scopes"`
+		MaxUses     *int                   `json:"max_uses"`
+		CreatedAt   time.Time              `json:"created_at"`
+		Metadata    map[string]interface{} `json:"metadata"`
+	} `json:"service_token"`
+}
+
+// Creates a bot account with an enhanced service token
 func (ah *AccountHandler) CreateBotAccount(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+
+	// Parse request
+	var req BotAccountRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		ah.Logger.Error("Failed to parse request body", slog.String("error", err.Error()))
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Invalid request body",
+		})
+		return
+	}
+
+	// Validate request
+	if req.Account.Email == "" || req.Account.Name == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Email and name are required",
+		})
+		return
+	}
+
+	if req.ServiceToken.Name == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Service token name is required",
+		})
+		return
+	}
+
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
 		ah.Logger.Error("Error while processing request", slog.Any("error", err))
@@ -64,22 +144,26 @@ func (ah *AccountHandler) CreateBotAccount(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	tx, _ := conn.Begin(r.Context())
-	defer tx.Rollback(r.Context())
-	repo := repository.New(tx)
-
-	var accData repository.CreateAccountParams
-
-	if err := json.NewDecoder(r.Body).Decode(&accData); err != nil || accData.Name == "" {
-		ah.Logger.Error("Failed to parse request body", slog.Any("error", err))
-		w.WriteHeader(http.StatusBadRequest)
+	tx, err := conn.Begin(r.Context())
+	if err != nil {
+		ah.Logger.Error("Error while beginning transaction", slog.Any("error", err))
+		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
-			"error": "Please check your request body and try again",
+			"error": "We ran into a problem while servicing your request please try again later",
 		})
 		return
 	}
+	defer tx.Rollback(r.Context())
 
-	accData.Type = repository.AccountTypeBot
+	repo := repository.New(tx)
+
+	// Create bot account
+	accData := repository.CreateAccountParams{
+		Email:     req.Account.Email,
+		Name:      req.Account.Name,
+		Type:      repository.AccountTypeBot,
+		AvatarUrl: req.Account.AvatarUrl,
+	}
 
 	created, err := repo.CreateAccount(r.Context(), accData)
 	if err != nil {
@@ -94,6 +178,7 @@ func (ah *AccountHandler) CreateBotAccount(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Assign bot role
 	role, err := repo.GetRoleByName(r.Context(), "bot")
 	if err != nil {
 		ah.Logger.Error("Failed to retrieve bot role",
@@ -121,36 +206,84 @@ func (ah *AccountHandler) CreateBotAccount(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Generate an access key for the bot account
-	token, err := utils.GenerateJWT(created.ID, *ah.Cfg)
+	// Generate secure service token
+	token, err := ah.generateSecureToken()
 	if err != nil {
+		ah.Logger.Error("Failed to generate secure token", slog.String("error", err.Error()))
 		w.WriteHeader(http.StatusInternalServerError)
-		ah.Logger.Info("Error while trying to retrieve user perms",
-			slog.Any("error", err),
-		)
-		http.Error(w, "Failed to fetch your authorization details", http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Failed to generate service token",
+		})
 		return
 	}
 
-	expiry := time.Now().Add(time.Hour * 24 * 30)
+	// Calculate expiry
+	var expiresAt *time.Time
+	if req.ServiceToken.ExpiresInDays != nil {
+		expiry := time.Now().AddDate(0, 0, *req.ServiceToken.ExpiresInDays)
+		expiresAt = &expiry
+	} else {
+		// Default to 1 year
+		expiry := time.Now().AddDate(1, 0, 0)
+		expiresAt = &expiry
+	}
 
-	// store the token hash
-	cachedToken, err := repo.CreateServiceToken(r.Context(), repository.CreateServiceTokenParams{
-		AccountID: created.ID,
-		Name:      fmt.Sprintf("Default token for %s", created.Name),
-		TokenHash: utils.HashToken(token),
-		ExpiresAt: &expiry,
+	// Prepare rotation policy
+	var rotationPolicyJSON []byte
+	if req.ServiceToken.RotationPolicy != nil {
+		rotationPolicyJSON, err = json.Marshal(req.ServiceToken.RotationPolicy)
+		if err != nil {
+			ah.Logger.Error("Failed to marshal rotation policy", slog.String("error", err.Error()))
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{
+				"error": "Invalid rotation policy",
+			})
+			return
+		}
+	}
+
+	// Prepare metadata
+	var metadataJSON []byte
+	if req.ServiceToken.Metadata != nil {
+		metadataJSON, err = json.Marshal(req.ServiceToken.Metadata)
+		if err != nil {
+			ah.Logger.Error("Failed to marshal metadata", slog.String("error", err.Error()))
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{
+				"error": "Invalid metadata",
+			})
+			return
+		}
+	}
+
+	// Create service token
+	serviceToken, err := repo.CreateServiceToken(r.Context(), repository.CreateServiceTokenParams{
+		AccountID:   created.ID,
+		Name:        req.ServiceToken.Name,
+		Description: req.ServiceToken.Description,
+		TokenHash:   utils.HashToken(token),
+		ExpiresAt:   expiresAt,
+		Scopes:      req.ServiceToken.Scopes,
+		MaxUses: func() *int32 {
+			if req.ServiceToken.MaxUses == nil {
+				return nil
+			}
+			val := int32(*req.ServiceToken.MaxUses)
+			return &val
+		}(),
+		RotationPolicy:   rotationPolicyJSON,
+		IpWhitelist:      req.ServiceToken.IPWhitelist,
+		UserAgentPattern: req.ServiceToken.UserAgentPattern,
+		CreatedBy:        pgtype.UUID{Bytes: created.ID, Valid: true},
+		Metadata:         metadataJSON,
 	})
 	if err != nil {
+		ah.Logger.Error("Failed to create service token", slog.String("error", err.Error()))
 		w.WriteHeader(http.StatusInternalServerError)
-		ah.Logger.Info("Error while trying to store token",
-			slog.Any("error", err),
-		)
-		json.NewEncoder(w).Encode(map[string]any{
-			"error": "Failed to cache service token",
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Failed to create service token",
 		})
 		return
-
 	}
 
 	if err = tx.Commit(r.Context()); err != nil {
@@ -162,12 +295,51 @@ func (ah *AccountHandler) CreateBotAccount(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Prepare response
+	response := BotAccountResponse{}
+
+	// Account info
+	response.Account.ID = created.ID
+	response.Account.Email = created.Email
+	response.Account.Name = created.Name
+	response.Account.Type = string(created.Type)
+	response.Account.CreatedAt = created.CreatedAt.Time
+
+	// Service token info
+	response.ServiceToken.ID = serviceToken.ID
+	response.ServiceToken.Name = serviceToken.Name
+	response.ServiceToken.Description = serviceToken.Description
+	response.ServiceToken.Token = token
+	response.ServiceToken.ExpiresAt = serviceToken.ExpiresAt
+	response.ServiceToken.Scopes = serviceToken.Scopes
+	response.ServiceToken.MaxUses = func() *int {
+		if serviceToken.MaxUses == nil {
+			return nil
+		}
+		val := int(*serviceToken.MaxUses)
+		return &val
+	}()
+	response.ServiceToken.CreatedAt = serviceToken.CreatedAt.Time
+
+	if serviceToken.Metadata != nil {
+		json.Unmarshal(serviceToken.Metadata, &response.ServiceToken.Metadata)
+	}
+
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]any{
-		"x-api-key": token,
-		"expiry":    cachedToken.ExpiresAt,
-		"account":   created,
-	})
+	json.NewEncoder(w).Encode(response)
+}
+
+// generateSecureToken generates a cryptographically secure token
+func (ah *AccountHandler) generateSecureToken() (string, error) {
+	// Generate 32 bytes of random data
+	bytes := make([]byte, 32)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+
+	// Encode as base64 and add prefix for identification
+	token := "vst_" + base64.URLEncoding.EncodeToString(bytes)
+	return token, nil
 }
 
 func (ah *AccountHandler) GetPersonalAccount(w http.ResponseWriter, r *http.Request) {
