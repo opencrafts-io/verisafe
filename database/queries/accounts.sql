@@ -15,8 +15,8 @@ WHERE id = $1;
 -- name: SearchAccountByEmail :many
 SELECT * FROM accounts 
 WHERE lower(email) LIKE '%' || lower($1) || '%'
-LIMIT $1
-OFFSET $2
+LIMIT $2
+OFFSET $3
 ;
 
 -- name: GetAccountByEmail :one
@@ -36,7 +36,12 @@ LIMIT $2
 OFFSET $3
 ;
 
-
+-- name: SearchAccountByUsername :many
+SELECT * FROM accounts 
+WHERE lower(username) LIKE '%' || lower($1) || '%'
+LIMIT $2
+OFFSET $3
+;
 
 -- name: UpdateAccountDetails :exec
 UPDATE accounts

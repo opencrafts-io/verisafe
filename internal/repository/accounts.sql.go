@@ -181,17 +181,18 @@ func (q *Queries) GetAllAccounts(ctx context.Context, arg GetAllAccountsParams) 
 const searchAccountByEmail = `-- name: SearchAccountByEmail :many
 SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type, national_id, username, avatar_url, bio, vibe_points, phone FROM accounts 
 WHERE lower(email) LIKE '%' || lower($1) || '%'
-LIMIT $1
-OFFSET $2
+LIMIT $2
+OFFSET $3
 `
 
 type SearchAccountByEmailParams struct {
-	Limit  int32 `json:"limit"`
-	Offset int32 `json:"offset"`
+	Lower  string `json:"lower"`
+	Limit  int32  `json:"limit"`
+	Offset int32  `json:"offset"`
 }
 
 func (q *Queries) SearchAccountByEmail(ctx context.Context, arg SearchAccountByEmailParams) ([]Account, error) {
-	rows, err := q.db.Query(ctx, searchAccountByEmail, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, searchAccountByEmail, arg.Lower, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -240,6 +241,54 @@ type SearchAccountByNameParams struct {
 
 func (q *Queries) SearchAccountByName(ctx context.Context, arg SearchAccountByNameParams) ([]Account, error) {
 	rows, err := q.db.Query(ctx, searchAccountByName, arg.Lower, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Account{}
+	for rows.Next() {
+		var i Account
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.Name,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.TermsAccepted,
+			&i.Onboarded,
+			&i.Type,
+			&i.NationalID,
+			&i.Username,
+			&i.AvatarUrl,
+			&i.Bio,
+			&i.VibePoints,
+			&i.Phone,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const searchAccountByUsername = `-- name: SearchAccountByUsername :many
+SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type, national_id, username, avatar_url, bio, vibe_points, phone FROM accounts 
+WHERE lower(username) LIKE '%' || lower($1) || '%'
+LIMIT $2
+OFFSET $3
+`
+
+type SearchAccountByUsernameParams struct {
+	Lower  string `json:"lower"`
+	Limit  int32  `json:"limit"`
+	Offset int32  `json:"offset"`
+}
+
+func (q *Queries) SearchAccountByUsername(ctx context.Context, arg SearchAccountByUsernameParams) ([]Account, error) {
+	rows, err := q.db.Query(ctx, searchAccountByUsername, arg.Lower, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
