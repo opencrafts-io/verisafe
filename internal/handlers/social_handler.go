@@ -25,8 +25,8 @@ func (sh *SocialHandler) RegisterRoutes(cfg *config.Config, router *http.ServeMu
 	)
 	router.Handle("GET /socials/user/{user_id}",
 		middleware.CreateStack(
-		// middleware.IsAuthenticated(cfg, sh.Logger),
-		// middleware.HasPermission([]string{"read:account:own"}),
+			middleware.IsAuthenticated(cfg, sh.Logger),
+			middleware.HasPermission([]string{"read:account:any"}),
 		)(http.HandlerFunc(sh.GetUserIDSocials)),
 	)
 
