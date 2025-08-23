@@ -164,6 +164,53 @@ func (q *Queries) GetAccountByProvider(ctx context.Context, arg GetAccountByProv
 	return items, nil
 }
 
+const getAllAccountSocials = `-- name: GetAllAccountSocials :many
+SELECT user_id, id_token, account_id, provider, email, name, first_name, last_name, nick_name, description, avatar_url, location, access_token, access_token_secret, refresh_token, expires_at, created_at, updated_at FROM socials
+WHERE account_id = $1
+`
+
+// Returns a list of oauth providers that they've granted
+// note that the results are not paginated since we dont support a
+// whole lot of social oauth providers
+func (q *Queries) GetAllAccountSocials(ctx context.Context, accountID uuid.UUID) ([]Social, error) {
+	rows, err := q.db.Query(ctx, getAllAccountSocials, accountID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Social{}
+	for rows.Next() {
+		var i Social
+		if err := rows.Scan(
+			&i.UserID,
+			&i.IDToken,
+			&i.AccountID,
+			&i.Provider,
+			&i.Email,
+			&i.Name,
+			&i.FirstName,
+			&i.LastName,
+			&i.NickName,
+			&i.Description,
+			&i.AvatarUrl,
+			&i.Location,
+			&i.AccessToken,
+			&i.AccessTokenSecret,
+			&i.RefreshToken,
+			&i.ExpiresAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getSocialByExternalUserID = `-- name: GetSocialByExternalUserID :one
 SELECT user_id, id_token, account_id, provider, email, name, first_name, last_name, nick_name, description, avatar_url, location, access_token, access_token_secret, refresh_token, expires_at, created_at, updated_at FROM socials
 WHERE user_id = $1
@@ -198,45 +245,45 @@ func (q *Queries) GetSocialByExternalUserID(ctx context.Context, userID string) 
 const updateSocial = `-- name: UpdateSocial :one
 UPDATE socials
 SET
-    provider = COALESCE($2, provider),
-    email = COALESCE($3, email),
-    name = COALESCE($4, name),
-    first_name = COALESCE($5, first_name),
-    last_name = COALESCE($6, last_name),
-    nick_name = COALESCE($7, nick_name),
-    description = COALESCE($8, description),
-    avatar_url = COALESCE($9, avatar_url),
-    location = COALESCE($10, location),
-    access_token = COALESCE($11, access_token),
-    access_token_secret = COALESCE($12, access_token_secret),
-    refresh_token = COALESCE($13, refresh_token),
-    expires_at = COALESCE($14, expires_at),
+    email = COALESCE(NULLIF($4::varchar,''), email),
+    name = COALESCE(NULLIF($5::varchar,''), name),
+    first_name = COALESCE(NULLIF($6::varchar,''), first_name),
+    last_name = COALESCE(NULLIF($7::varchar,''), last_name),
+    nick_name = COALESCE(NULLIF($8::varchar,''), nick_name),
+    description = COALESCE(NULLIF($9::text,''), description),
+    avatar_url = COALESCE(NULLIF($10::text,''), avatar_url),
+    location = COALESCE(NULLIF($11::varchar,''), location),
+    refresh_token = COALESCE(NULLIF($12::text,''), refresh_token),
+    access_token = COALESCE(NULLIF($13::text,''), access_token),
+    access_token_secret = COALESCE(NULLIF($14::text,''), access_token_secret),
+    expires_at = COALESCE($3, expires_at),
     updated_at = NOW()
-WHERE account_id = $1
+WHERE user_id = $1 AND provider = $2
 RETURNING user_id, id_token, account_id, provider, email, name, first_name, last_name, nick_name, description, avatar_url, location, access_token, access_token_secret, refresh_token, expires_at, created_at, updated_at
 `
 
 type UpdateSocialParams struct {
-	AccountID         uuid.UUID        `json:"account_id"`
+	UserID            string           `json:"user_id"`
 	Provider          string           `json:"provider"`
-	Email             *string          `json:"email"`
-	Name              *string          `json:"name"`
-	FirstName         *string          `json:"first_name"`
-	LastName          *string          `json:"last_name"`
-	NickName          *string          `json:"nick_name"`
-	Description       *string          `json:"description"`
-	AvatarUrl         *string          `json:"avatar_url"`
-	Location          *string          `json:"location"`
-	AccessToken       *string          `json:"access_token"`
-	AccessTokenSecret *string          `json:"access_token_secret"`
-	RefreshToken      *string          `json:"refresh_token"`
 	ExpiresAt         pgtype.Timestamp `json:"expires_at"`
+	Email             string           `json:"email"`
+	Name              string           `json:"name"`
+	FirstName         string           `json:"first_name"`
+	LastName          string           `json:"last_name"`
+	NickName          string           `json:"nick_name"`
+	Description       string           `json:"description"`
+	AvatarUrl         string           `json:"avatar_url"`
+	Location          string           `json:"location"`
+	RefreshToken      string           `json:"refresh_token"`
+	AccessToken       string           `json:"access_token"`
+	AccessTokenSecret string           `json:"access_token_secret"`
 }
 
 func (q *Queries) UpdateSocial(ctx context.Context, arg UpdateSocialParams) (Social, error) {
 	row := q.db.QueryRow(ctx, updateSocial,
-		arg.AccountID,
+		arg.UserID,
 		arg.Provider,
+		arg.ExpiresAt,
 		arg.Email,
 		arg.Name,
 		arg.FirstName,
@@ -245,10 +292,9 @@ func (q *Queries) UpdateSocial(ctx context.Context, arg UpdateSocialParams) (Soc
 		arg.Description,
 		arg.AvatarUrl,
 		arg.Location,
+		arg.RefreshToken,
 		arg.AccessToken,
 		arg.AccessTokenSecret,
-		arg.RefreshToken,
-		arg.ExpiresAt,
 	)
 	var i Social
 	err := row.Scan(

@@ -1,0 +1,729 @@
+{
+	"info": {
+		"_postman_id": "7938aa41-56c5-4661-aa98-628d4afb5c9c",
+		"name": "Verisafe",
+		"description": "# Verisafe API Collection\n\n**Verisafe** is the authentication and authorization service for the Academia platform. It is responsible for:\n\n- Managing user accounts and sessions for the Academia Platform\n    \n- Enforcing role-based access control (RBAC)\n    \n- Issuing and verifying JWTs for secure communication\n    \n- Assigning roles and permissions to users\n    \n- Providing endpoints for managing accounts, roles, and permissions\n    \n\nThis Postman collection provides a complete set of requests to interact with Verisafe's public and admin APIs. Use it to:\n\n- Create and authenticate users\n    \n- Assign roles and permissions\n    \n- Inspect access control rules\n    \n- Test protected endpoints with JWTs\n    \n\n> 🔐 Verisafe is built using Go and PostgreSQL, leveraging `sqlc` for type-safe database access. \n  \n\n---\n\nMake sure to set your `Authorization` header with a valid bearer token where required. You can use the pre-request scripts or environment variables provided in this collection.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "30801636"
+	},
+	"item": [
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "authenticate",
+					"request": {
+						"method": "GET",
+						"header": []
+					},
+					"response": []
+				},
+				{
+					"name": "Get Bot Access token",
+					"request": {
+						"method": "GET",
+						"header": []
+					},
+					"response": []
+				}
+			],
+			"description": "# 🔐 Verisafe Auth Module\n\nVerisafe handles **OAuth-based authentication** for the Academia ecosystem. It supports multiple third-party providers and does **not** use traditional email/password login.\n\n## ✅ Supported OAuth Providers\n\n- Google\n    \n- Microsoft\n    \n- Apple\n    \n- Spotify\n    \n- Discord\n    \n\nUsers authenticate using their provider of choice. Upon successful login, Verisafe issues a **JWT token** used for authenticating with protected services.\n\n---\n\n## 🚀 Authentication Flow\n\n1. **Frontend** initiates OAuth login via the desired provider.\n    \n2. After successful OAuth login, the frontend obtains an **OAuth access token** from the provider.\n    \n3. This token is sent to Verisafe for verification and user provisioning (if new).\n    \n4. Verisafe returns a signed **JWT access token** and **refresh token**.\n    \n\n---\n\n## 🔄 Exchange OAuth Token for Verisafe Token\n\n**Endpoint:** `POST /auth/{provider}`\n\n**Description:** Verifies a provider-issued access token and issues Verisafe tokens\n\n> **Warning** The authentication endpoints might not work with postman. Please try them on the browser to prevent issues"
+		},
+		{
+			"name": "Roles & Permissions",
+			"item": [
+				{
+					"name": "Roles",
+					"item": [
+						{
+							"name": "Create Role",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\":\"Administrator\",\n    \"description\": \"Default role for administrative purposes\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/roles/create",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"roles",
+										"create"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Retrieve Role By ID",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/roles/:id",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"roles",
+										":id"
+									],
+									"variable": [
+										{
+											"key": "id",
+											"value": "aca69d59-ec22-4dc2-8ecf-0b5fc1af63da"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get All Roles",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/roles?limit=10&offset=0",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"roles"
+									],
+									"query": [
+										{
+											"key": "limit",
+											"value": "10"
+										},
+										{
+											"key": "offset",
+											"value": "0"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Retrieve User Roles",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/roles/user/:id",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"roles",
+										"user",
+										":id"
+									],
+									"variable": [
+										{
+											"key": "id",
+											"value": "f40d371f-2e36-4ed4-be75-f242a47b5b3e"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Retrieve Role Permissions",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/roles/permissions/:id",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"roles",
+										"permissions",
+										":id"
+									],
+									"variable": [
+										{
+											"key": "id",
+											"value": "23112f94-b295-42b5-ad9b-255594ef8fdd"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Assign Role To User",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/roles/assign/:user_id/:role_id",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"roles",
+										"assign",
+										":user_id",
+										":role_id"
+									],
+									"variable": [
+										{
+											"key": "user_id",
+											"value": "c07fbcf9-f01d-4d6b-bbd7-a70b5489578b"
+										},
+										{
+											"key": "role_id",
+											"value": "aca69d59-ec22-4dc2-8ecf-0b5fc1af63da"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Revoke Role From User",
+							"request": {
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/roles/revoke/:user_id/:role_id",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"roles",
+										"revoke",
+										":user_id",
+										":role_id"
+									],
+									"variable": [
+										{
+											"key": "user_id",
+											"value": "c07fbcf9-f01d-4d6b-bbd7-a70b5489578b"
+										},
+										{
+											"key": "role_id",
+											"value": "aca69d59-ec22-4dc2-8ecf-0b5fc1af63da"
+										}
+									]
+								}
+							},
+							"response": []
+						}
+					],
+					"description": "# 🧱 Roles in Verisafe\n\nIn Verisafe, a **Role** is a named collection of permissions that define what actions a user can perform within the Academia ecosystem.\n\nRoles simplify access management by grouping relevant permissions under a single name. Instead of assigning individual permissions to users, you assign them one or more roles.\n\n---\n\n## 🧩 Role Structure\n\nEach role contains:\n\n- **`id`** – Unique identifier\n    \n- **`name`** – Human-readable name (e.g. `admin`, `student`, `moderator`, `system`)\n    \n- **`description`** – Optional summary of the role's purpose\n    \n- **`created_at`****,** **`updated_at`** – Audit timestamps\n    \n\n---\n\n## 🧑‍🤝‍🧑 Assigning Roles to Users\n\nUsers can have multiple roles. Each role grants its full set of permissions.\n\n> A user's final access is the union of all permissions granted by their roles. \n  \n\n### Example:\n\nIf a user has both `student` and `club_admin` roles, they inherit all permissions from both roles.\n\n---\n\n## 🚨 Special Role: `system`\n\nVerisafe includes a default role called `system`:\n\n- It is intended for internal services and superusers\n    \n- It is automatically granted **all permissions**\n    \n- Use it with caution — ideal for automated jobs or admin consoles\n    \n\n---\n\n---\n\n## 🛡️ Common Roles\n\n| Role Name | Description |\n| --- | --- |\n| `student` | Basic user of the platform |\n| `admin` | Full control of system resources |\n| `moderator` | Limited admin powers (e.g. content review) |\n| `org_owner` | Manages an organization and its users |\n| `system` | Reserved for internal platform use |\n\n---\n\nTo view or assign permissions to a role, see the **Permissions** section."
+				},
+				{
+					"name": "Permissions",
+					"item": [
+						{
+							"name": "Create Permission",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"delete:task:own\",\n    \"description\":\"Allows for the deletion of only talsks owned by the user\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/permissions/create",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"permissions",
+										"create"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get All Permissions",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/permissions?limit=10&offset=0",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"permissions"
+									],
+									"query": [
+										{
+											"key": "limit",
+											"value": "10"
+										},
+										{
+											"key": "offset",
+											"value": "0"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Retrieve Permission By ID",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/permissions/:id",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"permissions",
+										":id"
+									],
+									"variable": [
+										{
+											"key": "id",
+											"value": "7568297b-1d08-4aee-9795-615e113796e9"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get All User Permissions",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/permissions/user/:id",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"permissions",
+										"user",
+										":id"
+									],
+									"variable": [
+										{
+											"key": "id",
+											"value": "c07fbcf9-f01d-4d6b-bbd7-a70b5489578b"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Update Permission",
+							"request": {
+								"method": "PATCH",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"id\": \"eb63ea68-2dae-4591-84a1-0c9e2d4dbd7c\",\n    \"name\": \"delete:task:any\",\n    \"description\": \"Allows for the deletion of only talsks owned by any user\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/permissions/",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"permissions",
+										""
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Assign Permission to Role",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/permissions/assign/:perm_id/:role_id",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"permissions",
+										"assign",
+										":perm_id",
+										":role_id"
+									],
+									"variable": [
+										{
+											"key": "perm_id",
+											"value": "eb63ea68-2dae-4591-84a1-0c9e2d4dbd7c"
+										},
+										{
+											"key": "role_id",
+											"value": "aca69d59-ec22-4dc2-8ecf-0b5fc1af63da"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Revoke Permission From Role",
+							"request": {
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/permissions/revoke/:perm_id/:role_id",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"permissions",
+										"revoke",
+										":perm_id",
+										":role_id"
+									],
+									"variable": [
+										{
+											"key": "perm_id",
+											"value": "eb63ea68-2dae-4591-84a1-0c9e2d4dbd7c"
+										},
+										{
+											"key": "role_id",
+											"value": "aca69d59-ec22-4dc2-8ecf-0b5fc1af63da"
+										}
+									]
+								}
+							},
+							"response": []
+						}
+					],
+					"description": "# 🛡️ Permissions in Verisafe\n\nPermissions in Verisafe define **what actions a user can perform** in the system. They are the core units of access control, and are always assigned **via roles** — users do not receive permissions directly.\n\n---\n\n## 🎯 Permission Format\n\nEach permission is a string following the format:  \n  \n\n```\naction:entity:scope\n\n ```\n\n### 🔍 Breakdown:\n\n- **action**: What the user can do (`create`, `read`, `update`, `delete`, etc.)\n    \n- **entity**: What the action applies to (`task`, `course`, `account`, etc.)\n    \n- **scope**: Who or what the permission applies to (`own`, `any`, or custom values)\n    \n\n### ✅ Examples:\n\n| Permission | Meaning |\n| --- | --- |\n| `read:task:own` | Can read their own tasks |\n| `delete:course:any` | Can delete any course |\n| `update:account:own` | Can update their own account details |\n| `manage:organization:own` | Can manage the organization they belong to |\n\n---\n\n## 📌 Defining Permissions\n\nPermissions are stored centrally in a `permissions` table and associated with roles via a join table (`role_permissions`). This makes it easy to:\n\n- Reuse permissions across roles\n    \n- Add/remove permissions without modifying role logic\n    \n- Enforce access checks consistently across services\n    \n\n---\n\n## ⚙️ Assigning Permissions\n\nPermissions are **not assigned directly to users**. Instead:\n\n1. Permissions are linked to **Roles**\n    \n2. Roles are assigned to **Users**\n    \n\nThis makes permission management scalable and easier to reason about.\n\n---\n\n## 🚨 Important Notes\n\n- The `system` role automatically receives **all permissions**.\n    \n- Permissions should be **as granular as needed** for fine control.\n    \n- Always use consistent naming to avoid confusion.\n    \n\n---\n\n## 🔄 Common Permissions Examples\n\n| Permission | Use Case |\n| --- | --- |\n| `create:post:own` | A user creating their own post |\n| `approve:comment:any` | A moderator approving any comment |\n| `view:grades:own` | A student viewing their own grades |\n| `export:report:any` | An admin exporting platform-wide data |\n\n---\n\n> 🔐 Verisafe's authorization layer uses these permissions to enforce Role-Based Access Control (RBAC) across Academia and its microservices."
+				}
+			],
+			"description": "# 🛡️ Roles & Permissions\n\nVerisafe uses **Role-Based Access Control (RBAC)** to manage what users can and cannot do across the Academia platform and its microservices.\n\n---\n\n## 🧱 Roles\n\nA **role** is a named group of permissions.\n\n- Users can have one or more roles.\n    \n- Roles are assigned at the account level.\n    \n- Each role represents a level of access or responsibility (e.g. `admin`, `student`, `moderator`, `system`).\n    \n\n---\n\n## 🧾 Permissions\n\nEach permission follows the format:\n\n```\naction:entity:scope\n\n ```\n\n### ✅ Components:\n\n- **`action`** — What is being done (`create`, `read`, `update`, `delete`, etc.)\n    \n- **`entity`** — The resource or object (`task`, `account`, `course`, `message`, etc.)\n    \n- **`scope`** — Context or boundary of access (`own`, `any`, `global`, `organization`, etc.)\n    \n\n### 🔍 Examples:\n\n| Permission | Meaning |\n| --- | --- |\n| `read:task:own` | Can read their own tasks |\n| `update:account:own` | Can update their own account profile |\n| `delete:course:any` | Can delete any course (admin-level) |\n| `create:message:global` | Can create messages platform-wide |\n\n---\n\n## 🛠️ Assigning Roles & Permissions\n\n- Roles are created with a name and description.\n    \n- Permissions are then linked to roles.\n    \n- When a user is assigned a role, they inherit all its permissions.\n    \n\n### Example Flow:\n\n1. Create role `student`\n    \n2. Add permissions:\n    \n    - `read:task:own`\n        \n    - `update:account:own`\n        \n3. Assign role `student` to user `john.doe@campus.edu`\n    \n\n---\n\n## 🔐 System Role\n\nVerisafe has a special role called `system` that contains **all permissions**. It is reserved for internal services and trusted automation agents.\n\nUse this role cautiously.\n\n---\n\n## 📌 Enforcement\n\nAuthorization is enforced by:\n\n- Checking if a user's roles contain the required permission\n    \n- Matching the requested action with `action:entity:scope`\n    \n\nServices using Verisafe should enforce permissions via middleware or guards at the application level.\n\n---\n\nFor more on how to check and evaluate permissions, see the Authorization endpoints section."
+		},
+		{
+			"name": "Accounts",
+			"item": [
+				{
+					"name": "Get Personal Account Info",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/accounts/me",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"accounts",
+								"me"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Bot Account",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Chirp\",\n    \"email\": \"chirp@opencrafts.io\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/accounts/bot/create",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"accounts",
+								"bot",
+								"create"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Personal Account Info",
+					"request": {
+						"method": "PATCH",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"id\": \"cbd3b75a-7fdf-4196-860e-94636f5ceb3a\",\n    \"email\": \"hearteric57@gmail.com\",\n    \"name\": \"Erick Heart\",\n    \"created_at\": \"2025-07-16T06:53:49.418848\",\n    \"updated_at\": \"2025-07-16T06:53:49.418848\",\n    \"terms_accepted\": false,\n    \"onboarded\": false,\n    \"type\": \"human\",\n    \"national_id\": \"12345678\",\n    \"username\": \"ericko\",\n    \"avatar_url\": null,\n    \"bio\": null,\n    \"vibe_points\": 0,\n    \"phone\": null\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/accounts/me",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"accounts",
+								"me"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Search for user",
+					"request": {
+						"method": "GET",
+						"header": []
+					},
+					"response": []
+				},
+				{
+					"name": "Get account by email",
+					"request": {
+						"auth": {
+							"type": "apikey",
+							"apikey": [
+								{
+									"key": "value",
+									"value": "{{api-key}}",
+									"type": "string"
+								},
+								{
+									"key": "key",
+									"value": "X-Api-Key",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/accounts/search/email?q=gmail.com",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"accounts",
+								"search",
+								"email"
+							],
+							"query": [
+								{
+									"key": "q",
+									"value": "gmail.com"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Account by username",
+					"request": {
+						"auth": {
+							"type": "apikey",
+							"apikey": [
+								{
+									"key": "value",
+									"value": "{{api-key}}",
+									"type": "string"
+								},
+								{
+									"key": "key",
+									"value": "X-Api-Key",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/accounts/search/username?q=erick",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"accounts",
+								"search",
+								"username"
+							],
+							"query": [
+								{
+									"key": "q",
+									"value": "erick"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get account by name",
+					"request": {
+						"auth": {
+							"type": "apikey",
+							"apikey": [
+								{
+									"key": "value",
+									"value": "{{api-key}}",
+									"type": "string"
+								},
+								{
+									"key": "key",
+									"value": "X-Api-Key",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/accounts/search/name?q=erick",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"accounts",
+								"search",
+								"name"
+							],
+							"query": [
+								{
+									"key": "q",
+									"value": "erick"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"description": "# 🔐 Accounts & Account Types\n\nAll authenticated identities in Verisafe are represented as **Accounts**, each categorized by an `account_type`. This field helps enforce access control and define behavior across different roles in the system.\n\n---\n\n## 🎭 Account Types\n\n### `user`\n\n- A regular human user.\n    \n- Created via login/signup.\n    \n- Can have roles and permissions.\n    \n- Token issued after successful login.\n    \n\n### `organization`\n\n- Represents a group, company, or department.\n    \n- Used for grouping users, branding, and ownership of resources.\n    \n\n### `bot`\n\n- Also known as a **service account**.\n    \n- Used for internal microservice communication.\n    \n- Cannot log in interactively.\n    \n- Generates **Service Tokens** for authentication.\n    \n- Has **full system permissions** by default.\n    \n\n---\n\n## 🧾 See the api requests for more info\n\n  \n  \n\n# Account Search API\n\nThis document describes the account search functionality that provides separate endpoints for searching accounts by different fields with pagination support.\n\n## Overview\n\nThe account search API provides three separate endpoints for searching accounts by specific fields:\n\n- **Email Search**: Search by email address\n    \n- **Name Search**: Search by full name\n    \n- **Username Search**: Search by username\n    \n\nEach search is case-insensitive and uses partial matching (LIKE queries) to find accounts that contain the search term.\n\n## Endpoints\n\n### Email Search\n\n```\nGET /accounts/search/email\n\n ```\n\n### Name Search\n\n```\nGET /accounts/search/name\n\n ```\n\n### Username Search\n\n```\nGET /accounts/search/username\n\n ```\n\n## Authentication\n\nAll endpoints require authentication and the `read:account:any` permission.\n\n## Query Parameters\n\n### Required Parameters\n\n- `q` (string): The search query to find accounts. This parameter is required.\n    \n\n### Optional Parameters\n\n- `limit` (integer): Maximum number of results to return (default: 10, max: 100)\n    \n- `offset` (integer): Number of results to skip for pagination (default: 0)\n    \n\n## Request Examples\n\n### Search by Email\n\n``` bash\ncurl -X GET \"http://localhost:8080/accounts/search/email?q=john@example.com&limit=20&offset=0\" \\\n  -H \"Authorization: Bearer YOUR_JWT_TOKEN\" \\\n  -H \"Content-Type: application/json\"\n\n ```\n\n### Search by Name\n\n``` bash\ncurl -X GET \"http://localhost:8080/accounts/search/name?q=john&limit=20&offset=0\" \\\n  -H \"Authorization: Bearer YOUR_JWT_TOKEN\" \\\n  -H \"Content-Type: application/json\"\n\n ```\n\n### Search by Username\n\n``` bash\ncurl -X GET \"http://localhost:8080/accounts/search/username?q=johndoe&limit=20&offset=0\" \\\n  -H \"Authorization: Bearer YOUR_JWT_TOKEN\" \\\n  -H \"Content-Type: application/json\"\n\n ```\n\n## Response Format\n\n### Success Response (200 OK)\n\n``` json\n{\n  \"accounts\": [\n    {\n      \"id\": \"123e4567-e89b-12d3-a456-426614174000\",\n      \"email\": \"john.doe@example.com\",\n      \"name\": \"John Doe\",\n      \"created_at\": \"2024-01-01T00:00:00Z\",\n      \"updated_at\": \"2024-01-01T00:00:00Z\",\n      \"terms_accepted\": true,\n      \"onboarded\": true,\n      \"type\": \"human\",\n      \"national_id\": \"123456789\",\n      \"username\": \"johndoe\",\n      \"avatar_url\": \"https://example.com/avatar.jpg\",\n      \"bio\": \"Software developer\",\n      \"vibe_points\": 100,\n      \"phone\": \"+1234567890\"\n    }\n  ],\n  \"pagination\": {\n    \"limit\": 20,\n    \"offset\": 0,\n    \"total\": 1\n  },\n  \"query\": \"john\",\n  \"search_type\": \"email\"\n}\n\n ```\n\n### Error Responses\n\n#### 400 Bad Request\n\n``` json\n{\n  \"error\": \"Search query parameter 'q' is required\"\n}\n\n ```\n\n#### 401 Unauthorized\n\n``` json\n{\n  \"error\": \"Unauthorized\"\n}\n\n ```\n\n#### 403 Forbidden\n\n``` json\n{\n  \"error\": \"Insufficient permissions\"\n}\n\n ```\n\n#### 500 Internal Server Error\n\n``` json\n{\n  \"error\": \"We ran into a problem while servicing your request please try again later\"\n}\n\n ```\n\n## Search Behavior\n\n### Email Search (`/accounts/search/email`)\n\n- Searches the `email` field only\n    \n- Case-insensitive partial matching\n    \n- Useful for finding accounts by email domain or partial email addresses\n    \n\n### Name Search (`/accounts/search/name`)\n\n- Searches the `name` field only\n    \n- Case-insensitive partial matching\n    \n- Useful for finding accounts by first name, last name, or full name\n    \n\n### Username Search (`/accounts/search/username`)\n\n- Searches the `username` field only\n    \n- Case-insensitive partial matching\n    \n- Useful for finding accounts by username patterns\n    \n\n### Result Ordering\n\nAll search endpoints return results ordered by:\n\n1. **Creation date**: Newer accounts appear first (DESC order)\n    \n\n### Pagination\n\nAll endpoints support standard pagination using `limit` and `offset` parameters:\n\n- `limit`: Controls how many results to return (1-100)\n    \n- `offset`: Controls how many results to skip\n    \n\n## Usage Examples\n\n### Search by Email Domain\n\n``` bash\n# Search for accounts with specific email domain\ncurl -X GET \"http://localhost:8080/accounts/search/email?q=@example.com\" \\\n  -H \"Authorization: Bearer YOUR_JWT_TOKEN\"\n\n ```\n\n### Search by Partial Name\n\n``` bash\n# Search for accounts with names containing \"doe\"\ncurl -X GET \"http://localhost:8080/accounts/search/name?q=doe\" \\\n  -H \"Authorization: Bearer YOUR_JWT_TOKEN\"\n\n ```\n\n### Search by Username Pattern\n\n``` bash\n# Search for accounts with usernames containing \"john\"\ncurl -X GET \"http://localhost:8080/accounts/search/username?q=john\" \\\n  -H \"Authorization: Bearer YOUR_JWT_TOKEN\"\n\n ```\n\n### Search with Pagination\n\n``` bash\n# Get first 20 results by email\ncurl -X GET \"http://localhost:8080/accounts/search/email?q=john&limit=20&offset=0\" \\\n  -H \"Authorization: Bearer YOUR_JWT_TOKEN\"\n# Get next 20 results by email\ncurl -X GET \"http://localhost:8080/accounts/search/email?q=john&limit=20&offset=20\" \\\n  -H \"Authorization: Bearer YOUR_JWT_TOKEN\"\n\n ```\n\n## Code Examples\n\n### JavaScript/Node.js\n\n``` javascript\nconst searchAccountsByEmail = async (query, limit = 10, offset = 0) => {\n  const response = await fetch(\n    `/accounts/search/email?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}`,\n    {\n      headers: {\n        'Authorization': `Bearer ${token}`,\n        'Content-Type': 'application/json'\n      }\n    }\n  );\n  if (!response.ok) {\n    throw new Error(`HTTP error! status: ${response.status}`);\n  }\n  return await response.json();\n};\nconst searchAccountsByName = async (query, limit = 10, offset = 0) => {\n  const response = await fetch(\n    `/accounts/search/name?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}`,\n    {\n      headers: {\n        'Authorization': `Bearer ${token}`,\n        'Content-Type': 'application/json'\n      }\n    }\n  );\n  if (!response.ok) {\n    throw new Error(`HTTP error! status: ${response.status}`);\n  }\n  return await response.json();\n};\nconst searchAccountsByUsername = async (query, limit = 10, offset = 0) => {\n  const response = await fetch(\n    `/accounts/search/username?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}`,\n    {\n      headers: {\n        'Authorization': `Bearer ${token}`,\n        'Content-Type': 'application/json'\n      }\n    }\n  );\n  if (!response.ok) {\n    throw new Error(`HTTP error! status: ${response.status}`);\n  }\n  return await response.json();\n};\n// Usage\nconst emailResults = await searchAccountsByEmail('john@example.com', 20, 0);\nconst nameResults = await searchAccountsByName('john', 20, 0);\nconst usernameResults = await searchAccountsByUsername('johndoe', 20, 0);\n\n ```\n\n### Python\n\n``` python\nimport requests\ndef search_accounts_by_email(query, limit=10, offset=0, token=None):\n    url = f\"/accounts/search/email?q={query}&limit={limit}&offset={offset}\"\n    headers = {\n        \"Authorization\": f\"Bearer {token}\",\n        \"Content-Type\": \"application/json\"\n    }\n    response = requests.get(url, headers=headers)\n    response.raise_for_status()\n    return response.json()\ndef search_accounts_by_name(query, limit=10, offset=0, token=None):\n    url = f\"/accounts/search/name?q={query}&limit={limit}&offset={offset}\"\n    headers = {\n        \"Authorization\": f\"Bearer {token}\",\n        \"Content-Type\": \"application/json\"\n    }\n    response = requests.get(url, headers=headers)\n    response.raise_for_status()\n    return response.json()\ndef search_accounts_by_username(query, limit=10, offset=0, token=None):\n    url = f\"/accounts/search/username?q={query}&limit={limit}&offset={offset}\"\n    headers = {\n        \"Authorization\": f\"Bearer {token}\",\n        \"Content-Type\": \"application/json\"\n    }\n    response = requests.get(url, headers=headers)\n    response.raise_for_status()\n    return response.json()\n# Usage\nemail_results = search_accounts_by_email(\"john@example.com\", limit=20, offset=0, token=\"your_token\")\nname_results = search_accounts_by_name(\"john\", limit=20, offset=0, token=\"your_token\")\nusername_results = search_accounts_by_username(\"johndoe\", limit=20, offset=0, token=\"your_token\")\n\n ```\n\n### Go\n\n``` go\nfunc searchAccountsByEmail(query string, limit, offset int, token string) (map[string]interface{}, error) {\n    url := fmt.Sprintf(\"/accounts/search/email?q=%s&limit=%d&offset=%d\", \n        url.QueryEscape(query), limit, offset)\n    req, err := http.NewRequest(\"GET\", url, nil)\n    if err != nil {\n        return nil, err\n    }\n    req.Header.Set(\"Authorization\", \"Bearer \"+token)\n    req.Header.Set(\"Content-Type\", \"application/json\")\n    client := &http.Client{}\n    resp, err := client.Do(req)\n    if err != nil {\n        return nil, err\n    }\n    defer resp.Body.Close()\n    if resp.StatusCode != http.StatusOK {\n        return nil, fmt.Errorf(\"HTTP error: %d\", resp.StatusCode)\n    }\n    var result map[string]interface{}\n    if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {\n        return nil, err\n    }\n    return result, nil\n}\nfunc searchAccountsByName(query string, limit, offset int, token string) (map[string]interface{}, error) {\n    url := fmt.Sprintf(\"/accounts/search/name?q=%s&limit=%d&offset=%d\", \n        url.QueryEscape(query), limit, offset)\n    req, err := http.NewRequest(\"GET\", url, nil)\n    if err != nil {\n        return nil, err\n    }\n    req.Header.Set(\"Authorization\", \"Bearer \"+token)\n    req.Header.Set(\"Content-Type\", \"application/json\")\n    client := &http.Client{}\n    resp, err := client.Do(req)\n    if err != nil {\n        return nil, err\n    }\n    defer resp.Body.Close()\n    if resp.StatusCode != http.StatusOK {\n        return nil, fmt.Errorf(\"HTTP error: %d\", resp.StatusCode)\n    }\n    var result map[string]interface{}\n    if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {\n        return nil, err\n    }\n    return result, nil\n}\nfunc searchAccountsByUsername(query string, limit, offset int, token string) (map[string]interface{}, error) {\n    url := fmt.Sprintf(\"/accounts/search/username?q=%s&limit=%d&offset=%d\", \n        url.QueryEscape(query), limit, offset)\n    req, err := http.NewRequest(\"GET\", url, nil)\n    if err != nil {\n        return nil, err\n    }\n    req.Header.Set(\"Authorization\", \"Bearer \"+token)\n    req.Header.Set(\"Content-Type\", \"application/json\")\n    client := &http.Client{}\n    resp, err := client.Do(req)\n    if err != nil {\n        return nil, err\n    }\n    defer resp.Body.Close()\n    if resp.StatusCode != http.StatusOK {\n        return nil, fmt.Errorf(\"HTTP error: %d\", resp.StatusCode)\n    }\n    var result map[string]interface{}\n    if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {\n        return nil, err\n    }\n    return result, nil\n}\n// Usage\nemailResults, err := searchAccountsByEmail(\"john@example.com\", 20, 0, \"your_token\")\nif err != nil {\n    log.Fatal(err)\n}\nnameResults, err := searchAccountsByName(\"john\", 20, 0, \"your_token\")\nif err != nil {\n    log.Fatal(err)\n}\nusernameResults, err := searchAccountsByUsername(\"johndoe\", 20, 0, \"your_token\")\nif err != nil {\n    log.Fatal(err)\n}\n\n ```\n\n## Security Considerations\n\n1. **Authentication Required**: All search requests must include a valid JWT token\n    \n2. **Permission Required**: Users must have the `read:account:any` permission\n    \n3. **Rate Limiting**: Consider implementing rate limiting to prevent abuse\n    \n4. **Query Validation**: The search query is validated and sanitized\n    \n5. **Pagination Limits**: Maximum limit is capped at 100 to prevent excessive resource usage\n    \n\n## Performance Notes\n\n- Each search endpoint uses database indexes for optimal performance\n    \n- Results are ordered by creation date (newest first)\n    \n- Pagination helps manage large result sets\n    \n- Consider implementing caching for frequently searched terms\n    \n\n## Troubleshooting\n\n### Common Issues\n\n1. **No results returned**: Check if the search query is spelled correctly\n    \n2. **Permission denied**: Ensure the user has `read:account:any` permission\n    \n3. **Invalid pagination**: Verify that limit is between 1-100 and offset is non-negative\n    \n4. **Missing query parameter**: Ensure the `q` parameter is provided\n    \n\n### Debugging\n\nEnable debug logging to see detailed information about search queries and results:\n\n``` bash\n# Check application logs for search-related entries\ntail -f /var/log/verisafe/app.log | grep \"SearchAccounts\"\n\n ```\n\n## API Comparison\n\n| Endpoint | Search Field | Use Case |\n| --- | --- | --- |\n| `/accounts/search/email` | Email address | Find accounts by email domain or partial email |\n| `/accounts/search/name` | Full name | Find accounts by first name, last name, or full name |\n| `/accounts/search/username` | Username | Find accounts by username patterns |"
+		},
+		{
+			"name": "Social Providers",
+			"item": [
+				{
+					"name": "Get All User Socials",
+					"request": {
+						"auth": {
+							"type": "apikey",
+							"apikey": [
+								{
+									"key": "value",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoiNmFlMWUwZTctYzY4My00ZDkzLTkwMjEtMGJlZjNmN2UzMWE4IiwiZW1haWwiOiJjaGlycEBvcGVuY3JhZnRzLmlvIiwibmFtZSI6IkNoaXJwIiwiY3JlYXRlZF9hdCI6IjIwMjUtMDctMTNUMTk6MTI6MTEuMDk4NzQ5IiwidXBkYXRlZF9hdCI6IjIwMjUtMDctMTNUMTk6MTI6MTEuMDk4NzQ5IiwidGVybXNfYWNjZXB0ZWQiOmZhbHNlLCJvbmJvYXJkZWQiOmZhbHNlLCJ0eXBlIjoiYm90In0sInJvbGVzIjpbXSwicGVybWlzc2lvbnMiOltdLCJpc3MiOiJodHRwczovL3ZlcmlzYWZlLm9wZW5jcmFmdHMuaW8vIiwic3ViIjoiNmFlMWUwZTctYzY4My00ZDkzLTkwMjEtMGJlZjNmN2UzMWE4IiwiYXVkIjpbImh0dHBzOi8vYWNhZGVtaWEub3BlbmNyYWZ0cy5pby8iXSwiZXhwIjoxNzUyNTA5NTMxLCJpYXQiOjE3NTI0MjMxMzF9.RjcyrY6h0Xabcj8_1NvTvvc1QLcqLNcpV_MsNQGbjRk",
+									"type": "string"
+								},
+								{
+									"key": "key",
+									"value": "X-Api-Key",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/socials/me",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"socials",
+								"me"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{token}}",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://127.0.0.1:8080",
+			"type": "string"
+		},
+		{
+			"key": "token",
+			"value": "vst_vg_jQMjQuQbrpdseaQkmSqeaKbsgoH3ONQquFFZLeKk=",
+			"type": "string"
+		},
+		{
+			"key": "base_url",
+			"value": "https://qaverisafe.opencrafts.io",
+			"type": "string",
+			"disabled": true
+		},
+		{
+			"key": "api-key",
+			"value": "vst_vg_jQMjQuQbrpdseaQkmSqeaKbsgoH3ONQquFFZLeKk=",
+			"type": "string"
+		}
+	]
+}

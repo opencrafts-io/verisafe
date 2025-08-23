@@ -5,9 +5,57 @@
 package repository
 
 import (
+	"database/sql/driver"
+	"fmt"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
+
+type AccountType string
+
+const (
+	AccountTypeHuman        AccountType = "human"
+	AccountTypeService      AccountType = "service"
+	AccountTypeBot          AccountType = "bot"
+	AccountTypeOrganization AccountType = "organization"
+)
+
+func (e *AccountType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = AccountType(s)
+	case string:
+		*e = AccountType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for AccountType: %T", src)
+	}
+	return nil
+}
+
+type NullAccountType struct {
+	AccountType AccountType `json:"account_type"`
+	Valid       bool        `json:"valid"` // Valid is true if AccountType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullAccountType) Scan(value interface{}) error {
+	if value == nil {
+		ns.AccountType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.AccountType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullAccountType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.AccountType), nil
+}
 
 type Account struct {
 	ID            uuid.UUID        `json:"id"`
@@ -17,6 +65,88 @@ type Account struct {
 	UpdatedAt     pgtype.Timestamp `json:"updated_at"`
 	TermsAccepted *bool            `json:"terms_accepted"`
 	Onboarded     *bool            `json:"onboarded"`
+	Type          AccountType      `json:"type"`
+	NationalID    *string          `json:"national_id"`
+	Username      *string          `json:"username"`
+	AvatarUrl     *string          `json:"avatar_url"`
+	Bio           *string          `json:"bio"`
+	VibePoints    int64            `json:"vibe_points"`
+	Phone         *string          `json:"phone"`
+}
+
+type ActiveServiceToken struct {
+	ID               uuid.UUID          `json:"id"`
+	AccountID        uuid.UUID          `json:"account_id"`
+	Name             string             `json:"name"`
+	TokenHash        string             `json:"token_hash"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	LastUsedAt       *time.Time         `json:"last_used_at"`
+	ExpiresAt        *time.Time         `json:"expires_at"`
+	RotatedAt        *time.Time         `json:"rotated_at"`
+	RevokedAt        *time.Time         `json:"revoked_at"`
+	Description      *string            `json:"description"`
+	Scopes           []string           `json:"scopes"`
+	MaxUses          *int32             `json:"max_uses"`
+	UseCount         *int32             `json:"use_count"`
+	RotationPolicy   []byte             `json:"rotation_policy"`
+	IpWhitelist      []string           `json:"ip_whitelist"`
+	UserAgentPattern *string            `json:"user_agent_pattern"`
+	CreatedBy        pgtype.UUID        `json:"created_by"`
+	Metadata         []byte             `json:"metadata"`
+	AccountEmail     string             `json:"account_email"`
+	AccountName      string             `json:"account_name"`
+	AccountType      AccountType        `json:"account_type"`
+}
+
+type Permission struct {
+	ID          uuid.UUID        `json:"id"`
+	Name        string           `json:"name"`
+	Description *string          `json:"description"`
+	CreatedAt   pgtype.Timestamp `json:"created_at"`
+	UpdatedAt   pgtype.Timestamp `json:"updated_at"`
+}
+
+type Role struct {
+	ID          uuid.UUID        `json:"id"`
+	Name        string           `json:"name"`
+	Description *string          `json:"description"`
+	CreatedAt   pgtype.Timestamp `json:"created_at"`
+	UpdatedAt   pgtype.Timestamp `json:"updated_at"`
+	IsDefault   bool             `json:"is_default"`
+}
+
+type RolePermission struct {
+	RoleID       uuid.UUID `json:"role_id"`
+	PermissionID uuid.UUID `json:"permission_id"`
+}
+
+type RolePermissionsView struct {
+	RoleID          uuid.UUID `json:"role_id"`
+	RoleName        string    `json:"role_name"`
+	RoleDescription *string   `json:"role_description"`
+	PermissionID    uuid.UUID `json:"permission_id"`
+	PermissionName  string    `json:"permission_name"`
+}
+
+type ServiceToken struct {
+	ID               uuid.UUID          `json:"id"`
+	AccountID        uuid.UUID          `json:"account_id"`
+	Name             string             `json:"name"`
+	TokenHash        string             `json:"token_hash"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	LastUsedAt       *time.Time         `json:"last_used_at"`
+	ExpiresAt        *time.Time         `json:"expires_at"`
+	RotatedAt        *time.Time         `json:"rotated_at"`
+	RevokedAt        *time.Time         `json:"revoked_at"`
+	Description      *string            `json:"description"`
+	Scopes           []string           `json:"scopes"`
+	MaxUses          *int32             `json:"max_uses"`
+	UseCount         *int32             `json:"use_count"`
+	RotationPolicy   []byte             `json:"rotation_policy"`
+	IpWhitelist      []string           `json:"ip_whitelist"`
+	UserAgentPattern *string            `json:"user_agent_pattern"`
+	CreatedBy        pgtype.UUID        `json:"created_by"`
+	Metadata         []byte             `json:"metadata"`
 }
 
 type Social struct {
@@ -38,4 +168,27 @@ type Social struct {
 	ExpiresAt         pgtype.Timestamp `json:"expires_at"`
 	CreatedAt         pgtype.Timestamp `json:"created_at"`
 	UpdatedAt         pgtype.Timestamp `json:"updated_at"`
+}
+
+type UserPermissionsView struct {
+	UserID       uuid.UUID `json:"user_id"`
+	RoleID       uuid.UUID `json:"role_id"`
+	RoleName     string    `json:"role_name"`
+	PermissionID uuid.UUID `json:"permission_id"`
+	Permission   string    `json:"permission"`
+}
+
+type UserRole struct {
+	UserID uuid.UUID `json:"user_id"`
+	RoleID uuid.UUID `json:"role_id"`
+}
+
+type UserRolesView struct {
+	UserID          uuid.UUID        `json:"user_id"`
+	Email           string           `json:"email"`
+	Name            string           `json:"name"`
+	RoleID          uuid.UUID        `json:"role_id"`
+	RoleName        string           `json:"role_name"`
+	RoleDescription *string          `json:"role_description"`
+	RoleCreatedAt   pgtype.Timestamp `json:"role_created_at"`
 }

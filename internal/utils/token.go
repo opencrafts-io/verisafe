@@ -1,40 +1,63 @@
-package auth
+package utils
 
 import (
 	"errors"
 	"time"
 
+	"crypto/sha256"
+	"encoding/base64"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/opencrafts-io/verisafe/internal/config"
-	"github.com/opencrafts-io/verisafe/internal/repository"
 )
 
-// Claims structure for JWT
-type VerisafeClaims struct {
-	Account     repository.Account `json:"user"`
-	Roles       []string           `json:"roles"`
-	Permissions []string           `json:"permissions"`
-	jwt.RegisteredClaims
+type VerisafeTokenType int
+
+const (
+	UserToken VerisafeTokenType = iota
+	UserRefreshToken
+	ServiceToken
+)
+
+// HashToken returns the SHA256 hash of the token as base64 string
+func HashToken(token string) string {
+	hash := sha256.Sum256([]byte(token))
+	return base64.StdEncoding.EncodeToString(hash[:])
 }
 
 // GenerateJWT creates a new token for a given user ID.
+// Provide an optional token type although by default its goin
+// to generate a basic user token
 func GenerateJWT(
-	account repository.Account,
-	roles []string,
-	permissions []string,
+	subject uuid.UUID,
 	cfg config.Config,
+	tokenTypeOptional ...VerisafeTokenType,
 ) (string, error) {
+
+	tokenType := UserToken
+
+	if len(tokenTypeOptional) > 0 {
+		tokenType = tokenTypeOptional[0]
+	}
+
+	var expiry time.Time
+
+	switch tokenType {
+	case UserToken:
+		expiry = time.Now().Add(time.Hour * time.Duration(cfg.JWTConfig.ExpireDelta))
+	case UserRefreshToken:
+		expiry = time.Now().Add(time.Hour * 24 * 7 * time.Duration(cfg.JWTConfig.RefreshExpireDelta))
+	case ServiceToken:
+		expiry = time.Now().Add(time.Hour * 24 * 31 * time.Duration(cfg.JWTConfig.RefreshExpireDelta))
+	}
 
 	claims :=
 		&VerisafeClaims{
-			Account:     account,
-			Roles:       roles,
-			Permissions: permissions,
 			RegisteredClaims: jwt.RegisteredClaims{
-				ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * time.Duration(cfg.JWTConfig.ExpireDelta))),
+				ExpiresAt: jwt.NewNumericDate(expiry),
 				Audience:  jwt.ClaimStrings{"https://academia.opencrafts.io/"},
 				Issuer:    "https://verisafe.opencrafts.io/",
-				Subject:   account.ID.String(),
+				Subject:   subject.String(),
 				IssuedAt:  jwt.NewNumericDate(time.Now()),
 			},
 		}
@@ -45,7 +68,7 @@ func GenerateJWT(
 
 // ValidateJWT parses and validates the JWT token and checks expiration.
 func ValidateJWT(tokenString string, secret string) (*VerisafeClaims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &VerisafeClaims{}, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &VerisafeClaims{}, func(token *jwt.Token) (any, error) {
 		// Ensure the token is signed with the expected method
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("unexpected signing method")
