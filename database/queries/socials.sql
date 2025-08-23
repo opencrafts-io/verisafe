@@ -50,23 +50,28 @@ LIMIT $2
 OFFSET $3;
 
 
+-- name: GetAllAccountSocials :many
+-- Returns a list of oauth providers that they've granted
+-- note that the results are not paginated since we dont support a 
+-- whole lot of social oauth providers
+SELECT * FROM socials
+WHERE account_id = $1;
 
 -- name: UpdateSocial :one
 UPDATE socials
 SET
-    provider = COALESCE($2, provider),
-    email = COALESCE($3, email),
-    name = COALESCE($4, name),
-    first_name = COALESCE($5, first_name),
-    last_name = COALESCE($6, last_name),
-    nick_name = COALESCE($7, nick_name),
-    description = COALESCE($8, description),
-    avatar_url = COALESCE($9, avatar_url),
-    location = COALESCE($10, location),
-    access_token = COALESCE($11, access_token),
-    access_token_secret = COALESCE($12, access_token_secret),
-    refresh_token = COALESCE($13, refresh_token),
-    expires_at = COALESCE($14, expires_at),
+    email = COALESCE(NULLIF(@email::varchar,''), email),
+    name = COALESCE(NULLIF(@name::varchar,''), name),
+    first_name = COALESCE(NULLIF(@first_name::varchar,''), first_name),
+    last_name = COALESCE(NULLIF(@last_name::varchar,''), last_name),
+    nick_name = COALESCE(NULLIF(@nick_name::varchar,''), nick_name),
+    description = COALESCE(NULLIF(@description::text,''), description),
+    avatar_url = COALESCE(NULLIF(@avatar_url::text,''), avatar_url),
+    location = COALESCE(NULLIF(@location::varchar,''), location),
+    refresh_token = COALESCE(NULLIF(@refresh_token::text,''), refresh_token),
+    access_token = COALESCE(NULLIF(@access_token::text,''), access_token),
+    access_token_secret = COALESCE(NULLIF(@access_token_secret::text,''), access_token_secret),
+    expires_at = COALESCE($3, expires_at),
     updated_at = NOW()
-WHERE account_id = $1
+WHERE user_id = $1 AND provider = $2
 RETURNING *;
