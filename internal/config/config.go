@@ -46,6 +46,15 @@ type Config struct {
 		DatabasePoolMinConnections        int32  `envconfig:"DB_POOL_MIN_CON"`
 		DatabasePoolMaxConnectionLifetime int    `envconfig:"DB_POOL_MAX_LIFETIME"`
 	}
+
+	// RabbitMQ configuration
+	RabbitMQConfig struct {
+		RabbitMQUser    string `envconfig:"RABBITMQ_USER"`
+		RabbitMQPass    string `envconfig:"RABBITMQ_PASSWORD"`
+		RabbitMQAddress string `envconfig:"RABBITMQ_ADDRESS"`
+		RabbitMQPort    int    `envconfig:"RABBITMQ_PORT"`
+		Exchange        string `envconfig:"RABBITMQ_EXCHANGE"`
+	}
 }
 
 // The LoadConfig function loads the env file specified and returns

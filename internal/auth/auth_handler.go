@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"database/sql"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -9,8 +8,12 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
+	"github.com/opencrafts-io/verisafe/internal/eventbus"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/repository"
 	"github.com/opencrafts-io/verisafe/internal/utils"
@@ -122,7 +125,7 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get database connection and start transaction
-	conn, tx, repo, err := a.getDBConnectionAndRepo(r)
+	_, tx, repo, err := a.getDBConnectionAndRepo(r)
 	if err != nil {
 		a.logger.Error("Database connection failed", slog.Any("error", err))
 		http.Error(w, "Failed to establish database connection", http.StatusInternalServerError)
@@ -186,16 +189,16 @@ func (a *Auth) parseStateData(r *http.Request) (*StateData, error) {
 }
 
 // completeOAuthAuth completes the OAuth authentication flow using Goth
-func (a *Auth) completeOAuthAuth(w http.ResponseWriter, r *http.Request) (*gothic.User, error) {
+func (a *Auth) completeOAuthAuth(w http.ResponseWriter, r *http.Request) (goth.User, error) {
 	user, err := gothic.CompleteUserAuth(w, r)
 	if err != nil {
-		return nil, fmt.Errorf("failed to complete OAuth auth: %w", err)
+		return goth.User{}, fmt.Errorf("failed to complete OAuth auth: %w", err)
 	}
 	return user, nil
 }
 
 // getDBConnectionAndRepo establishes database connection and creates repository
-func (a *Auth) getDBConnectionAndRepo(r *http.Request) (*sql.DB, *sql.Tx, *repository.Repository, error) {
+func (a *Auth) getDBConnectionAndRepo(r *http.Request) (*pgxpool.Conn, pgx.Tx, *repository.Queries, error) {
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to get DB connection: %w", err)
@@ -211,14 +214,14 @@ func (a *Auth) getDBConnectionAndRepo(r *http.Request) (*sql.DB, *sql.Tx, *repos
 }
 
 // handleAccountManagement creates or retrieves the user account
-func (a *Auth) handleAccountManagement(r *http.Request, repo *repository.Repository, user *gothic.User) (repository.Account, error) {
+func (a *Auth) handleAccountManagement(r *http.Request, repo *repository.Queries, user goth.User) (repository.Account, error) {
 	account, err := repo.GetAccountByEmail(r.Context(), user.Email)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return repository.Account{}, fmt.Errorf("failed to check user existence: %w", err)
 	}
 
 	// Create user if they don't exist
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, pgx.ErrNoRows) {
 		userParams := repository.CreateAccountParams{
 			Email:     user.Email,
 			Name:      strings.Join([]string{user.FirstName, user.LastName}, " "),
@@ -230,20 +233,33 @@ func (a *Auth) handleAccountManagement(r *http.Request, repo *repository.Reposit
 		if err != nil {
 			return repository.Account{}, fmt.Errorf("failed to create account: %w", err)
 		}
+
+		// Publish user created event
+		if a.eventBus != nil {
+			requestID := eventbus.GenerateRequestID()
+			if err := a.eventBus.PublishUserCreated(r.Context(), account, requestID); err != nil {
+				a.logger.Error("Failed to publish user created event", 
+					slog.String("error", err.Error()),
+					slog.String("user_id", account.ID.String()),
+					slog.String("request_id", requestID),
+				)
+				// Don't fail the entire operation if event publishing fails
+			}
+		}
 	}
 
 	return account, nil
 }
 
 // handleSocialAccountManagement creates or updates the social account connection
-func (a *Auth) handleSocialAccountManagement(r *http.Request, repo *repository.Repository, user *gothic.User, account repository.Account, provider string) error {
+func (a *Auth) handleSocialAccountManagement(r *http.Request, repo *repository.Queries, user goth.User, account repository.Account, provider string) error {
 	socialAccount, err := repo.GetSocialByExternalUserID(r.Context(), user.UserID)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return fmt.Errorf("failed to fetch social connection: %w", err)
 	}
 
 	// If the social account does not exist yet create it
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, pgx.ErrNoRows) {
 		socialAccount, err = repo.CreateSocial(r.Context(), repository.CreateSocialParams{
 			UserID:            user.UserID,
 			AccountID:         account.ID,
@@ -290,6 +306,19 @@ func (a *Auth) handleSocialAccountManagement(r *http.Request, repo *repository.R
 		)
 		if err != nil {
 			return fmt.Errorf("failed to update social connection: %w", err)
+		}
+
+		// Publish user updated event for existing users
+		if a.eventBus != nil {
+			requestID := eventbus.GenerateRequestID()
+			if err := a.eventBus.PublishUserUpdated(r.Context(), account, requestID); err != nil {
+				a.logger.Error("Failed to publish user updated event", 
+					slog.String("error", err.Error()),
+					slog.String("user_id", account.ID.String()),
+					slog.String("request_id", requestID),
+				)
+				// Don't fail the entire operation if event publishing fails
+			}
 		}
 	}
 
