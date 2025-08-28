@@ -21,6 +21,12 @@ const authPlatformWebValue = "auth.platform.value.web"
 const authPlatformMobileValue = "auth.platform.value.mobile"
 const authRedirectKey = "auth.redirect.key"
 
+// StateData represents the encoded state information passed during OAuth flow
+type StateData struct {
+	Platform    string
+	RedirectURI string
+}
+
 func (a *Auth) RegisterRoutes(router *http.ServeMux) {
 	router.HandleFunc("GET /auth/{provider}", a.LoginHandler)
 	router.HandleFunc("GET /auth/{provider}/callback", a.CallbackHandler)
@@ -100,54 +106,115 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	state := r.URL.Query().Get("state")
-	if state == "" {
-		http.Error(w, "Missing state", http.StatusBadRequest)
-		return
-	}
-
-	stateBytes, err := base64.URLEncoding.DecodeString(state)
+	// Parse state data
+	stateData, err := a.parseStateData(r)
 	if err != nil {
-		http.Error(w, "Invalid state", http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	parts := strings.SplitN(string(stateBytes), "|", 2)
-	if len(parts) != 2 {
-		http.Error(w, "Malformed state", http.StatusBadRequest)
-		return
-	}
-
-	platform := parts[0]
-	redirectURI := parts[1]
-
-	user, err := gothic.CompleteUserAuth(w, r)
+	// Complete OAuth authentication
+	user, err := a.completeOAuthAuth(w, r)
 	if err != nil {
-		a.logger.Error("Ran into an error when perfoming auth flow", slog.Any("error", err))
+		a.logger.Error("OAuth authentication failed", slog.Any("error", err))
 		http.Error(w, "Authentication flow failed", http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	// Get database connection and start transaction
+	conn, tx, repo, err := a.getDBConnectionAndRepo(r)
 	if err != nil {
-		a.logger.Error("Error while processing request", slog.Any("error", err))
+		a.logger.Error("Database connection failed", slog.Any("error", err))
 		http.Error(w, "Failed to establish database connection", http.StatusInternalServerError)
 		return
 	}
-
-	tx, _ := conn.Begin(r.Context())
 	defer tx.Rollback(r.Context())
-	repo := repository.New(tx)
 
-	var account repository.Account
-	var socialAccount repository.Social
-
-	account, err = repo.GetAccountByEmail(r.Context(), user.Email)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		a.logger.Error("Error checking user existence", slog.Any("error", err))
-		http.Error(w, "Error checking user existence", http.StatusInternalServerError)
+	// Handle account creation or retrieval
+	account, err := a.handleAccountManagement(r, repo, user)
+	if err != nil {
+		a.logger.Error("Account management failed", slog.Any("error", err))
+		http.Error(w, "Failed to manage account", http.StatusInternalServerError)
 		return
+	}
+
+	// Handle social account management
+	err = a.handleSocialAccountManagement(r, repo, user, account, provider)
+	if err != nil {
+		a.logger.Error("Social account management failed", slog.Any("error", err))
+		http.Error(w, "Failed to manage social account", http.StatusInternalServerError)
+		return
+	}
+
+	// Commit transaction
+	if err = tx.Commit(r.Context()); err != nil {
+		a.logger.Error("Transaction commit failed", slog.Any("error", err))
+		http.Error(w, "Error while committing transaction", http.StatusInternalServerError)
+		return
+	}
+
+	// Generate tokens and redirect
+	err = a.generateTokensAndRedirect(w, r, account, stateData)
+	if err != nil {
+		a.logger.Error("Token generation and redirect failed", slog.Any("error", err))
+		http.Error(w, "Failed to generate tokens", http.StatusInternalServerError)
+		return
+	}
+}
+
+// parseStateData extracts and validates the state parameter from the request
+func (a *Auth) parseStateData(r *http.Request) (*StateData, error) {
+	state := r.URL.Query().Get("state")
+	if state == "" {
+		return nil, errors.New("missing state")
+	}
+
+	stateBytes, err := base64.URLEncoding.DecodeString(state)
+	if err != nil {
+		return nil, errors.New("invalid state")
+	}
+
+	parts := strings.SplitN(string(stateBytes), "|", 2)
+	if len(parts) != 2 {
+		return nil, errors.New("malformed state")
+	}
+
+	return &StateData{
+		Platform:    parts[0],
+		RedirectURI: parts[1],
+	}, nil
+}
+
+// completeOAuthAuth completes the OAuth authentication flow using Goth
+func (a *Auth) completeOAuthAuth(w http.ResponseWriter, r *http.Request) (*gothic.User, error) {
+	user, err := gothic.CompleteUserAuth(w, r)
+	if err != nil {
+		return nil, fmt.Errorf("failed to complete OAuth auth: %w", err)
+	}
+	return user, nil
+}
+
+// getDBConnectionAndRepo establishes database connection and creates repository
+func (a *Auth) getDBConnectionAndRepo(r *http.Request) (*sql.DB, *sql.Tx, *repository.Repository, error) {
+	conn, err := middleware.GetDBConnFromContext(r.Context())
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to get DB connection: %w", err)
+	}
+
+	tx, err := conn.Begin(r.Context())
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	repo := repository.New(tx)
+	return conn, tx, repo, nil
+}
+
+// handleAccountManagement creates or retrieves the user account
+func (a *Auth) handleAccountManagement(r *http.Request, repo *repository.Repository, user *gothic.User) (repository.Account, error) {
+	account, err := repo.GetAccountByEmail(r.Context(), user.Email)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return repository.Account{}, fmt.Errorf("failed to check user existence: %w", err)
 	}
 
 	// Create user if they don't exist
@@ -159,22 +226,20 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 			AvatarUrl: &user.AvatarURL,
 		}
 
-		// Create the user in the repository
 		account, err = repo.CreateAccount(r.Context(), userParams)
 		if err != nil {
-			a.logger.Error("Error creating user", slog.Any("error", err))
-			http.Error(w, "Failed to create account", http.StatusInternalServerError)
-			return
+			return repository.Account{}, fmt.Errorf("failed to create account: %w", err)
 		}
-
 	}
 
-	// Check whether the the social account exists for the user
-	socialAccount, err = repo.GetSocialByExternalUserID(r.Context(), user.UserID)
+	return account, nil
+}
+
+// handleSocialAccountManagement creates or updates the social account connection
+func (a *Auth) handleSocialAccountManagement(r *http.Request, repo *repository.Repository, user *gothic.User, account repository.Account, provider string) error {
+	socialAccount, err := repo.GetSocialByExternalUserID(r.Context(), user.UserID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		a.logger.Error("Error while processing request", slog.Any("error", err))
-		http.Error(w, "Failed to fetch social connection", http.StatusInternalServerError)
-		return
+		return fmt.Errorf("failed to fetch social connection: %w", err)
 	}
 
 	// If the social account does not exist yet create it
@@ -198,18 +263,13 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		})
 
 		if err != nil {
-			a.logger.Error("Error creating social connection", slog.Any("error", err))
-			http.Error(w, "Error creating social connection", http.StatusInternalServerError)
-			return
+			return fmt.Errorf("failed to create social connection: %w", err)
 		}
 		a.logger.Info("New social connection created for user",
 			slog.Any("created_user", account), slog.Any("social_account", socialAccount),
 		)
 	} else {
-
-		a.logger.Debug("Use", slog.Any("user", user))
-		//
-		// // Update the social account
+		// Update the social account
 		_, err := repo.UpdateSocial(r.Context(),
 			repository.UpdateSocialParams{
 				UserID:            user.UserID,
@@ -229,49 +289,41 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 			},
 		)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			a.logger.Info("Error while trying to update social auth", slog.Any("error", err))
-			http.Error(w, "Error updating social connection", http.StatusInternalServerError)
-			return
+			return fmt.Errorf("failed to update social connection: %w", err)
 		}
-
 	}
 
-	if err = tx.Commit(r.Context()); err != nil {
-		a.logger.Error("Error while processing request", slog.Any("error", err))
-		http.Error(w, "Error while committing transaction", http.StatusInternalServerError)
-		return
-	}
+	return nil
+}
 
+// generateTokensAndRedirect generates JWT tokens and redirects based on platform
+func (a *Auth) generateTokensAndRedirect(w http.ResponseWriter, r *http.Request, account repository.Account, stateData *StateData) error {
 	token, err := utils.GenerateJWT(account.ID, *a.config)
 	if err != nil {
-		http.Error(w, "Error while generating jwt token", http.StatusInternalServerError)
-		return
+		return fmt.Errorf("failed to generate JWT token: %w", err)
 	}
 
 	refreshToken, err := utils.GenerateJWT(account.ID, *a.config, utils.UserRefreshToken)
 	if err != nil {
-		http.Error(w, "Error while generating jwt token", http.StatusInternalServerError)
-		return
+		return fmt.Errorf("failed to generate refresh token: %w", err)
 	}
 
-	// redirectURI := fmt.Sprintf("academia://callback?token=%s&refresh_token=%s", token, refreshToken)
-	// http.Redirect(w, r, redirectURI, http.StatusFound)
-	if platform == authPlatformWebValue {
+	// Redirect based on platform
+	if stateData.Platform == authPlatformWebValue {
 		// Web: redirect back to client
-		finalURL := fmt.Sprintf("%s?token=%s&refresh_token=%s", redirectURI, token, refreshToken)
+		finalURL := fmt.Sprintf("%s?token=%s&refresh_token=%s", stateData.RedirectURI, token, refreshToken)
 		http.Redirect(w, r, finalURL, http.StatusFound)
-		return
+		return nil
 	}
 
-	if platform == authPlatformMobileValue {
+	if stateData.Platform == authPlatformMobileValue {
 		// Mobile: use deep link
 		finalURL := fmt.Sprintf("academia://callback?token=%s&refresh_token=%s", token, refreshToken)
 		http.Redirect(w, r, finalURL, http.StatusFound)
-		return
+		return nil
 	}
 
-	http.Error(w, "Unknown platform", http.StatusBadRequest)
+	return errors.New("unknown platform")
 }
 
 // LogoutHandler logs the user out from the OAuth provider and clears Goth's session data.
