@@ -2,12 +2,14 @@ package auth
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -34,6 +36,7 @@ func (a *Auth) RegisterRoutes(router *http.ServeMux) {
 	router.HandleFunc("GET /auth/{provider}", a.LoginHandler)
 	router.HandleFunc("GET /auth/{provider}/callback", a.CallbackHandler)
 	router.HandleFunc("GET /auth/{provider}/logout", a.LogoutHandler)
+	router.HandleFunc("POST /auth/token/refresh", a.RefreshTokenHandler)
 
 	// Secret management
 	// router.Handle("GET /auth/generate/token",
@@ -238,7 +241,7 @@ func (a *Auth) handleAccountManagement(r *http.Request, repo *repository.Queries
 		if a.eventBus != nil {
 			requestID := eventbus.GenerateRequestID()
 			if err := a.eventBus.PublishUserCreated(r.Context(), account, requestID); err != nil {
-				a.logger.Error("Failed to publish user created event", 
+				a.logger.Error("Failed to publish user created event",
 					slog.String("error", err.Error()),
 					slog.String("user_id", account.ID.String()),
 					slog.String("request_id", requestID),
@@ -312,7 +315,7 @@ func (a *Auth) handleSocialAccountManagement(r *http.Request, repo *repository.Q
 		if a.eventBus != nil {
 			requestID := eventbus.GenerateRequestID()
 			if err := a.eventBus.PublishUserUpdated(r.Context(), account, requestID); err != nil {
-				a.logger.Error("Failed to publish user updated event", 
+				a.logger.Error("Failed to publish user updated event",
 					slog.String("error", err.Error()),
 					slog.String("user_id", account.ID.String()),
 					slog.String("request_id", requestID),
@@ -379,109 +382,73 @@ func (a *Auth) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusTemporaryRedirect) // Redirectto to homepage
 }
 
-// Creates a service token
-// func (a *Auth) CreateServiceToken(w http.ResponseWriter, r *http.Request) {
-// 	// claims := r.Context().Value(middleware.AuthUserClaims).(*utils.VerisafeClaims)
-// 	//
-// 	// if claims.Account.Type != repository.AccountTypeBot {
-// 	// 	a.logger.Error(
-// 	// 		"Attempting to generate service token on a non bot account",
-// 	// 		slog.Any("account", claims.Account),
-// 	// 	)
-// 	// 	w.WriteHeader(http.StatusUnauthorized)
-// 	// 	json.NewEncoder(w).Encode(map[string]any{
-// 	// 		"error": "Only bot accounts can generate service tokens",
-// 	// 	})
-// 	// 	return
-// 	// }
-//
-// 	conn, err := middleware.GetDBConnFromContext(r.Context())
-// 	if err != nil {
-// 		a.logger.Error("failed to get db conn", slog.String("err", err.Error()))
-// 		w.WriteHeader(http.StatusInternalServerError)
-// 		json.NewEncoder(w).Encode(map[string]any{"error": "Internal server error"})
-// 		return
-// 	}
-//
-// 	tx, err := conn.Begin(r.Context())
-// 	if err != nil {
-// 		a.logger.Error("failed to begin tx", slog.String("err", err.Error()))
-// 		w.WriteHeader(http.StatusInternalServerError)
-// 		json.NewEncoder(w).Encode(map[string]any{"error": "Internal server error"})
-// 		return
-// 	}
-// 	defer tx.Rollback(r.Context())
-//
-// 	repo := repository.New(tx)
-//
-// 	// Get if the service is a bot account
-// 	claims := r.Context().Value(middleware.AuthUserClaims).(*utils.VerisafeClaims)
-// 	accountID, err := uuid.Parse(claims.ID)
-// 	if err != nil {
-// 		w.WriteHeader(http.StatusBadRequest)
-// 		json.NewEncoder(w).Encode(map[string]any{
-// 			"error": "Failed to decode your token.",
-// 		})
-// 		return
-// 	}
-//
-// 	botAccount, err := repo.GetAccountByID(r.Context(), accountID)
-//
-// 	if botAccount.Type != "bot" {
-// 		w.WriteHeader(http.StatusForbidden)
-// 		json.NewEncoder(w).Encode(map[string]any{
-// 			"error": "Only bot accounts can perform this action",
-// 		})
-// 		return
-// 	}
-//
-// 	var serviceTokenParams repository.CreateServiceTokenParams
-//
-// 	if err := json.NewDecoder(r.Body).Decode(&serviceTokenParams); err != nil || strings.TrimSpace(serviceTokenParams.Name) == "" {
-// 		w.WriteHeader(http.StatusBadRequest)
-// 		json.NewEncoder(w).Encode(map[string]any{
-// 			"error": "Please check your form details and try that again",
-// 		})
-// 		return
-// 	}
-// 	//
-// 	jwtToken, err := utils.GenerateJWT(
-// 		accountID,
-// 		*a.config, utils.ServiceToken)
-// 	if err != nil {
-// 		a.logger.Error("failed to generate service token token", slog.String("err", err.Error()))
-// 		w.WriteHeader(http.StatusInternalServerError)
-// 		json.NewEncoder(w).Encode(map[string]any{"error": "Could not generate service token"})
-// 		return
-// 	}
-//
-// 	hash := sha256.Sum256([]byte(jwtToken))
-// 	hashed := base64.StdEncoding.EncodeToString(hash[:])
-//
-// 	expiry := time.Now().Add(time.Hour * 24 * 30)
-//
-// 	_, err = repo.CreateServiceToken(r.Context(), repository.CreateServiceTokenParams{
-// 		Name:      serviceTokenParams.Name,
-// 		TokenHash: hashed,
-// 		ExpiresAt: &expiry,
-// 	})
-// 	if err != nil {
-// 		a.logger.Error("failed to store service token", slog.String("err", err.Error()))
-// 		w.WriteHeader(http.StatusInternalServerError)
-// 		json.NewEncoder(w).Encode(map[string]any{"error": "Could not save service token"})
-// 		return
-// 	}
-//
-// 	if err := tx.Commit(r.Context()); err != nil {
-// 		a.logger.Error("failed to commit tx", slog.String("err", err.Error()))
-// 		w.WriteHeader(http.StatusInternalServerError)
-// 		json.NewEncoder(w).Encode(map[string]any{"error": "Could not save token, try again"})
-// 		return
-// 	}
-// 	//
-// 	w.Header().Set("Content-Type", "application/json")
-// 	// json.NewEncoder(w).Encode(map[string]any{
-// 	// 	"token":   jwtToken,
-// 	// 	"message": "Token generated successfully do not loose it",
-// 	// })
-// }
+// RefreshTokenHandler  refreshes the user token and provides a new set of tokens to be used
+func (a *Auth) RefreshTokenHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// The refresh_token request payload
+	type RefreshTokenRequestData struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+
+	var refreshTokenData RefreshTokenRequestData
+
+	if err := json.NewDecoder(r.Body).Decode(&refreshTokenData); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]any{
+			"error": "Please check your request body and try again",
+		})
+		return
+	}
+
+	// Validate the token
+	claims, err := utils.ValidateRefreshToken(refreshTokenData.RefreshToken, a.config.JWTConfig.ApiSecret)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		a.logger.Error("Failed to validate refresh token", slog.Any("token", refreshTokenData.RefreshToken))
+		json.NewEncoder(w).Encode(map[string]any{"error": "We couldn't validate your refresh token at the moment"})
+		return
+	}
+
+	userID, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		a.logger.Error("Failed to parse user id from refresh token",
+			slog.Any("raw", claims.ID),
+		)
+		json.NewEncoder(w).Encode(map[string]any{
+			"error": "We failed to parse user id from access token",
+		})
+		return
+
+	}
+
+	// Generate jwt and refresh token
+	token, err := utils.GenerateJWT(userID, *a.config)
+	if err != nil {
+		a.logger.Error("Failed to generate user access token",
+			slog.Any("raw", userID.String()),
+		)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]any{
+			"error": "We ran into an issue generating a new acces refresh token pair.",
+		})
+		return
+	}
+
+	refreshToken, err := utils.GenerateJWT(userID, *a.config, utils.UserRefreshToken)
+	if err != nil {
+		a.logger.Error("Failed to generate user refresh token",
+			slog.Any("raw", userID.String()),
+		)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]any{
+			"error": "We ran into an issue generating a new acces refresh token pair.",
+		})
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]any{
+		"access_token":  token,
+		"refresh_token": refreshToken,
+	})
+}
