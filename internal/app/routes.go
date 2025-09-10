@@ -23,6 +23,7 @@ func (a *App) loadRoutes() http.Handler {
 	socialHandler := handlers.SocialHandler{Logger: a.logger}
 	roleHandler := handlers.RoleHandler{Logger: a.logger}
 	permHandler := handlers.PermissionHandler{Logger: a.logger}
+	institutionHandler := handlers.InstitutionHandler{Logger: a.logger}
 
 	// ping handler
 	router.HandleFunc("GET /ping", handlers.PingHandler)
@@ -36,5 +37,6 @@ func (a *App) loadRoutes() http.Handler {
 	roleHandler.RegisterRoutes(a.config, router)
 	// Permissions
 	permHandler.RegisterRoutes(a.config, router)
+	institutionHandler.RegisterInstitutionHadlers(a.config, router)
 	return router
 }
