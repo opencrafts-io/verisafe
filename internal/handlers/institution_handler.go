@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/google/uuid"
 	"github.com/opencrafts-io/verisafe/internal/config"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/repository"
@@ -17,12 +18,60 @@ type InstitutionHandler struct {
 
 func (ih *InstitutionHandler) RegisterInstitutionHadlers(cfg *config.Config, router *http.ServeMux) {
 	// Register endpoints using the new pattern
-	router.HandleFunc("POST /institutions/register", ih.RegisterInstitution)
-	router.HandleFunc("PATCH /institutions/update/{id}", ih.UpdateInstitutionDetails)
-	router.HandleFunc("GET /institutions/find/{id}", ih.GetInstitutionByID)
-	router.HandleFunc("GET /institutions/all", ih.GetAllInstitutions)
-	router.HandleFunc("GET /institutions/search", ih.SearchInstitutions)
-	router.HandleFunc("DELETE /institutions/delete/{id}", ih.DeleteInstitution)
+	router.Handle("POST /institutions/register", middleware.CreateStack(
+		middleware.IsAuthenticated(cfg, ih.Logger),
+		middleware.HasPermission([]string{"create:institutions:any"}),
+	)(http.HandlerFunc(ih.RegisterInstitution)))
+
+	router.Handle("PATCH /institutions/update/{id}",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(cfg, ih.Logger),
+			middleware.HasPermission([]string{"update:institutions:any"}),
+		)(http.HandlerFunc(ih.UpdateInstitutionDetails)))
+
+	router.Handle("GET /institutions/find/{id}",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(cfg, ih.Logger),
+		)(http.HandlerFunc(ih.GetInstitutionByID)))
+
+	router.Handle("GET /institutions/all",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(cfg, ih.Logger),
+			middleware.HasPermission([]string{"list:institutions:any"}),
+		)(http.HandlerFunc(ih.GetAllInstitutions)))
+
+	router.Handle("GET /institutions/search",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(cfg, ih.Logger),
+		)(http.HandlerFunc(ih.SearchInstitutions)))
+
+	router.Handle("DELETE /institutions/delete/{id}",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(cfg, ih.Logger),
+			middleware.HasPermission([]string{"delete:institutions:any"}),
+		)(http.HandlerFunc(ih.DeleteInstitution)))
+
+	// Institution account management
+	// TODO: (erick) Add fine permissions for both admin and the user in question
+	router.Handle("POST /institutions/account",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(cfg, ih.Logger),
+		)(http.HandlerFunc(ih.AddAcountInstitution)))
+
+	router.Handle("DELETE /institutions/account",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(cfg, ih.Logger),
+		)(http.HandlerFunc(ih.RemoveAccountInstitution)))
+
+	router.Handle("GET /institutions/for-account",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(cfg, ih.Logger),
+		)(http.HandlerFunc((ih.ListInstitutionForAccount))))
+
+	router.Handle("GET /institutions/accounts",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(cfg, ih.Logger),
+		)(http.HandlerFunc(ih.ListAccountsForInstitution)))
 }
 
 // POST /institutions/register
@@ -235,4 +284,161 @@ func (ih *InstitutionHandler) SearchInstitutions(w http.ResponseWriter, r *http.
 	if err := json.NewEncoder(w).Encode(institutions); err != nil {
 		ih.Logger.Error("Failed to encode response", slog.Any("error", err))
 	}
+}
+
+// Links an account to institution
+func (ih *InstitutionHandler) AddAcountInstitution(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	conn, err := middleware.GetDBConnFromContext(r.Context())
+	if err != nil {
+		ih.Logger.Error("Error while processing request", slog.Any("error", err))
+		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+		return
+	}
+
+	tx, _ := conn.Begin(r.Context())
+	defer tx.Rollback(r.Context())
+	repo := repository.New(tx)
+
+	var req repository.AddAccountInstitutionParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		ih.Logger.Error("Failed to parse request body", slog.Any("error", err))
+		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
+		return
+	}
+
+	created, err := repo.AddAccountInstitution(r.Context(), req)
+	if err != nil {
+		ih.Logger.Error("Failed to create institution", slog.Any("error", err))
+		http.Error(w, `{"error":"failed to create institution"}`, http.StatusInternalServerError)
+		return
+	}
+
+	if err = tx.Commit(r.Context()); err != nil {
+		ih.Logger.Error("Error committing transaction", slog.Any("error", err))
+		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(created)
+}
+
+func (ih *InstitutionHandler) ListInstitutionForAccount(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	conn, err := middleware.GetDBConnFromContext(r.Context())
+	if err != nil {
+		ih.Logger.Error("Error while processing request", slog.Any("error", err))
+		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+		return
+	}
+	repo := repository.New(conn)
+
+	// Extract query param `q`
+	q := r.URL.Query().Get("account_id")
+	if q == "" {
+		http.Error(w, `{"error":"missing search query param 'q'"}`, http.StatusBadRequest)
+		return
+	}
+
+	// parse the uuid
+	id, err := uuid.Parse(q)
+	if err != nil {
+		http.Error(w, `{"error":"Could not parse the uuid parameter"}`, http.StatusBadRequest)
+		return
+	}
+
+	p := middleware.GetPagination(r.Context())
+	institutions, err := repo.ListInstitutionsForAccount(r.Context(), repository.ListInstitutionsForAccountParams{
+		AccountID: id,
+		Limit:     int32(p.Limit),
+		Offset:    int32(p.Offset),
+	})
+
+	if err != nil {
+		ih.Logger.Error("Failed to list institutions", slog.Any("error", err))
+		http.Error(w, `{"error":"failed to fetch institutions"}`, http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(institutions)
+}
+
+// Get accounts that are registered to an institution
+func (ih *InstitutionHandler) ListAccountsForInstitution(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	conn, err := middleware.GetDBConnFromContext(r.Context())
+	if err != nil {
+		ih.Logger.Error("Error while processing request", slog.Any("error", err))
+		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+		return
+	}
+	repo := repository.New(conn)
+
+	// Extract query param `q`
+	q := r.URL.Query().Get("institution_id")
+	if q == "" {
+		http.Error(w, `{"error":"missing search query param 'q'"}`, http.StatusBadRequest)
+		return
+	}
+
+	// parse the uuid
+	id, err := strconv.Atoi(q)
+	if err != nil {
+		http.Error(w, `{"error":"Could not parse the institution id parameter"}`, http.StatusBadRequest)
+		return
+	}
+
+	p := middleware.GetPagination(r.Context())
+	institutions, err := repo.ListAccountsForInstitution(r.Context(), repository.ListAccountsForInstitutionParams{
+		InstitutionID: int32(id),
+		Limit:         int32(p.Limit),
+		Offset:        int32(p.Offset),
+	})
+
+	if err != nil {
+		ih.Logger.Error("Failed to list institutions", slog.Any("error", err))
+		http.Error(w, `{"error":"failed to fetch institutions"}`, http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(institutions)
+}
+
+// Remove an account from an institution
+func (ih *InstitutionHandler) RemoveAccountInstitution(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	conn, err := middleware.GetDBConnFromContext(r.Context())
+	if err != nil {
+		ih.Logger.Error("Error while processing request", slog.Any("error", err))
+		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+		return
+	}
+
+	tx, _ := conn.Begin(r.Context())
+	defer tx.Rollback(r.Context())
+	repo := repository.New(tx)
+
+	var req repository.RemoveAccountInstitutionParams
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		ih.Logger.Error("Failed to parse request body", slog.Any("error", err))
+		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
+		return
+	}
+
+	err = repo.RemoveAccountInstitution(r.Context(), req)
+	if err != nil {
+		ih.Logger.Error("Failed to create institution", slog.Any("error", err))
+		http.Error(w, `{"error":"failed to create institution"}`, http.StatusInternalServerError)
+		return
+	}
+
+	if err = tx.Commit(r.Context()); err != nil {
+		ih.Logger.Error("Error committing transaction", slog.Any("error", err))
+		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]any{"message": "Successfully removed from institution"})
 }
