@@ -7,7 +7,28 @@ package repository
 
 import (
 	"context"
+
+	"github.com/google/uuid"
 )
+
+const addAccountInstitution = `-- name: AddAccountInstitution :one
+INSERT INTO account_institutions (account_id, institution_id)
+VALUES ($1, $2)
+ON CONFLICT DO NOTHING
+RETURNING account_id, institution_id
+`
+
+type AddAccountInstitutionParams struct {
+	AccountID     uuid.UUID `json:"account_id"`
+	InstitutionID int32     `json:"institution_id"`
+}
+
+func (q *Queries) AddAccountInstitution(ctx context.Context, arg AddAccountInstitutionParams) (AccountInstitution, error) {
+	row := q.db.QueryRow(ctx, addAccountInstitution, arg.AccountID, arg.InstitutionID)
+	var i AccountInstitution
+	err := row.Scan(&i.AccountID, &i.InstitutionID)
+	return i, err
+}
 
 const createInstitution = `-- name: CreateInstitution :one
 INSERT INTO institutions (
@@ -79,6 +100,57 @@ func (q *Queries) GetInstitution(ctx context.Context, institutionID int32) (Inst
 	return i, err
 }
 
+const listAccountsForInstitution = `-- name: ListAccountsForInstitution :many
+SELECT a.id, a.email, a.name, a.created_at, a.updated_at, a.terms_accepted, a.onboarded, a.type, a.national_id, a.username, a.avatar_url, a.bio, a.vibe_points, a.phone
+FROM accounts a
+JOIN account_institutions ai ON a.id = ai.account_id
+WHERE ai.institution_id = $1
+ORDER BY a.name
+LIMIT $2
+OFFSET $3
+`
+
+type ListAccountsForInstitutionParams struct {
+	InstitutionID int32 `json:"institution_id"`
+	Limit         int32 `json:"limit"`
+	Offset        int32 `json:"offset"`
+}
+
+func (q *Queries) ListAccountsForInstitution(ctx context.Context, arg ListAccountsForInstitutionParams) ([]Account, error) {
+	rows, err := q.db.Query(ctx, listAccountsForInstitution, arg.InstitutionID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Account{}
+	for rows.Next() {
+		var i Account
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.Name,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.TermsAccepted,
+			&i.Onboarded,
+			&i.Type,
+			&i.NationalID,
+			&i.Username,
+			&i.AvatarUrl,
+			&i.Bio,
+			&i.VibePoints,
+			&i.Phone,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listInstitutions = `-- name: ListInstitutions :many
 SELECT institution_id, name, web_pages, domains, alpha_two_code, country, state_province FROM institutions
 ORDER BY institution_id LIMIT $1 OFFSET $2
@@ -115,6 +187,65 @@ func (q *Queries) ListInstitutions(ctx context.Context, arg ListInstitutionsPara
 		return nil, err
 	}
 	return items, nil
+}
+
+const listInstitutionsForAccount = `-- name: ListInstitutionsForAccount :many
+SELECT i.institution_id, i.name, i.web_pages, i.domains, i.alpha_two_code, i.country, i.state_province
+FROM institutions i
+JOIN account_institutions ai ON i.institution_id = ai.institution_id
+WHERE ai.account_id = $1
+ORDER BY i.name
+LIMIT $2
+OFFSET $3
+`
+
+type ListInstitutionsForAccountParams struct {
+	AccountID uuid.UUID `json:"account_id"`
+	Limit     int32     `json:"limit"`
+	Offset    int32     `json:"offset"`
+}
+
+func (q *Queries) ListInstitutionsForAccount(ctx context.Context, arg ListInstitutionsForAccountParams) ([]Institution, error) {
+	rows, err := q.db.Query(ctx, listInstitutionsForAccount, arg.AccountID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Institution{}
+	for rows.Next() {
+		var i Institution
+		if err := rows.Scan(
+			&i.InstitutionID,
+			&i.Name,
+			&i.WebPages,
+			&i.Domains,
+			&i.AlphaTwoCode,
+			&i.Country,
+			&i.StateProvince,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const removeAccountInstitution = `-- name: RemoveAccountInstitution :exec
+DELETE FROM account_institutions
+WHERE account_id = $1 AND institution_id = $2
+`
+
+type RemoveAccountInstitutionParams struct {
+	AccountID     uuid.UUID `json:"account_id"`
+	InstitutionID int32     `json:"institution_id"`
+}
+
+func (q *Queries) RemoveAccountInstitution(ctx context.Context, arg RemoveAccountInstitutionParams) error {
+	_, err := q.db.Exec(ctx, removeAccountInstitution, arg.AccountID, arg.InstitutionID)
+	return err
 }
 
 const searchInstitutionsByName = `-- name: SearchInstitutionsByName :many

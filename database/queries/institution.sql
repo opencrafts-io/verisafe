@@ -38,3 +38,34 @@ FROM institutions
 WHERE lower(name) LIKE '%' || lower(@name::varchar) || '%'
 ORDER BY name
 LIMIT $1 OFFSET $2;
+
+
+
+
+-- name: AddAccountInstitution :one
+INSERT INTO account_institutions (account_id, institution_id)
+VALUES ($1, $2)
+ON CONFLICT DO NOTHING
+RETURNING *;
+
+-- name: RemoveAccountInstitution :exec
+DELETE FROM account_institutions
+WHERE account_id = $1 AND institution_id = $2;
+
+-- name: ListInstitutionsForAccount :many
+SELECT i.*
+FROM institutions i
+JOIN account_institutions ai ON i.institution_id = ai.institution_id
+WHERE ai.account_id = $1
+ORDER BY i.name
+LIMIT $2
+OFFSET $3;
+
+-- name: ListAccountsForInstitution :many
+SELECT a.*
+FROM accounts a
+JOIN account_institutions ai ON a.id = ai.account_id
+WHERE ai.institution_id = $1
+ORDER BY a.name
+LIMIT $2
+OFFSET $3;
