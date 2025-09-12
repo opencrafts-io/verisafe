@@ -12,10 +12,16 @@ import (
 )
 
 const addAccountInstitution = `-- name: AddAccountInstitution :one
-INSERT INTO account_institutions (account_id, institution_id)
-VALUES ($1, $2)
-ON CONFLICT DO NOTHING
-RETURNING account_id, institution_id
+WITH ins AS (
+  INSERT INTO account_institutions (account_id, institution_id)
+  VALUES ($1, $2)
+  ON CONFLICT DO NOTHING
+  RETURNING account_id, institution_id
+)
+SELECT account_id, institution_id FROM ins
+UNION
+SELECT account_id, institution_id FROM account_institutions
+WHERE account_id = $1 AND institution_id = $2
 `
 
 type AddAccountInstitutionParams struct {
@@ -23,9 +29,14 @@ type AddAccountInstitutionParams struct {
 	InstitutionID int32     `json:"institution_id"`
 }
 
-func (q *Queries) AddAccountInstitution(ctx context.Context, arg AddAccountInstitutionParams) (AccountInstitution, error) {
+type AddAccountInstitutionRow struct {
+	AccountID     uuid.UUID `json:"account_id"`
+	InstitutionID int32     `json:"institution_id"`
+}
+
+func (q *Queries) AddAccountInstitution(ctx context.Context, arg AddAccountInstitutionParams) (AddAccountInstitutionRow, error) {
 	row := q.db.QueryRow(ctx, addAccountInstitution, arg.AccountID, arg.InstitutionID)
-	var i AccountInstitution
+	var i AddAccountInstitutionRow
 	err := row.Scan(&i.AccountID, &i.InstitutionID)
 	return i, err
 }

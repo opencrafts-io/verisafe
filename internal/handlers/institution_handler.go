@@ -310,7 +310,7 @@ func (ih *InstitutionHandler) AddAcountInstitution(w http.ResponseWriter, r *htt
 	created, err := repo.AddAccountInstitution(r.Context(), req)
 	if err != nil {
 		ih.Logger.Error("Failed to create institution", slog.Any("error", err))
-		http.Error(w, `{"error":"failed to create institution"}`, http.StatusInternalServerError)
+		http.Error(w, `{"error":"failed to link you to that organization"}`, http.StatusInternalServerError)
 		return
 	}
 
