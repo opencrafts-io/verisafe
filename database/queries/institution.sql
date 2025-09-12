@@ -43,10 +43,17 @@ LIMIT $1 OFFSET $2;
 
 
 -- name: AddAccountInstitution :one
-INSERT INTO account_institutions (account_id, institution_id)
-VALUES ($1, $2)
-ON CONFLICT DO NOTHING
-RETURNING *;
+WITH ins AS (
+  INSERT INTO account_institutions (account_id, institution_id)
+  VALUES ($1, $2)
+  ON CONFLICT DO NOTHING
+  RETURNING *
+)
+SELECT * FROM ins
+UNION
+SELECT * FROM account_institutions
+WHERE account_id = $1 AND institution_id = $2;
+
 
 -- name: RemoveAccountInstitution :exec
 DELETE FROM account_institutions
