@@ -133,7 +133,7 @@ func (q *Queries) GetAccountByUsername(ctx context.Context, lower string) (Accou
 }
 
 const getAllAccounts = `-- name: GetAllAccounts :many
-SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type, national_id, username, avatar_url, bio, vibe_points, phone FROM accounts 
+SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type, national_id, username, avatar_url, bio, vibe_points, phone FROM accounts WHERE type = 'human' 
 LIMIT $1
 OFFSET $2
 `
