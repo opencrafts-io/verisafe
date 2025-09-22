@@ -11,6 +11,7 @@ require (
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/markbates/goth v1.81.0
 	github.com/pressly/goose/v3 v3.24.3
+	github.com/rabbitmq/amqp091-go v1.10.0
 )
 
 require (

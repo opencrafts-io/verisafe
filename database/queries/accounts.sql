@@ -4,7 +4,7 @@ VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- name: GetAllAccounts :many
-SELECT * FROM accounts 
+SELECT * FROM accounts WHERE type = 'human' 
 LIMIT $1
 OFFSET $2;
 
