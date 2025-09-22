@@ -38,6 +38,13 @@ func (ah *AccountHandler) RegisterHandlers(router *http.ServeMux) {
 		)(http.HandlerFunc(ah.GetPersonalAccount)),
 	)
 
+	router.Handle("GET /accounts/all",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(ah.Cfg, ah.Logger),
+			middleware.HasPermission([]string{"read:account:any"}),
+		)(http.HandlerFunc(ah.GetAllUserAccounts)),
+	)
+
 	router.Handle("PATCH /accounts/me",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(ah.Cfg, ah.Logger),
@@ -717,6 +724,63 @@ func (ah *AccountHandler) SearchAccountsByName(w http.ResponseWriter, r *http.Re
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
+}
+
+func (ah *AccountHandler) GetAllUserAccounts(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	// Get pagination from context
+	pagination := middleware.GetPagination(r.Context())
+	// Get database connection
+	conn, err := middleware.GetDBConnFromContext(r.Context())
+	if err != nil {
+		ah.Logger.Error("Error while processing request", slog.Any("error", err))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "We ran into a problem while servicing your request please try again later",
+		})
+		return
+	}
+
+	// Begin transaction
+	tx, err := conn.Begin(r.Context())
+	if err != nil {
+		ah.Logger.Error("Error while beginning transaction", slog.Any("error", err))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "We ran into a problem while servicing your request please try again later",
+		})
+		return
+	}
+	defer tx.Rollback(r.Context())
+
+	repo := repository.New(tx)
+
+	// Search accounts by username
+	accounts, err := repo.GetAllAccounts(r.Context(), repository.GetAllAccountsParams{
+		Limit:  int32(pagination.Limit),
+		Offset: int32(pagination.Offset),
+	})
+	if err != nil {
+		ah.Logger.Error("Failed to get all accounts", slog.Any("error", err))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "We couldn't complete this request at the moment please try again later",
+		})
+		return
+	}
+
+	// Commit transaction
+	if err = tx.Commit(r.Context()); err != nil {
+		ah.Logger.Error("Error while committing transaction", slog.Any("error", err))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "We ran into a problem while servicing your request please try again later",
+		})
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(accounts)
 }
 
 // SearchAccountsByUsername handles searching for accounts by username

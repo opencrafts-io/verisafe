@@ -44,11 +44,11 @@ func GenerateJWT(
 
 	switch tokenType {
 	case UserToken:
-		expiry = time.Now().Add(time.Hour * time.Duration(cfg.JWTConfig.ExpireDelta))
+		expiry = time.Now().Add(time.Hour * 24 * time.Duration(cfg.JWTConfig.ExpireDelta))
 	case UserRefreshToken:
-		expiry = time.Now().Add(time.Hour * 24 * 7 * time.Duration(cfg.JWTConfig.RefreshExpireDelta))
+		expiry = time.Now().Add(time.Hour * 24 * time.Duration(cfg.JWTConfig.RefreshExpireDelta))
 	case ServiceToken:
-		expiry = time.Now().Add(time.Hour * 24 * 31 * time.Duration(cfg.JWTConfig.RefreshExpireDelta))
+		expiry = time.Now().Add(time.Hour * 24 * time.Duration(cfg.JWTConfig.RefreshExpireDelta))
 	}
 
 	claims :=
@@ -93,6 +93,38 @@ func ValidateJWT(tokenString string, secret string) (*VerisafeClaims, error) {
 	// Check if the token is expired
 	if claims.RegisteredClaims.ExpiresAt.Time.Before(time.Now()) {
 		return nil, errors.New("Your token expired it is. Refresh it you must")
+	}
+
+	return claims, nil
+}
+
+// ValidateRefreshToken() parses and validates the refresh token and checks its expiration.
+func ValidateRefreshToken(tokenString string, secret string) (*VerisafeClaims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &VerisafeClaims{}, func(token *jwt.Token) (any, error) {
+		// Ensure the token is signed with the expected method
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, errors.New("unexpected signing method")
+		}
+		return []byte(secret), nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Extract and validate the claims
+	claims, ok := token.Claims.(*VerisafeClaims)
+	if !ok || !token.Valid {
+		return nil, errors.New("Your refresh token is invalid please relogin")
+	}
+
+	if claims.RegisteredClaims.ExpiresAt == nil {
+		return nil, errors.New("Seems your refresh token is malformed please relogin to continue")
+	}
+
+	// Check if the token is expired
+	if claims.RegisteredClaims.ExpiresAt.Time.Before(time.Now()) {
+		return nil, errors.New("Your refresh token is expired please relogin to continue")
 	}
 
 	return claims, nil
