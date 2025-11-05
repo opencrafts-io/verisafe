@@ -18,7 +18,7 @@ type LeaderBoardHandler struct {
 
 func (lh *LeaderBoardHandler) RegisterLeaderBoardHandlers(cfg *config.Config, router *http.ServeMux) {
 	router.Handle("GET /leaderboard/global", middleware.CreateStack(
-		middleware.IsAuthenticated(cfg, lh.Logger),
+	middleware.IsAuthenticated(cfg, lh.Logger),
 	)(http.HandlerFunc(lh.GetGlobalLeaderBoard)))
 	router.Handle("GET /leaderboard/global/{user}", middleware.CreateStack(
 		middleware.IsAuthenticated(cfg, lh.Logger),
@@ -87,7 +87,10 @@ func (lh *LeaderBoardHandler) GetGlobalLeaderBoard(w http.ResponseWriter, r *htt
 		return
 	}
 
-	leaderboard, err := repo.GetLeaderboard(r.Context(), repository.GetLeaderboardParams{Limit: 100, Offset: 0})
+	leaderboard, err := repo.GetLeaderboard(r.Context(), repository.GetLeaderboardParams{
+		Limit:  int32(pageParams.PageSize),
+		Offset: int32(pageParams.Page) - 1,
+	})
 
 	if err != nil {
 		lh.Logger.Error("Failed to retrieve leaderboard", slog.Any("error", err))
