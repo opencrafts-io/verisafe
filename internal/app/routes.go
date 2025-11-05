@@ -24,6 +24,7 @@ func (a *App) loadRoutes() http.Handler {
 	roleHandler := handlers.RoleHandler{Logger: a.logger}
 	permHandler := handlers.PermissionHandler{Logger: a.logger}
 	institutionHandler := handlers.InstitutionHandler{Logger: a.logger}
+	leaderboardHandler := handlers.LeaderBoardHandler{Logger: a.logger}
 
 	// ping handler
 	router.HandleFunc("GET /ping", handlers.PingHandler)
@@ -38,5 +39,6 @@ func (a *App) loadRoutes() http.Handler {
 	// Permissions
 	permHandler.RegisterRoutes(a.config, router)
 	institutionHandler.RegisterInstitutionHadlers(a.config, router)
+	leaderboardHandler.RegisterLeaderBoardHandlers(a.config, router)
 	return router
 }
