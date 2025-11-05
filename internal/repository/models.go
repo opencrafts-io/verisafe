@@ -92,6 +92,18 @@ type AccountInstitutionInfo struct {
 	InstitutionCountryCode *string          `json:"institution_country_code"`
 }
 
+type AccountVibepointRank struct {
+	ID         uuid.UUID        `json:"id"`
+	Email      string           `json:"email"`
+	Name       string           `json:"name"`
+	Username   *string          `json:"username"`
+	VibePoints int64            `json:"vibe_points"`
+	AvatarUrl  *string          `json:"avatar_url"`
+	CreatedAt  pgtype.Timestamp `json:"created_at"`
+	UpdatedAt  pgtype.Timestamp `json:"updated_at"`
+	VibeRank   int64            `json:"vibe_rank"`
+}
+
 type ActiveServiceToken struct {
 	ID               uuid.UUID          `json:"id"`
 	AccountID        uuid.UUID          `json:"account_id"`
@@ -219,4 +231,13 @@ type UserRolesView struct {
 	RoleName        string           `json:"role_name"`
 	RoleDescription *string          `json:"role_description"`
 	RoleCreatedAt   pgtype.Timestamp `json:"role_created_at"`
+}
+
+type VibepointTransaction struct {
+	ID             int64            `json:"id"`
+	AccountID      uuid.UUID        `json:"account_id"`
+	AwardingReason *string          `json:"awarding_reason"`
+	PointsAwarded  int16            `json:"points_awarded"`
+	AwardedAt      pgtype.Timestamp `json:"awarded_at"`
+	AwardedBy      *string          `json:"awarded_by"`
 }
