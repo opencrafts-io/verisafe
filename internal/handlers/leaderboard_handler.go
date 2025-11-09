@@ -18,7 +18,7 @@ type LeaderBoardHandler struct {
 
 func (lh *LeaderBoardHandler) RegisterLeaderBoardHandlers(cfg *config.Config, router *http.ServeMux) {
 	router.Handle("GET /leaderboard/global", middleware.CreateStack(
-	middleware.IsAuthenticated(cfg, lh.Logger),
+		middleware.IsAuthenticated(cfg, lh.Logger),
 	)(http.HandlerFunc(lh.GetGlobalLeaderBoard)))
 	router.Handle("GET /leaderboard/global/{user}", middleware.CreateStack(
 		middleware.IsAuthenticated(cfg, lh.Logger),
@@ -36,7 +36,12 @@ func (lh *LeaderBoardHandler) GetGlobalUserRank(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	tx, _ := conn.Begin(r.Context())
+	tx, err := conn.Begin(r.Context())
+	if err != nil {
+		lh.Logger.Error("Failed to start transaction", slog.Any("error", err))
+		http.Error(w, `{"error":"Cannot process your request at the moment"}`, http.StatusInternalServerError)
+		return
+	}
 	defer tx.Rollback(r.Context())
 	repo := repository.New(tx)
 
@@ -70,7 +75,13 @@ func (lh *LeaderBoardHandler) GetGlobalLeaderBoard(w http.ResponseWriter, r *htt
 		return
 	}
 
-	tx, _ := conn.Begin(r.Context())
+	tx, err := conn.Begin(r.Context())
+	if err != nil {
+		lh.Logger.Error("Failed to start transaction", slog.Any("error", err))
+		http.Error(w, `{"error":"Cannot process your request at the moment"}`, http.StatusInternalServerError)
+		return
+	}
+
 	defer tx.Rollback(r.Context())
 	repo := repository.New(tx)
 
@@ -89,7 +100,7 @@ func (lh *LeaderBoardHandler) GetGlobalLeaderBoard(w http.ResponseWriter, r *htt
 
 	leaderboard, err := repo.GetLeaderboard(r.Context(), repository.GetLeaderboardParams{
 		Limit:  int32(pageParams.PageSize),
-		Offset: int32(pageParams.Page) - 1,
+		Offset: int32(pageParams.Offset),
 	})
 
 	if err != nil {
