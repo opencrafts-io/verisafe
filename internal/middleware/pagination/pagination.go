@@ -57,12 +57,18 @@ func BuildPaginatedResponse(r *http.Request, totalCount int64, results any, para
 	var previous *string
 
 	if params.Page < totalPages {
-		nextURL := fmt.Sprintf("%s?page=%d&page_size=%d", baseURL, params.Page+1, params.PageSize)
+		nextQuery := r.URL.Query()
+		nextQuery.Set("page", strconv.Itoa(params.Page+1))
+		nextQuery.Set("page_size", strconv.Itoa(params.PageSize))
+		nextURL := fmt.Sprintf("%s?%s", baseURL, nextQuery.Encode())
 		next = &nextURL
 	}
 
 	if params.Page > 1 {
-		prevURL := fmt.Sprintf("%s?page=%d&page_size=%d", baseURL, params.Page-1, params.PageSize)
+		prevQuery := r.URL.Query()
+		prevQuery.Set("page", strconv.Itoa(params.Page-1))
+		prevQuery.Set("page_size", strconv.Itoa(params.PageSize))
+		prevURL := fmt.Sprintf("%s?%s", baseURL, prevQuery.Encode())
 		previous = &prevURL
 	}
 
