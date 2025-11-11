@@ -613,7 +613,7 @@ func (ah *AccountHandler) SearchAccountsByEmail(w http.ResponseWriter, r *http.R
 
 	// Search accounts by email
 	accounts, err := repo.SearchAccountByEmail(r.Context(), repository.SearchAccountByEmailParams{
-		Lower:  query,
+		Email: query,
 		Limit:  int32(pagination.Limit),
 		Offset: int32(pagination.Offset),
 	})
@@ -696,7 +696,7 @@ func (ah *AccountHandler) SearchAccountsByName(w http.ResponseWriter, r *http.Re
 
 	// Search accounts by name
 	accounts, err := repo.SearchAccountByName(r.Context(), repository.SearchAccountByNameParams{
-		Lower:  query,
+		Name: query,
 		Limit:  int32(pagination.Limit),
 		Offset: int32(pagination.Offset),
 	})
@@ -836,7 +836,7 @@ func (ah *AccountHandler) SearchAccountsByUsername(w http.ResponseWriter, r *htt
 
 	// Search accounts by username
 	accounts, err := repo.SearchAccountByUsername(r.Context(), repository.SearchAccountByUsernameParams{
-		Lower:  query,
+		Username: query,
 		Limit:  int32(pagination.Limit),
 		Offset: int32(pagination.Offset),
 	})

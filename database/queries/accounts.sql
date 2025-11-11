@@ -14,33 +14,33 @@ WHERE id = $1;
 
 -- name: SearchAccountByEmail :many
 SELECT * FROM accounts 
-WHERE lower(email) LIKE '%' || lower($1) || '%'
-LIMIT $2
-OFFSET $3
+WHERE lower(email) LIKE '%' || lower(@email::varchar) || '%'
+LIMIT $1
+OFFSET $2
 ;
 
 -- name: GetAccountByEmail :one
 SELECT * FROM accounts 
-WHERE lower(email) = lower($1)
+WHERE lower(email) = lower(@email::varchar)
 LIMIT 1
 ;
 
 
 -- name: GetAccountByUsername :one
-SELECT * FROM accounts WHERE lower(username) = lower($1);
+SELECT * FROM accounts WHERE lower(username) = lower(@username::varchar);
 
 -- name: SearchAccountByName :many
 SELECT * FROM accounts 
-WHERE lower(name) LIKE '%' || lower($1) || '%'
-LIMIT $2
-OFFSET $3
+WHERE lower(name) LIKE '%' || lower(@name::varchar) || '%'
+LIMIT $1
+OFFSET $2
 ;
 
 -- name: SearchAccountByUsername :many
 SELECT * FROM accounts 
-WHERE lower(username) LIKE '%' || lower($1) || '%'
-LIMIT $2
-OFFSET $3
+WHERE lower(username) LIKE '%' || lower(@username::varchar) || '%'
+LIMIT $1
+OFFSET $2
 ;
 
 -- name: UpdateAccountDetails :exec
@@ -67,3 +67,7 @@ UPDATE accounts
     updated_at = NOW()
   WHERE id = $1
   ;
+
+-- name: GetAccountsCount :one
+-- Returns the number of all human accounts in the system
+SELECT count(id) FROM accounts WHERE type = 'human';
