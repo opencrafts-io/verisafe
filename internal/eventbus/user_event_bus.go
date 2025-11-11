@@ -2,10 +2,12 @@ package eventbus
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/opencrafts-io/verisafe/internal/config"
 	"github.com/opencrafts-io/verisafe/internal/repository"
 )
 
@@ -16,11 +18,29 @@ type UserEventBus struct {
 }
 
 // NewUserEventBus creates a new UserEventBus instance.
-func NewUserEventBus(bus EventBus, logger *slog.Logger) *UserEventBus {
-	return &UserEventBus{
-		bus:    bus,
-		logger: logger,
+func NewUserEventBus(cfg *config.Config, logger *slog.Logger) (*UserEventBus, error) {
+	rabbitMQConnString := fmt.Sprintf("amqp://%s:%s@%s:%d/",
+		cfg.RabbitMQConfig.RabbitMQUser,
+		cfg.RabbitMQConfig.RabbitMQPass,
+		cfg.RabbitMQConfig.RabbitMQAddress,
+		cfg.RabbitMQConfig.RabbitMQPort,
+	)
+
+	rabbitMQBus, err := NewRabbitMQEventBus(
+		rabbitMQConnString,
+		cfg.RabbitMQConfig.Exchange,
+		FanoutExchangeType,
+	)
+
+	if err != nil {
+		logger.Error("Failed to initialize RabbitMQ event bus", "error", err)
+		return nil, fmt.Errorf("failed to initialize RabbitMQ event bus: %w", err)
 	}
+
+	return &UserEventBus{
+		bus:    rabbitMQBus,
+		logger: logger,
+	}, nil
 }
 
 // PublishUserCreated publishes a user created event to the event bus
@@ -41,7 +61,7 @@ func (b *UserEventBus) PublishUserCreated(ctx context.Context, user repository.A
 		slog.String("user_id", user.ID.String()),
 		slog.String("request_id", requestID),
 	)
-	
+
 	return b.bus.Publish(ctx, routingKey, event)
 }
 
@@ -63,7 +83,7 @@ func (b *UserEventBus) PublishUserUpdated(ctx context.Context, user repository.A
 		slog.String("user_id", user.ID.String()),
 		slog.String("request_id", requestID),
 	)
-	
+
 	return b.bus.Publish(ctx, routingKey, event)
 }
 
@@ -85,7 +105,7 @@ func (b *UserEventBus) PublishUserDeleted(ctx context.Context, user repository.A
 		slog.String("user_id", user.ID.String()),
 		slog.String("request_id", requestID),
 	)
-	
+
 	return b.bus.Publish(ctx, routingKey, event)
 }
 

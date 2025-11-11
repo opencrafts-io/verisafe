@@ -16,12 +16,12 @@ import (
 )
 
 type Auth struct {
-	config    *config.Config
-	logger    *slog.Logger
-	eventBus  *eventbus.UserEventBus
+	config   *config.Config
+	logger   *slog.Logger
+	eventBus *eventbus.UserEventBus
 }
 
-func NewAuthenticator(cfg *config.Config, logger *slog.Logger) (*Auth, error) {
+func NewAuthenticator(cfg *config.Config, userEventBus *eventbus.UserEventBus, logger *slog.Logger) (*Auth, error) {
 	sessionSecret := cfg.AuthenticationConfig.SessionSecret
 
 	if sessionSecret == "" {
@@ -104,30 +104,6 @@ func NewAuthenticator(cfg *config.Config, logger *slog.Logger) (*Auth, error) {
 	)
 
 	logger.Info("Goth Oauth2 providers initialized successfully")
-
-	// Initialize event bus if RabbitMQ is configured
-	var userEventBus *eventbus.UserEventBus
-	if cfg.RabbitMQConfig.RabbitMQUser != "" && cfg.RabbitMQConfig.RabbitMQPass != "" && 
-	   cfg.RabbitMQConfig.RabbitMQAddress != "" && cfg.RabbitMQConfig.Exchange != "" {
-		
-		rabbitMQConnString := fmt.Sprintf("amqp://%s:%s@%s:%d/",
-			cfg.RabbitMQConfig.RabbitMQUser,
-			cfg.RabbitMQConfig.RabbitMQPass,
-			cfg.RabbitMQConfig.RabbitMQAddress,
-			cfg.RabbitMQConfig.RabbitMQPort,
-		)
-		
-		rabbitMQBus, err := eventbus.NewRabbitMQEventBus(rabbitMQConnString, cfg.RabbitMQConfig.Exchange)
-		if err != nil {
-			logger.Error("Failed to initialize RabbitMQ event bus", "error", err)
-			return nil, fmt.Errorf("failed to initialize RabbitMQ event bus: %w", err)
-		}
-		
-		userEventBus = eventbus.NewUserEventBus(rabbitMQBus, logger)
-		logger.Info("RabbitMQ event bus initialized successfully")
-	} else {
-		logger.Info("RabbitMQ not configured, event publishing disabled")
-	}
 
 	return &Auth{
 		config:   cfg,

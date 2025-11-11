@@ -10,7 +10,7 @@ import (
 func (a *App) loadRoutes() http.Handler {
 	router := http.NewServeMux()
 
-	auth, err := auth.NewAuthenticator(a.config, a.logger)
+	auth, err := auth.NewAuthenticator(a.config, a.userEventBus, a.logger)
 	if err != nil {
 		a.logger.Error("Failed to initialize authenticator", "error", err)
 		// Return a simple error handler if auth initialization fails
