@@ -11,7 +11,8 @@ import (
 // EventBus is an interface that defines the contract for any event bus implementation.
 // The Publish method accepts a routing key.
 type EventBus interface {
-	Publish(ctx context.Context, routingKey string, event interface{}) error
+	Publish(ctx context.Context, routingKey string, event any) error
+	Subscribe(routingKey string, handler func(event []byte)) error
 	Close()
 }
 
@@ -57,7 +58,7 @@ func NewRabbitMQEventBus(amqpURI, exchange string) (*RabbitMQEventBus, error) {
 }
 
 // Publish serializes the event and sends it to the RabbitMQ exchange.
-func (eb *RabbitMQEventBus) Publish(ctx context.Context, routingKey string, event interface{}) error {
+func (eb *RabbitMQEventBus) Publish(ctx context.Context, routingKey string, event any) error {
 	body, err := json.Marshal(event)
 	if err != nil {
 		return fmt.Errorf("failed to marshal event: %w", err)
