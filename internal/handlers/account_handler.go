@@ -13,14 +13,16 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/opencrafts-io/verisafe/internal/config"
+	"github.com/opencrafts-io/verisafe/internal/eventbus"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/repository"
 	"github.com/opencrafts-io/verisafe/internal/utils"
 )
 
 type AccountHandler struct {
-	Logger *slog.Logger
-	Cfg    *config.Config
+	Logger       *slog.Logger
+	Cfg          *config.Config
+	UserEventBus *eventbus.UserEventBus
 }
 
 func (ah *AccountHandler) RegisterHandlers(router *http.ServeMux) {
@@ -477,6 +479,10 @@ func (ah *AccountHandler) UpdatePersonalAccount(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	go func() {
+		ah.UserEventBus.PublishUserUpdated(r.Context(), updated, eventbus.GenerateRequestID())
+	}()
+
 	if err = tx.Commit(r.Context()); err != nil {
 		ah.Logger.Error("Error while committing transaction", slog.Any("error", err))
 		w.WriteHeader(http.StatusInternalServerError)
@@ -546,6 +552,9 @@ func (ah *AccountHandler) VerifyPhone(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	go func() {
+		ah.UserEventBus.PublishUserUpdated(r.Context(), updated, eventbus.GenerateRequestID())
+	}()
 
 	if err = tx.Commit(r.Context()); err != nil {
 		ah.Logger.Error("Error while committing transaction", slog.Any("error", err))
