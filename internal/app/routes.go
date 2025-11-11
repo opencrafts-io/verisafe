@@ -18,7 +18,11 @@ func (a *App) loadRoutes() http.Handler {
 			http.Error(w, "Service unavailable", http.StatusServiceUnavailable)
 		})
 	}
-	accountHandler := handlers.AccountHandler{Logger: a.logger, Cfg: a.config}
+	accountHandler := handlers.AccountHandler{
+		Logger:       a.logger,
+		UserEventBus: a.userEventBus,
+		Cfg:          a.config,
+	}
 	serviceTokenHandler := handlers.ServiceTokenHandler{Logger: a.logger, Cfg: a.config}
 	socialHandler := handlers.SocialHandler{Logger: a.logger}
 	roleHandler := handlers.RoleHandler{Logger: a.logger}

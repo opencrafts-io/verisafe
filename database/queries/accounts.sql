@@ -4,6 +4,7 @@ VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- name: GetAllAccounts :many
+-- Returns only accounts of the 'human' type
 SELECT * FROM accounts WHERE type = 'human' 
 LIMIT $1
 OFFSET $2;
