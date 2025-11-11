@@ -55,7 +55,7 @@ func (b *UserEventBus) PublishUserCreated(ctx context.Context, user repository.A
 		},
 	}
 
-	routingKey := "verisafe.user.created"
+	routingKey := ""
 	b.logger.Info("Publishing user created event",
 		slog.String("routing_key", routingKey),
 		slog.String("user_id", user.ID.String()),
@@ -77,7 +77,7 @@ func (b *UserEventBus) PublishUserUpdated(ctx context.Context, user repository.A
 		},
 	}
 
-	routingKey := "verisafe.user.updated"
+	routingKey := ""
 	b.logger.Info("Publishing user updated event",
 		slog.String("routing_key", routingKey),
 		slog.String("user_id", user.ID.String()),
@@ -99,7 +99,7 @@ func (b *UserEventBus) PublishUserDeleted(ctx context.Context, user repository.A
 		},
 	}
 
-	routingKey := "verisafe.user.deleted"
+	routingKey := ""
 	b.logger.Info("Publishing user deleted event",
 		slog.String("routing_key", routingKey),
 		slog.String("user_id", user.ID.String()),
