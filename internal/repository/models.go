@@ -128,6 +128,29 @@ type ActiveServiceToken struct {
 	AccountType      AccountType        `json:"account_type"`
 }
 
+type Activity struct {
+	ID                  uuid.UUID        `json:"id"`
+	Name                string           `json:"name"`
+	Description         *string          `json:"description"`
+	Category            *string          `json:"category"`
+	PointsAwarded       int16            `json:"points_awarded"`
+	MaxDailyCompletions *int16           `json:"max_daily_completions"`
+	StreakEligible      *bool            `json:"streak_eligible"`
+	IsActive            *bool            `json:"is_active"`
+	CreatedAt           pgtype.Timestamp `json:"created_at"`
+	UpdatedAt           pgtype.Timestamp `json:"updated_at"`
+}
+
+type ActivityCompletion struct {
+	ID             int64            `json:"id"`
+	AccountID      uuid.UUID        `json:"account_id"`
+	ActivityID     uuid.UUID        `json:"activity_id"`
+	CompletedAt    pgtype.Timestamp `json:"completed_at"`
+	CompletionDate pgtype.Date      `json:"completion_date"`
+	PointsEarned   int16            `json:"points_earned"`
+	Metadata       []byte           `json:"metadata"`
+}
+
 type Institution struct {
 	InstitutionID int32    `json:"institution_id"`
 	Name          string   `json:"name"`
@@ -210,6 +233,16 @@ type Social struct {
 	UpdatedAt         pgtype.Timestamp `json:"updated_at"`
 }
 
+type StreakMilestone struct {
+	ID           uuid.UUID   `json:"id"`
+	ActivityID   pgtype.UUID `json:"activity_id"`
+	DaysRequired int16       `json:"days_required"`
+	BonusPoints  int16       `json:"bonus_points"`
+	Title        string      `json:"title"`
+	Description  *string     `json:"description"`
+	IsActive     *bool       `json:"is_active"`
+}
+
 type UserPermissionsView struct {
 	UserID       uuid.UUID `json:"user_id"`
 	RoleID       uuid.UUID `json:"role_id"`
@@ -231,6 +264,28 @@ type UserRolesView struct {
 	RoleName        string           `json:"role_name"`
 	RoleDescription *string          `json:"role_description"`
 	RoleCreatedAt   pgtype.Timestamp `json:"role_created_at"`
+}
+
+type UserStreak struct {
+	ID                 int64            `json:"id"`
+	AccountID          uuid.UUID        `json:"account_id"`
+	ActivityID         uuid.UUID        `json:"activity_id"`
+	CurrentStreak      int16            `json:"current_streak"`
+	LongestStreak      int16            `json:"longest_streak"`
+	LastCompletionDate pgtype.Date      `json:"last_completion_date"`
+	StreakStartedAt    pgtype.Date      `json:"streak_started_at"`
+	TotalCompletions   int32            `json:"total_completions"`
+	CreatedAt          pgtype.Timestamp `json:"created_at"`
+	UpdatedAt          pgtype.Timestamp `json:"updated_at"`
+}
+
+type UserStreakAchievement struct {
+	ID                 int64            `json:"id"`
+	AccountID          uuid.UUID        `json:"account_id"`
+	StreakMilestoneID  uuid.UUID        `json:"streak_milestone_id"`
+	UserStreakID       int64            `json:"user_streak_id"`
+	AchievedAt         pgtype.Timestamp `json:"achieved_at"`
+	BonusPointsAwarded int16            `json:"bonus_points_awarded"`
 }
 
 type VibepointTransaction struct {
