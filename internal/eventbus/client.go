@@ -3,6 +3,7 @@ package eventbus
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -99,5 +100,5 @@ func (eb *RabbitMQEventBus) Close() {
 }
 
 func (eb *RabbitMQEventBus) Subscribe(routingKey string, handler func(event []byte)) error {
-	return nil
+	return errors.New("Subscribe not implemented")
 }
