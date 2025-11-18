@@ -38,8 +38,8 @@ func (ah *AccountHandler) RegisterHandlers(router *http.ServeMux) {
 
 	router.Handle("GET /accounts/fanout",
 		middleware.CreateStack(
-		middleware.IsAuthenticated(ah.Cfg, ah.Logger),
-		middleware.HasPermission([]string{"create:account:any"}),
+			middleware.IsAuthenticated(ah.Cfg, ah.Logger),
+			middleware.HasPermission([]string{"create:account:any"}),
 		)(http.HandlerFunc(ah.FanoutAccouts)),
 	)
 
@@ -580,10 +580,6 @@ func (ah *AccountHandler) UpdatePersonalAccount(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	go func() {
-		ah.UserEventBus.PublishUserUpdated(r.Context(), updated, eventbus.GenerateRequestID())
-	}()
-
 	if err = tx.Commit(r.Context()); err != nil {
 		ah.Logger.Error("Error while committing transaction", slog.Any("error", err))
 		w.WriteHeader(http.StatusInternalServerError)
@@ -592,6 +588,27 @@ func (ah *AccountHandler) UpdatePersonalAccount(w http.ResponseWriter, r *http.R
 		})
 		return
 	}
+
+	go func() {
+		eventRequestID := eventbus.GenerateRequestID()
+		ctx, err := context.WithTimeout(context.Background(), 10*time.Second)
+		if err != nil {
+			ah.Logger.Error("Failed to initialize context for publishing user updated event",
+				slog.Any("error", err),
+			)
+			return
+		}
+		if err := ah.UserEventBus.PublishUserUpdated(
+			ctx,
+			updated, eventRequestID); err != nil {
+			ah.Logger.Error("Failed to publis user updated event",
+				slog.Any("event_id", eventRequestID),
+				slog.Any("event_data", updated),
+				slog.Any("error", err),
+			)
+		}
+
+	}()
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(updated)
@@ -653,10 +670,6 @@ func (ah *AccountHandler) VerifyPhone(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	go func() {
-		ah.UserEventBus.PublishUserUpdated(r.Context(), updated, eventbus.GenerateRequestID())
-	}()
-
 	if err = tx.Commit(r.Context()); err != nil {
 		ah.Logger.Error("Error while committing transaction", slog.Any("error", err))
 		w.WriteHeader(http.StatusInternalServerError)
@@ -665,6 +678,24 @@ func (ah *AccountHandler) VerifyPhone(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	go func() {
+		eventRequestID := eventbus.GenerateRequestID()
+		ctx, err := context.WithTimeout(context.Background(), 10*time.Second)
+		if err != nil {
+			ah.Logger.Error("Failed to initialize context for publishing user updated event",
+				slog.Any("error", err),
+			)
+			return
+		}
+
+		if err := ah.UserEventBus.PublishUserUpdated(ctx, updated, eventRequestID); err != nil {
+			ah.Logger.Error("Failed to publis user updated event",
+				slog.Any("event_id", eventRequestID),
+				slog.Any("event_data", updated),
+				slog.Any("error", err),
+			)
+		}
+	}()
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(updated)
