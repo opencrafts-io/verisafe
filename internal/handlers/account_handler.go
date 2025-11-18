@@ -1,26 +1,31 @@
 package handlers
 
 import (
+	"context"
 	"crypto/rand"
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/opencrafts-io/verisafe/internal/config"
+	"github.com/opencrafts-io/verisafe/internal/eventbus"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/repository"
 	"github.com/opencrafts-io/verisafe/internal/utils"
 )
 
 type AccountHandler struct {
-	Logger *slog.Logger
-	Cfg    *config.Config
+	Logger       *slog.Logger
+	Cfg          *config.Config
+	UserEventBus *eventbus.UserEventBus
 }
 
 func (ah *AccountHandler) RegisterHandlers(router *http.ServeMux) {
@@ -29,6 +34,13 @@ func (ah *AccountHandler) RegisterHandlers(router *http.ServeMux) {
 			middleware.IsAuthenticated(ah.Cfg, ah.Logger),
 			middleware.HasPermission([]string{"create:account:any"}),
 		)(http.HandlerFunc(ah.CreateBotAccount)),
+	)
+
+	router.Handle("GET /accounts/fanout",
+		middleware.CreateStack(
+		middleware.IsAuthenticated(ah.Cfg, ah.Logger),
+		middleware.HasPermission([]string{"create:account:any"}),
+		)(http.HandlerFunc(ah.FanoutAccouts)),
 	)
 
 	router.Handle("GET /accounts/me",
@@ -373,6 +385,97 @@ func (ah *AccountHandler) generateSecureToken() (string, error) {
 	return token, nil
 }
 
+// Publishes all accounts to other services via the event bus
+func (ah *AccountHandler) FanoutAccouts(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	conn, err := middleware.GetDBConnFromContext(r.Context())
+	if err != nil {
+		ah.Logger.Error("Error while processing request", slog.Any("error", err))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "We ran into a problem while servicing your request please try again later",
+		})
+		return
+	}
+
+	repo := repository.New(conn)
+	userCount, err := repo.GetAccountsCount(r.Context())
+	if err != nil {
+		ah.Logger.Error("Error while processing request", slog.Any("error", err))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "We ran into an error while trying to service your request",
+		})
+		return
+	}
+
+	batchSize := 1000
+	totalBatches := (int(userCount) + batchSize - 1) / batchSize
+	publishedCount := 0
+
+	// Use a worker pool to limit concurrent goroutines
+	workerCount := 5
+	semaphore := make(chan struct{}, workerCount)
+	var wg sync.WaitGroup
+	errChan := make(chan error, totalBatches)
+
+	for batch := range totalBatches {
+		wg.Add(1)
+		semaphore <- struct{}{} // Acquire slot
+
+		go func(batchNum int) {
+			defer wg.Done()
+			defer func() { <-semaphore }() // Release slot
+
+			offset := batchNum * batchSize
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+			defer cancel()
+			users, err := repo.GetAllAccounts(ctx, repository.GetAllAccountsParams{
+				Limit:  int32(batchSize),
+				Offset: int32(offset),
+			})
+			if err != nil {
+				ah.Logger.Error("Error fetching batch",
+					slog.Any("error", err),
+					slog.Int("batch", batchNum),
+				)
+				errChan <- fmt.Errorf("batch %d: %w", batchNum, err)
+				return
+			}
+
+			// Publish synchronously within the goroutine
+			for _, user := range users {
+				if err := ah.UserEventBus.PublishUserCreated(ctx, user, user.ID.String()); err != nil {
+					ah.Logger.Error("Error publishing user",
+						slog.Any("error", err),
+						slog.String("user_id", user.ID.String()),
+					)
+					errChan <- err
+					return
+				}
+				publishedCount++
+			}
+		}(batch)
+	}
+
+	wg.Wait()
+	close(errChan)
+
+	// Check for errors
+	if len(errChan) > 0 {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Some batches failed to publish",
+		})
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]any{
+		"message": fmt.Sprintf("Published %d users to the event bus", publishedCount),
+	})
+}
+
 func (ah *AccountHandler) GetPersonalAccount(w http.ResponseWriter, r *http.Request) {
 	claims := r.Context().Value(middleware.AuthUserClaims).(*utils.VerisafeClaims)
 	w.Header().Set("Content-Type", "application/json")
@@ -477,6 +580,10 @@ func (ah *AccountHandler) UpdatePersonalAccount(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	go func() {
+		ah.UserEventBus.PublishUserUpdated(r.Context(), updated, eventbus.GenerateRequestID())
+	}()
+
 	if err = tx.Commit(r.Context()); err != nil {
 		ah.Logger.Error("Error while committing transaction", slog.Any("error", err))
 		w.WriteHeader(http.StatusInternalServerError)
@@ -546,6 +653,9 @@ func (ah *AccountHandler) VerifyPhone(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	go func() {
+		ah.UserEventBus.PublishUserUpdated(r.Context(), updated, eventbus.GenerateRequestID())
+	}()
 
 	if err = tx.Commit(r.Context()); err != nil {
 		ah.Logger.Error("Error while committing transaction", slog.Any("error", err))
@@ -604,7 +714,7 @@ func (ah *AccountHandler) SearchAccountsByEmail(w http.ResponseWriter, r *http.R
 
 	// Search accounts by email
 	accounts, err := repo.SearchAccountByEmail(r.Context(), repository.SearchAccountByEmailParams{
-		Lower:  query,
+		Email:  query,
 		Limit:  int32(pagination.Limit),
 		Offset: int32(pagination.Offset),
 	})
@@ -687,7 +797,7 @@ func (ah *AccountHandler) SearchAccountsByName(w http.ResponseWriter, r *http.Re
 
 	// Search accounts by name
 	accounts, err := repo.SearchAccountByName(r.Context(), repository.SearchAccountByNameParams{
-		Lower:  query,
+		Name:   query,
 		Limit:  int32(pagination.Limit),
 		Offset: int32(pagination.Offset),
 	})
@@ -827,9 +937,9 @@ func (ah *AccountHandler) SearchAccountsByUsername(w http.ResponseWriter, r *htt
 
 	// Search accounts by username
 	accounts, err := repo.SearchAccountByUsername(r.Context(), repository.SearchAccountByUsernameParams{
-		Lower:  query,
-		Limit:  int32(pagination.Limit),
-		Offset: int32(pagination.Offset),
+		Username: query,
+		Limit:    int32(pagination.Limit),
+		Offset:   int32(pagination.Offset),
 	})
 	if err != nil {
 		ah.Logger.Error("Failed to search accounts by username", slog.Any("error", err))

@@ -10,7 +10,7 @@ import (
 func (a *App) loadRoutes() http.Handler {
 	router := http.NewServeMux()
 
-	auth, err := auth.NewAuthenticator(a.config, a.logger)
+	auth, err := auth.NewAuthenticator(a.config, a.userEventBus, a.logger)
 	if err != nil {
 		a.logger.Error("Failed to initialize authenticator", "error", err)
 		// Return a simple error handler if auth initialization fails
@@ -18,7 +18,11 @@ func (a *App) loadRoutes() http.Handler {
 			http.Error(w, "Service unavailable", http.StatusServiceUnavailable)
 		})
 	}
-	accountHandler := handlers.AccountHandler{Logger: a.logger, Cfg: a.config}
+	accountHandler := handlers.AccountHandler{
+		Logger:       a.logger,
+		UserEventBus: a.userEventBus,
+		Cfg:          a.config,
+	}
 	serviceTokenHandler := handlers.ServiceTokenHandler{Logger: a.logger, Cfg: a.config}
 	socialHandler := handlers.SocialHandler{Logger: a.logger}
 	roleHandler := handlers.RoleHandler{Logger: a.logger}

@@ -11,13 +11,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/opencrafts-io/verisafe/database"
 	"github.com/opencrafts-io/verisafe/internal/config"
+	"github.com/opencrafts-io/verisafe/internal/eventbus"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 )
 
 type App struct {
-	config *config.Config
-	logger *slog.Logger
-	pool   *pgxpool.Pool
+	config       *config.Config
+	logger       *slog.Logger
+	pool         *pgxpool.Pool
+	userEventBus *eventbus.UserEventBus
 }
 
 // Returns a new instance of the application
@@ -45,10 +47,16 @@ func New(logger *slog.Logger, config *config.Config) (*App, error) {
 		return nil, err
 	}
 
+	userEventBus, err := eventbus.NewUserEventBus(config, logger)
+	if err != nil {
+		return nil, err
+	}
+
 	return &App{
-		config: config,
-		logger: logger,
-		pool:   connPool,
+		config:       config,
+		logger:       logger,
+		pool:         connPool,
+		userEventBus: userEventBus,
 	}, nil
 }
 
