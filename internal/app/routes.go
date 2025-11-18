@@ -30,6 +30,7 @@ func (a *App) loadRoutes() http.Handler {
 	institutionHandler := handlers.InstitutionHandler{Logger: a.logger}
 	leaderboardHandler := handlers.LeaderBoardHandler{Logger: a.logger}
 	activityHandler := handlers.ActivityHandler{Logger: a.logger}
+	streakhanlder := handlers.StreakHandler{Logger: a.logger}
 
 	// ping handler
 	router.HandleFunc("GET /ping", handlers.PingHandler)
@@ -46,5 +47,6 @@ func (a *App) loadRoutes() http.Handler {
 	institutionHandler.RegisterInstitutionHadlers(a.config, router)
 	leaderboardHandler.RegisterLeaderBoardHandlers(a.config, router)
 	activityHandler.RegisterHadlers(a.config, router)
+	streakhanlder.RegisterRoutes(a.config, router)
 	return router
 }
