@@ -3,6 +3,7 @@ package eventbus
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -13,7 +14,7 @@ type ExchangeType string
 const (
 	DirectExchangeType ExchangeType = "direct"
 	FanoutExchangeType ExchangeType = "fanout"
-	TopicExhangeType   ExchangeType = "topic"
+	TopicExchangeType  ExchangeType = "topic"
 )
 
 // EventBus is an interface that defines the contract for any event bus implementation.
@@ -44,7 +45,7 @@ func NewRabbitMQEventBus(amqpURI, exchange string, exchangeType ExchangeType) (*
 		return nil, fmt.Errorf("failed to open channel: %w", err)
 	}
 
-	// Declare a durable direct exchange
+	// Declare a durable exchange as per the parameters
 	err = ch.ExchangeDeclare(
 		exchange,             // name
 		string(exchangeType), // type
@@ -99,5 +100,5 @@ func (eb *RabbitMQEventBus) Close() {
 }
 
 func (eb *RabbitMQEventBus) Subscribe(routingKey string, handler func(event []byte)) error {
-	return nil
+	return errors.New("Subscribe not implemented")
 }
