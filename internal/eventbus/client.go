@@ -45,7 +45,7 @@ func NewRabbitMQEventBus(amqpURI, exchange string, exchangeType ExchangeType) (*
 		return nil, fmt.Errorf("failed to open channel: %w", err)
 	}
 
-	// Declare a durable direct exchange
+	// Declare a durable exchange as per the parameters
 	err = ch.ExchangeDeclare(
 		exchange,             // name
 		string(exchangeType), // type
