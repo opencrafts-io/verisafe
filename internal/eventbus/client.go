@@ -13,7 +13,7 @@ type ExchangeType string
 const (
 	DirectExchangeType ExchangeType = "direct"
 	FanoutExchangeType ExchangeType = "fanout"
-	TopicExhangeType   ExchangeType = "topic"
+	TopicExchangeType  ExchangeType = "topic"
 )
 
 // EventBus is an interface that defines the contract for any event bus implementation.
