@@ -64,3 +64,16 @@ RETURNING *;
 -- name: DeleteActivity :exec
 DELETE FROM activities
 WHERE id = $1;
+
+
+-- name: GetAllUserActivityCompletions :many
+-- Returns activity a certain user specified by their id has completed ordered 
+-- from the most recent to the oldest
+SELECT * FROM activity_completions WHERE account_id = $1
+LIMIT $2 OFFSET $3;
+
+
+-- name: GetAllUserActivityCompletionsCount :one
+-- Returns the number of record that have been done on the user's completed
+-- activities
+SELECT count(id) FROM activity_completions WHERE account_id = $1;
