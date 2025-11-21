@@ -256,6 +256,60 @@ func (q *Queries) GetAllInactiveActivitiesCount(ctx context.Context) (int64, err
 	return count, err
 }
 
+const getAllUserActivityCompletions = `-- name: GetAllUserActivityCompletions :many
+SELECT id, account_id, activity_id, completed_at, completion_date, points_earned, metadata FROM activity_completions WHERE account_id = $1
+LIMIT $2 OFFSET $3
+`
+
+type GetAllUserActivityCompletionsParams struct {
+	AccountID uuid.UUID `json:"account_id"`
+	Limit     int32     `json:"limit"`
+	Offset    int32     `json:"offset"`
+}
+
+// Returns activity a certain user specified by their id has completed ordered
+// from the most recent to the oldest
+func (q *Queries) GetAllUserActivityCompletions(ctx context.Context, arg GetAllUserActivityCompletionsParams) ([]ActivityCompletion, error) {
+	rows, err := q.db.Query(ctx, getAllUserActivityCompletions, arg.AccountID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ActivityCompletion{}
+	for rows.Next() {
+		var i ActivityCompletion
+		if err := rows.Scan(
+			&i.ID,
+			&i.AccountID,
+			&i.ActivityID,
+			&i.CompletedAt,
+			&i.CompletionDate,
+			&i.PointsEarned,
+			&i.Metadata,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getAllUserActivityCompletionsCount = `-- name: GetAllUserActivityCompletionsCount :one
+SELECT count(id) FROM activity_completions WHERE account_id = $1
+`
+
+// Returns the number of record that have been done on the user's completed
+// activities
+func (q *Queries) GetAllUserActivityCompletionsCount(ctx context.Context, accountID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, getAllUserActivityCompletionsCount, accountID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const updateActivity = `-- name: UpdateActivity :one
 UPDATE activities
   SET 
