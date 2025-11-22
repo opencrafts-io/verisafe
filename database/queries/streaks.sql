@@ -1,6 +1,13 @@
 -- name: RecordActivityCompletion :one
-SELECT *
-FROM record_activity_completion(@account_id::uuid, @activity_id::uuid, @metadata::jsonb);
+-- SELECT *
+-- FROM record_activity_completion(@account_id::uuid, @activity_id::uuid, @metadata::jsonb);
+SELECT 
+  (result).completion_id::bigint as completion_id,
+  (result).points_earned::smallint as points_earned,
+  (result).current_streak::smallint as current_streak,
+  (result).milestone_achieved::boolean as milestone_achieved,
+  COALESCE((result).milestone_bonus::smallint,0)::smallint as milestone_bonus
+FROM record_activity_completion(@account_id::uuid, @activity_id::uuid, @metadata::jsonb) AS result;
 
 -- name: GetUserStreaks :many
 SELECT *
