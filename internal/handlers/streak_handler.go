@@ -1,19 +1,24 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/opencrafts-io/verisafe/internal/config"
+	"github.com/opencrafts-io/verisafe/internal/eventbus"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/middleware/pagination"
 	"github.com/opencrafts-io/verisafe/internal/repository"
 )
 
 type StreakHandler struct {
-	Logger *slog.Logger
+	Logger               *slog.Logger
+	NotificationEventBus *eventbus.NotificationEventBus
 }
 
 func (sh *StreakHandler) RegisterRoutes(cfg *config.Config, router *http.ServeMux) {
@@ -60,7 +65,7 @@ func (sh *StreakHandler) RecordUserActivity(w http.ResponseWriter, r *http.Reque
 	defer tx.Rollback(r.Context())
 	repo := repository.New(tx)
 
-	_, err = repo.RecordActivityCompletion(r.Context(), requestBody)
+	completed, err := repo.RecordActivityCompletion(r.Context(), requestBody)
 	if err != nil {
 		sh.Logger.Error("Failed to record user activity", slog.Any("error", err), slog.Any("activity", requestBody))
 		http.Error(w, `{"error":"Cannot process your request at the moment"}`, http.StatusInternalServerError)
@@ -75,6 +80,8 @@ func (sh *StreakHandler) RecordUserActivity(w http.ResponseWriter, r *http.Reque
 		})
 		return
 	}
+
+	go sh.sendActivityCompletionNotification(requestBody.AccountID.String(), &completed)
 	json.NewEncoder(w).Encode(map[string]any{"message": "Activity recorded successfully!"})
 }
 
@@ -222,4 +229,64 @@ func (sh *StreakHandler) DeleteStreakMilestone(w http.ResponseWriter, r *http.Re
 	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]any{"message": "streak milestone deleted successfully"})
+}
+
+func (sh *StreakHandler) sendActivityCompletionNotification(
+	accountID string,
+	result *repository.RecordActivityCompletionRow,
+) {
+	// Create notification content based on result
+	heading := "🎉 Activity Completed!"
+	var content string
+	var buttons []eventbus.NotificationButton
+
+	// Base points notification
+	content = fmt.Sprintf("You earned %d vibepoints!", result.PointsEarned)
+
+	// Add streak information if applicable
+	if result.CurrentStreak > 0 {
+		content += fmt.Sprintf("\n🔥 Streak: %d days", result.CurrentStreak)
+	}
+
+	// Add milestone bonus if achieved
+	if result.MilestoneAchieved {
+		content += fmt.Sprintf("\n⭐ Milestone bonus: +%d points!", result.MilestoneBonus)
+		buttons = append(buttons, eventbus.NotificationButton{
+			ID:   "view-achievements",
+			Text: "View Achievements",
+			Icon: "ic_trophy",
+		})
+	}
+
+	// Add action button
+	buttons = append(buttons, eventbus.NotificationButton{
+		ID:   "view-profile",
+		Text: "View Profile",
+		Icon: "ic_profile",
+	})
+
+	notification := eventbus.NotificationPayload{
+		AppID: "88ca0bb7-c0d7-4e36-b9e6-ea0e29213593",
+		Headings: map[string]string{
+			"en": heading,
+		},
+		Contents: map[string]string{
+			"en": content,
+		},
+		TargetUserID: accountID,
+		Subtitle: map[string]string{
+			"en": "Keep up the good work!",
+		},
+		AndroidChannelID: "60023d0b-dcd4-41ae-8e58-7eabbf382c8c",
+		IosSound:         "default",
+		SmallIcon:        "ic_notification",
+		URL:              "https://opencrafts.io/profile",
+		Buttons:          buttons,
+	}
+
+	// Send notification (with timeout to prevent blocking)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	sh.NotificationEventBus.PublishPushNotificationRequested(ctx, notification, eventbus.GenerateRequestID())
 }

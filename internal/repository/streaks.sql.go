@@ -152,8 +152,13 @@ func (q *Queries) GetUserStreaks(ctx context.Context, accountID uuid.UUID) ([]in
 }
 
 const recordActivityCompletion = `-- name: RecordActivityCompletion :one
-SELECT record_activity_completion
-FROM record_activity_completion($1::uuid, $2::uuid, $3::jsonb)
+SELECT 
+  (result).completion_id::bigint as completion_id,
+  (result).points_earned::smallint as points_earned,
+  (result).current_streak::smallint as current_streak,
+  (result).milestone_achieved::boolean as milestone_achieved,
+  COALESCE((result).milestone_bonus::smallint,0)::smallint as milestone_bonus
+FROM record_activity_completion($1::uuid, $2::uuid, $3::jsonb) AS result
 `
 
 type RecordActivityCompletionParams struct {
@@ -162,9 +167,25 @@ type RecordActivityCompletionParams struct {
 	Metadata   []byte    `json:"metadata"`
 }
 
-func (q *Queries) RecordActivityCompletion(ctx context.Context, arg RecordActivityCompletionParams) (interface{}, error) {
+type RecordActivityCompletionRow struct {
+	CompletionID      int64 `json:"completion_id"`
+	PointsEarned      int16 `json:"points_earned"`
+	CurrentStreak     int16 `json:"current_streak"`
+	MilestoneAchieved bool  `json:"milestone_achieved"`
+	MilestoneBonus    int16 `json:"milestone_bonus"`
+}
+
+// SELECT *
+// FROM record_activity_completion(@account_id::uuid, @activity_id::uuid, @metadata::jsonb);
+func (q *Queries) RecordActivityCompletion(ctx context.Context, arg RecordActivityCompletionParams) (RecordActivityCompletionRow, error) {
 	row := q.db.QueryRow(ctx, recordActivityCompletion, arg.AccountID, arg.ActivityID, arg.Metadata)
-	var record_activity_completion interface{}
-	err := row.Scan(&record_activity_completion)
-	return record_activity_completion, err
+	var i RecordActivityCompletionRow
+	err := row.Scan(
+		&i.CompletionID,
+		&i.PointsEarned,
+		&i.CurrentStreak,
+		&i.MilestoneAchieved,
+		&i.MilestoneBonus,
+	)
+	return i, err
 }

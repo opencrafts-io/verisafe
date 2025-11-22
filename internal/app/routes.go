@@ -30,7 +30,7 @@ func (a *App) loadRoutes() http.Handler {
 	institutionHandler := handlers.InstitutionHandler{Logger: a.logger}
 	leaderboardHandler := handlers.LeaderBoardHandler{Logger: a.logger}
 	activityHandler := handlers.ActivityHandler{Logger: a.logger}
-	streakhanlder := handlers.StreakHandler{Logger: a.logger}
+	streakhanlder := handlers.StreakHandler{Logger: a.logger, NotificationEventBus: a.notificationEventBus}
 
 	// ping handler
 	router.HandleFunc("GET /ping", handlers.PingHandler)
