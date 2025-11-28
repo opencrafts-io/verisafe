@@ -16,10 +16,11 @@ import (
 )
 
 type App struct {
-	config       *config.Config
-	logger       *slog.Logger
-	pool         *pgxpool.Pool
-	userEventBus *eventbus.UserEventBus
+	config               *config.Config
+	logger               *slog.Logger
+	pool                 *pgxpool.Pool
+	userEventBus         *eventbus.UserEventBus
+	notificationEventBus *eventbus.NotificationEventBus
 }
 
 // Returns a new instance of the application
@@ -52,11 +53,17 @@ func New(logger *slog.Logger, config *config.Config) (*App, error) {
 		return nil, err
 	}
 
+	notificationEventBus, err := eventbus.NewNotificationEventBus(config, logger)
+	if err != nil {
+		return nil, err
+	}
+
 	return &App{
-		config:       config,
-		logger:       logger,
-		pool:         connPool,
-		userEventBus: userEventBus,
+		config:               config,
+		logger:               logger,
+		pool:                 connPool,
+		userEventBus:         userEventBus,
+		notificationEventBus: notificationEventBus,
 	}, nil
 }
 
