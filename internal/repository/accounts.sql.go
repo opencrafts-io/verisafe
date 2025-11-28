@@ -155,6 +155,7 @@ type GetAllAccountsParams struct {
 	Offset int32 `json:"offset"`
 }
 
+// Returns only accounts of the 'human' type
 func (q *Queries) GetAllAccounts(ctx context.Context, arg GetAllAccountsParams) ([]Account, error) {
 	rows, err := q.db.Query(ctx, getAllAccounts, arg.Limit, arg.Offset)
 	if err != nil {
