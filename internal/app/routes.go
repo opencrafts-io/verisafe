@@ -10,7 +10,7 @@ import (
 func (a *App) loadRoutes() http.Handler {
 	router := http.NewServeMux()
 
-	auth, err := auth.NewAuthenticator(a.config, a.logger)
+	auth, err := auth.NewAuthenticator(a.config, a.userEventBus, a.logger)
 	if err != nil {
 		a.logger.Error("Failed to initialize authenticator", "error", err)
 		// Return a simple error handler if auth initialization fails
@@ -18,13 +18,19 @@ func (a *App) loadRoutes() http.Handler {
 			http.Error(w, "Service unavailable", http.StatusServiceUnavailable)
 		})
 	}
-	accountHandler := handlers.AccountHandler{Logger: a.logger, Cfg: a.config}
+	accountHandler := handlers.AccountHandler{
+		Logger:       a.logger,
+		UserEventBus: a.userEventBus,
+		Cfg:          a.config,
+	}
 	serviceTokenHandler := handlers.ServiceTokenHandler{Logger: a.logger, Cfg: a.config}
 	socialHandler := handlers.SocialHandler{Logger: a.logger}
 	roleHandler := handlers.RoleHandler{Logger: a.logger}
 	permHandler := handlers.PermissionHandler{Logger: a.logger}
 	institutionHandler := handlers.InstitutionHandler{Logger: a.logger}
 	leaderboardHandler := handlers.LeaderBoardHandler{Logger: a.logger}
+	activityHandler := handlers.ActivityHandler{Logger: a.logger}
+	streakhanlder := handlers.StreakHandler{Logger: a.logger, NotificationEventBus: a.notificationEventBus}
 
 	// ping handler
 	router.HandleFunc("GET /ping", handlers.PingHandler)
@@ -40,5 +46,7 @@ func (a *App) loadRoutes() http.Handler {
 	permHandler.RegisterRoutes(a.config, router)
 	institutionHandler.RegisterInstitutionHadlers(a.config, router)
 	leaderboardHandler.RegisterLeaderBoardHandlers(a.config, router)
+	activityHandler.RegisterHadlers(a.config, router)
+	streakhanlder.RegisterRoutes(a.config, router)
 	return router
 }
