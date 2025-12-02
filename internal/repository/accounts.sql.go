@@ -53,12 +53,12 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (A
 
 const getAccountByEmail = `-- name: GetAccountByEmail :one
 SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type, national_id, username, avatar_url, bio, vibe_points, phone FROM accounts 
-WHERE lower(email) = lower($1)
+WHERE lower(email) = lower($1::varchar)
 LIMIT 1
 `
 
-func (q *Queries) GetAccountByEmail(ctx context.Context, lower string) (Account, error) {
-	row := q.db.QueryRow(ctx, getAccountByEmail, lower)
+func (q *Queries) GetAccountByEmail(ctx context.Context, email string) (Account, error) {
+	row := q.db.QueryRow(ctx, getAccountByEmail, email)
 	var i Account
 	err := row.Scan(
 		&i.ID,
@@ -107,11 +107,11 @@ func (q *Queries) GetAccountByID(ctx context.Context, id uuid.UUID) (Account, er
 }
 
 const getAccountByUsername = `-- name: GetAccountByUsername :one
-SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type, national_id, username, avatar_url, bio, vibe_points, phone FROM accounts WHERE lower(username) = lower($1)
+SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type, national_id, username, avatar_url, bio, vibe_points, phone FROM accounts WHERE lower(username) = lower($1::varchar)
 `
 
-func (q *Queries) GetAccountByUsername(ctx context.Context, lower string) (Account, error) {
-	row := q.db.QueryRow(ctx, getAccountByUsername, lower)
+func (q *Queries) GetAccountByUsername(ctx context.Context, username string) (Account, error) {
+	row := q.db.QueryRow(ctx, getAccountByUsername, username)
 	var i Account
 	err := row.Scan(
 		&i.ID,
@@ -132,6 +132,18 @@ func (q *Queries) GetAccountByUsername(ctx context.Context, lower string) (Accou
 	return i, err
 }
 
+const getAccountsCount = `-- name: GetAccountsCount :one
+SELECT count(id) FROM accounts WHERE type = 'human'
+`
+
+// Returns the number of all human accounts in the system
+func (q *Queries) GetAccountsCount(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, getAccountsCount)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const getAllAccounts = `-- name: GetAllAccounts :many
 SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type, national_id, username, avatar_url, bio, vibe_points, phone FROM accounts WHERE type = 'human' 
 LIMIT $1
@@ -143,6 +155,7 @@ type GetAllAccountsParams struct {
 	Offset int32 `json:"offset"`
 }
 
+// Returns only accounts of the 'human' type
 func (q *Queries) GetAllAccounts(ctx context.Context, arg GetAllAccountsParams) ([]Account, error) {
 	rows, err := q.db.Query(ctx, getAllAccounts, arg.Limit, arg.Offset)
 	if err != nil {
@@ -180,19 +193,19 @@ func (q *Queries) GetAllAccounts(ctx context.Context, arg GetAllAccountsParams) 
 
 const searchAccountByEmail = `-- name: SearchAccountByEmail :many
 SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type, national_id, username, avatar_url, bio, vibe_points, phone FROM accounts 
-WHERE lower(email) LIKE '%' || lower($1) || '%'
-LIMIT $2
-OFFSET $3
+WHERE lower(email) LIKE '%' || lower($3::varchar) || '%'
+LIMIT $1
+OFFSET $2
 `
 
 type SearchAccountByEmailParams struct {
-	Lower  string `json:"lower"`
 	Limit  int32  `json:"limit"`
 	Offset int32  `json:"offset"`
+	Email  string `json:"email"`
 }
 
 func (q *Queries) SearchAccountByEmail(ctx context.Context, arg SearchAccountByEmailParams) ([]Account, error) {
-	rows, err := q.db.Query(ctx, searchAccountByEmail, arg.Lower, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, searchAccountByEmail, arg.Limit, arg.Offset, arg.Email)
 	if err != nil {
 		return nil, err
 	}
@@ -228,19 +241,19 @@ func (q *Queries) SearchAccountByEmail(ctx context.Context, arg SearchAccountByE
 
 const searchAccountByName = `-- name: SearchAccountByName :many
 SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type, national_id, username, avatar_url, bio, vibe_points, phone FROM accounts 
-WHERE lower(name) LIKE '%' || lower($1) || '%'
-LIMIT $2
-OFFSET $3
+WHERE lower(name) LIKE '%' || lower($3::varchar) || '%'
+LIMIT $1
+OFFSET $2
 `
 
 type SearchAccountByNameParams struct {
-	Lower  string `json:"lower"`
 	Limit  int32  `json:"limit"`
 	Offset int32  `json:"offset"`
+	Name   string `json:"name"`
 }
 
 func (q *Queries) SearchAccountByName(ctx context.Context, arg SearchAccountByNameParams) ([]Account, error) {
-	rows, err := q.db.Query(ctx, searchAccountByName, arg.Lower, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, searchAccountByName, arg.Limit, arg.Offset, arg.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -276,19 +289,19 @@ func (q *Queries) SearchAccountByName(ctx context.Context, arg SearchAccountByNa
 
 const searchAccountByUsername = `-- name: SearchAccountByUsername :many
 SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type, national_id, username, avatar_url, bio, vibe_points, phone FROM accounts 
-WHERE lower(username) LIKE '%' || lower($1) || '%'
-LIMIT $2
-OFFSET $3
+WHERE lower(username) LIKE '%' || lower($3::varchar) || '%'
+LIMIT $1
+OFFSET $2
 `
 
 type SearchAccountByUsernameParams struct {
-	Lower  string `json:"lower"`
-	Limit  int32  `json:"limit"`
-	Offset int32  `json:"offset"`
+	Limit    int32  `json:"limit"`
+	Offset   int32  `json:"offset"`
+	Username string `json:"username"`
 }
 
 func (q *Queries) SearchAccountByUsername(ctx context.Context, arg SearchAccountByUsernameParams) ([]Account, error) {
-	rows, err := q.db.Query(ctx, searchAccountByUsername, arg.Lower, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, searchAccountByUsername, arg.Limit, arg.Offset, arg.Username)
 	if err != nil {
 		return nil, err
 	}

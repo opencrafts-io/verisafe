@@ -3,15 +3,25 @@ package eventbus
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
+type ExchangeType string
+
+const (
+	DirectExchangeType ExchangeType = "direct"
+	FanoutExchangeType ExchangeType = "fanout"
+	TopicExchangeType  ExchangeType = "topic"
+)
+
 // EventBus is an interface that defines the contract for any event bus implementation.
 // The Publish method accepts a routing key.
 type EventBus interface {
-	Publish(ctx context.Context, routingKey string, event interface{}) error
+	Publish(ctx context.Context, routingKey string, event any) error
+	Subscribe(routingKey string, handler func(event []byte)) error
 	Close()
 }
 
@@ -24,7 +34,7 @@ type RabbitMQEventBus struct {
 
 // NewRabbitMQEventBus creates and returns a new RabbitMQEventBus instance.
 // It connects to the RabbitMQ server and declares a durable exchange.
-func NewRabbitMQEventBus(amqpURI, exchange string) (*RabbitMQEventBus, error) {
+func NewRabbitMQEventBus(amqpURI, exchange string, exchangeType ExchangeType) (*RabbitMQEventBus, error) {
 	conn, err := amqp.Dial(amqpURI)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to RabbitMQ: %w", err)
@@ -35,15 +45,15 @@ func NewRabbitMQEventBus(amqpURI, exchange string) (*RabbitMQEventBus, error) {
 		return nil, fmt.Errorf("failed to open channel: %w", err)
 	}
 
-	// Declare a durable direct exchange
+	// Declare a durable exchange as per the parameters
 	err = ch.ExchangeDeclare(
-		exchange, // name
-		"direct", // type
-		true,     // durable
-		false,    // auto-deleted
-		false,    // internal
-		false,    // no-wait
-		nil,      // arguments
+		exchange,             // name
+		string(exchangeType), // type
+		true,                 // durable
+		false,                // auto-deleted
+		false,                // internal
+		false,                // no-wait
+		nil,                  // arguments
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to declare exchange: %w", err)
@@ -57,7 +67,7 @@ func NewRabbitMQEventBus(amqpURI, exchange string) (*RabbitMQEventBus, error) {
 }
 
 // Publish serializes the event and sends it to the RabbitMQ exchange.
-func (eb *RabbitMQEventBus) Publish(ctx context.Context, routingKey string, event interface{}) error {
+func (eb *RabbitMQEventBus) Publish(ctx context.Context, routingKey string, event any) error {
 	body, err := json.Marshal(event)
 	if err != nil {
 		return fmt.Errorf("failed to marshal event: %w", err)
@@ -87,4 +97,8 @@ func (eb *RabbitMQEventBus) Close() {
 	if eb.conn != nil {
 		eb.conn.Close()
 	}
+}
+
+func (eb *RabbitMQEventBus) Subscribe(routingKey string, handler func(event []byte)) error {
+	return errors.New("Subscribe not implemented")
 }
