@@ -13,10 +13,10 @@ WORKDIR /src
 COPY . .
 
 # Compile the application. This step will now succeed.
-RUN go build -o /app -ldflags "-s -w" main.go # <-- Ensure this path is correct
+RUN go build -o /app -ldflags "-s -w" . # <-- Ensure this path is correct
 
 # --- Stage 2: Final Runtime ---
-FROM scratch AS final
+FROM alpine:3.18 AS final
 
 # Copy SSL/TLS certificates needed for HTTPS or secure database connections.
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
@@ -25,4 +25,4 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /app /app
 
 # Define the entrypoint to run the binary.
-ENTRYPOINT ["/app"]
+
