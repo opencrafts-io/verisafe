@@ -13,7 +13,7 @@ WORKDIR /src
 COPY . .
 
 # Compile the application. This step will now succeed.
-RUN go build -o /app -ldflags "-s -w" ./cmd/main.go # <-- Ensure this path is correct
+RUN go build -o /app -ldflags "-s -w" main.go # <-- Ensure this path is correct
 
 # --- Stage 2: Final Runtime ---
 FROM scratch AS final
