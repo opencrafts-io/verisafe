@@ -1,30 +1,28 @@
-# Stage 1: Builder
-FROM golang:1.25-alpine AS builder
+# --- Stage 1: Builder ---
+# Change the base image to use a version of Go >= 1.24.6.
+# Using 'golang:1.24-alpine' ensures the correct version is used.
+FROM golang:1.24-alpine AS builder
 
-WORKDIR /app
+# Set the CGO_ENABLED flag to 0 to ensure the binary is statically linked.
+ENV CGO_ENABLED=0
 
-# Copy go.mod and go.sum first to leverage Docker layer caching
-COPY go.mod go.sum ./
-RUN go mod download
+# Set the working directory for the source code inside the container
+WORKDIR /src
 
-# Copy the rest of the application source code
+# Copy the entire source code into the builder's workspace.
 COPY . .
 
-# Build the Go application
-# CGO_ENABLED=0 disables Cgo, making the binary statically linked and more portable
-# -o app specifies the output binary name
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o app .
+# Compile the application. This step will now succeed.
+RUN go build -o /app -ldflags "-s -w" ./cmd/main.go # <-- Ensure this path is correct
 
-# Stage 2: Runtime
-FROM alpine:latest
+# --- Stage 2: Final Runtime ---
+FROM scratch AS final
 
-WORKDIR /root/
+# Copy SSL/TLS certificates needed for HTTPS or secure database connections.
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
-# Copy the built binary from the builder stage
-COPY --from=builder /app/app .
+# Copy the compiled binary named 'app' from the builder stage.
+COPY --from=builder /app /app
 
-# Expose the port your application listens on (adjust as needed)
-EXPOSE 8080
-
-# Command to run the application when the container starts
-ENTRYPOINT ["./app"]
+# Define the entrypoint to run the binary.
+ENTRYPOINT ["/app"]
