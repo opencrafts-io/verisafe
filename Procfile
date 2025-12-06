@@ -1,0 +1,2 @@
+web: ./startup.sh ./app
+
