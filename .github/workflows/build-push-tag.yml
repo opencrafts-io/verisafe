@@ -3,7 +3,7 @@ name: Build, Test, and Push Verisafe Backend (Prod or Dev)
 on:
   push:
     branches:
-      - '**'
+      - "**"
 
 jobs:
   test:
@@ -16,7 +16,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24.4'
+          go-version: "1.24.4"
           cache: true
 
       - name: Install dependencies
@@ -33,20 +33,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install pack CLI
-        run: |
-          curl -sSL "https://github.com/buildpacks/pack/releases/download/v0.38.2/pack-v0.38.2-linux.tgz" | tar -xz
-          sudo mv pack /usr/local/bin/pack
-
-      - name: Cache CNB Layers
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pack
-          key: cnb-${{ runner.os }}-${{ github.ref_name }}-${{ hashFiles('**/go.sum') }}-${{ github.run_id }}
-          restore-keys: |
-            cnb-${{ runner.os }}-${{ github.ref_name }}-${{ hashFiles('**/go.sum') }}-
-            cnb-${{ runner.os }}-${{ github.ref_name }}-
-            cnb-${{ runner.os }}-
+      - name: Set up QEMU and Docker Buildx
+        uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
 
       - name: Set Docker tags
         id: tags
@@ -62,36 +51,23 @@ jobs:
             IMAGE_BASE="${{ secrets.DOCKERHUB_USERNAME }}/verisafe-backend-staging"
           fi
 
-          echo "image_base=$IMAGE_BASE" >> $GITHUB_OUTPUT
-          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
-          echo "sha_tag=$SHA" >> $GITHUB_OUTPUT
+          # Output the full image names
+          echo "IMAGE_MAIN_TAG=$IMAGE_BASE:$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "IMAGE_SHA_TAG=$IMAGE_BASE:$SHA" >> $GITHUB_OUTPUT
+          echo "image_tags=$IMAGE_BASE:$IMAGE_TAG,$IMAGE_BASE:$SHA" >> $GITHUB_OUTPUT
 
       - name: Log in to Docker Hub
-        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build Docker image with Buildpacks
-        run: |
-          IMAGE_BASE=${{ steps.tags.outputs.image_base }}
-          IMAGE_TAG=${{ steps.tags.outputs.image_tag }}
-          SHA_TAG=${{ steps.tags.outputs.sha_tag }}
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.tags.outputs.image_tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-          echo "🔨 Building $IMAGE_BASE:$IMAGE_TAG and $IMAGE_BASE:$SHA_TAG"
-
-          pack build "$IMAGE_BASE:$IMAGE_TAG" \
-            --buildpack paketo-buildpacks/go \
-            --builder paketobuildpacks/builder-jammy-base \
-            --cache "type=build;format=volume"
-
-          docker tag "$IMAGE_BASE:$IMAGE_TAG" "$IMAGE_BASE:$SHA_TAG"
-
-      - name: Push Docker images to Docker Hub
-        run: |
-          IMAGE_BASE=${{ steps.tags.outputs.image_base }}
-          IMAGE_TAG=${{ steps.tags.outputs.image_tag }}
-          SHA_TAG=${{ steps.tags.outputs.sha_tag }}
-
-          echo "🚀 Pushing $IMAGE_BASE:$IMAGE_TAG"
-          docker push "$IMAGE_BASE:$IMAGE_TAG"
-
-          echo "🚀 Pushing $IMAGE_BASE:$SHA_TAG"
-          docker push "$IMAGE_BASE:$SHA_TAG"
