@@ -601,7 +601,7 @@ func (ah *AccountHandler) UpdatePersonalAccount(w http.ResponseWriter, r *http.R
 		if err := ah.UserEventBus.PublishUserUpdated(
 			ctx,
 			updated, eventRequestID); err != nil {
-			ah.Logger.Error("Failed to publis user updated event",
+			ah.Logger.Error("Failed to publish user updated event",
 				slog.Any("event_id", eventRequestID),
 				slog.Any("event_data", updated),
 				slog.Any("error", err),
@@ -689,7 +689,7 @@ func (ah *AccountHandler) VerifyPhone(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if err := ah.UserEventBus.PublishUserUpdated(ctx, updated, eventRequestID); err != nil {
-			ah.Logger.Error("Failed to publis user updated event",
+			ah.Logger.Error("Failed to publish user updated event",
 				slog.Any("event_id", eventRequestID),
 				slog.Any("event_data", updated),
 				slog.Any("error", err),
