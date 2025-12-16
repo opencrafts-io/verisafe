@@ -33,3 +33,6 @@ tmp/
 # Editor/IDE
 .idea/
 .vscode/
+
+# Keys file
+keys/
