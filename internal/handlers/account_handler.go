@@ -591,13 +591,9 @@ func (ah *AccountHandler) UpdatePersonalAccount(w http.ResponseWriter, r *http.R
 
 	go func() {
 		eventRequestID := eventbus.GenerateRequestID()
-		ctx, err := context.WithTimeout(context.Background(), 10*time.Second)
-		if err != nil {
-			ah.Logger.Error("Failed to initialize context for publishing user updated event",
-				slog.Any("error", err),
-			)
-			return
-		}
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
 		if err := ah.UserEventBus.PublishUserUpdated(
 			ctx,
 			updated, eventRequestID); err != nil {
@@ -680,13 +676,8 @@ func (ah *AccountHandler) VerifyPhone(w http.ResponseWriter, r *http.Request) {
 	}
 	go func() {
 		eventRequestID := eventbus.GenerateRequestID()
-		ctx, err := context.WithTimeout(context.Background(), 10*time.Second)
-		if err != nil {
-			ah.Logger.Error("Failed to initialize context for publishing user updated event",
-				slog.Any("error", err),
-			)
-			return
-		}
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()	
 
 		if err := ah.UserEventBus.PublishUserUpdated(ctx, updated, eventRequestID); err != nil {
 			ah.Logger.Error("Failed to publish user updated event",
