@@ -1,0 +1,39 @@
+site_name: Verisafe Docs
+site_url: https://opencrafts-io.github.io/verisafe/
+theme:
+  features:
+    - header.autohide
+    - navigation.footer
+  name: material
+  palette:
+    # primary: black
+    # accent: light blue
+    - scheme: default
+      primary: black
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+
+        # Palette toggle for dark mode
+    - scheme: slate
+      primary: light blue
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  font:
+    text: Google Sans
+    code: Google Sans Code
+
+copyright: Copyright &copy; 2025 Open Crafts Interactive Ltd
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/opencrafts-io
+      name: Github
+
+
+    - icon: fontawesome/solid/paper-plane
+      link: mailto:developers@opencrafts.io
+      name: Email
+
+    
