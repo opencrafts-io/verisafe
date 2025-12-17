@@ -1,33 +1,18 @@
-name: Build, Test, and Push Verisafe Backend (Prod or Dev)
+name: Build, Test, and Update Verisafe Deployments
 
 on:
   push:
     branches:
       - "**"
-
 jobs:
-  test:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.24.4"
-          cache: true
-
-      - name: Install dependencies
-        run: go mod tidy
-
-      - name: Run tests
-        run: go test -v ./...
-
   build-and-push:
     runs-on: ubuntu-latest
     needs: test
+    outputs:
+      image-tag: ${{ steps.tags.outputs.image_tag }}
+      image-base: ${{ steps.tags.outputs.image_base }}
+      image-sha: ${{ steps.tags.outputs.image_sha }}
+      deployment-path: ${{ steps.tags.outputs.deployment_path }}
 
     steps:
       - name: Checkout code
@@ -37,24 +22,26 @@ jobs:
         uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
 
-      - name: Set Docker tags
+      - name: Set Docker tags and deployment path
         id: tags
         run: |
-          BRANCH=$(echo "${GITHUB_REF##*/}" | tr '[:upper:]' '[:lower:]' | tr '/' '-')
+          BRANCH=$(echo "${GITHUB_REF##*/}" | tr '[:upper:]' '[:lower:]')
           SHA=$(git rev-parse --short HEAD)
 
-          if [ "$BRANCH" = "main" ]; then
-            IMAGE_TAG="prod"
-            IMAGE_BASE="${{ secrets.DOCKERHUB_USERNAME }}/verisafe-backend-prod"
+          if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
+            IMAGE_TAG="${SHA}"
+            IMAGE_BASE="opencrafts/verisafe-backend-prod"
+            DEPLOYMENT_PATH="services/verisafe/deployment.yaml"
           else
-            IMAGE_TAG="dev"
-            IMAGE_BASE="${{ secrets.DOCKERHUB_USERNAME }}/verisafe-backend-staging"
+            IMAGE_TAG="${SHA}"
+            IMAGE_BASE="opencrafts/verisafe-backend-staging"
+            DEPLOYMENT_PATH="qaservices/verisafe/deployment.yaml"
           fi
 
-          # Output the full image names
-          echo "IMAGE_MAIN_TAG=$IMAGE_BASE:$IMAGE_TAG" >> $GITHUB_OUTPUT
-          echo "IMAGE_SHA_TAG=$IMAGE_BASE:$SHA" >> $GITHUB_OUTPUT
-          echo "image_tags=$IMAGE_BASE:$IMAGE_TAG,$IMAGE_BASE:$SHA" >> $GITHUB_OUTPUT
+          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "image_base=$IMAGE_BASE" >> $GITHUB_OUTPUT
+          echo "image_full=$IMAGE_BASE:$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "deployment_path=$DEPLOYMENT_PATH" >> $GITHUB_OUTPUT
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
@@ -67,7 +54,60 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ steps.tags.outputs.image_tags }}
+          tags: |
+            ${{ steps.tags.outputs.image_base }}:${{ steps.tags.outputs.image_tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  update-infraops-deployment:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.event_name == 'push'
+
+    steps:
+      - name: Checkout infraops repo
+        uses: actions/checkout@v4
+        with:
+          repository: opencrafts-io/infraops
+          token: ${{ secrets.GH_TOKEN }}
+          ref: main
+          path: infraops
+
+      - name: Install yq
+        run: |
+          sudo snap install yq
+
+      - name: Update deployment.yaml image tag
+        run: |
+          cd infraops
+          IMAGE="${{ needs.build-and-push.outputs.image_base }}:${{ needs.build-and-push.outputs.image_tag }}"
+          FILE="${{ needs.build-and-push.outputs.deployment_path }}"
+          
+          echo "Updating $FILE with image: $IMAGE"
+          
+          # Update container image (matches your deployment.yaml structure)
+          yq eval '.spec.template.spec.containers[0].image = "'$IMAGE'"' -i "$FILE"
+          
+          # Verify change
+          NEW_IMAGE=$(yq eval '.spec.template.spec.containers[0].image' "$FILE")
+          echo "Updated image: $NEW_IMAGE"
+
+      - name: Commit and Push to infraops
+        run: |
+          cd infraops
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+          git add ${{ needs.build-and-push.outputs.deployment_path }}
+          
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          
+          git commit -m "chore(deps): update verisafe image to ${{ needs.build-and-push.outputs.image_base }}:${{ needs.build-and-push.outputs.image_tag }}
+          
+          Updated: ${{ needs.build-and-push.outputs.deployment_path }}
+          SHA: ${{ needs.build-and-push.outputs.image_tag }}
+          
+          [skip ci]"
+          git push origin main
