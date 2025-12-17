@@ -4,13 +4,12 @@ on:
   push:
     branches:
       - "**"
+
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
     outputs:
-      image-tag: ${{ steps.tags.outputs.image_tag }}
-      image-base: ${{ steps.tags.outputs.image_base }}
-      image-sha: ${{ steps.tags.outputs.image_sha }}
+      image-full: ${{ steps.tags.outputs.image_full }}
       deployment-path: ${{ steps.tags.outputs.deployment_path }}
 
     steps:
@@ -28,19 +27,19 @@ jobs:
           SHA=$(git rev-parse --short HEAD)
 
           if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
-            IMAGE_TAG="${SHA}"
             IMAGE_BASE="opencrafts/verisafe-backend-prod"
+            IMAGE_FULL="$IMAGE_BASE:$SHA"
             DEPLOYMENT_PATH="services/verisafe/deployment.yaml"
           else
-            IMAGE_TAG="${SHA}"
             IMAGE_BASE="opencrafts/verisafe-backend-staging"
+            IMAGE_FULL="$IMAGE_BASE:$SHA"
             DEPLOYMENT_PATH="qaservices/verisafe/deployment.yaml"
           fi
 
-          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
-          echo "image_base=$IMAGE_BASE" >> $GITHUB_OUTPUT
-          echo "image_full=$IMAGE_BASE:$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "image_full=$IMAGE_FULL" >> $GITHUB_OUTPUT
           echo "deployment_path=$DEPLOYMENT_PATH" >> $GITHUB_OUTPUT
+          echo "Image: $IMAGE_FULL"
+          echo "Path: $DEPLOYMENT_PATH"
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
@@ -53,8 +52,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: |
-            ${{ steps.tags.outputs.image_base }}:${{ steps.tags.outputs.image_tag }}
+          tags: ${{ steps.tags.outputs.image_full }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -70,21 +68,29 @@ jobs:
           repository: opencrafts-io/infraops
           token: ${{ secrets.GH_TOKEN }}
           ref: main
-          path: infraops
 
       - name: Install yq
         run: |
           sudo snap install yq
 
+      - name: Debug paths
+        run: |
+          ls -la
+          ls -la services/ || echo "services/ not found"
+          ls -la qaservices/ || echo "qaservices/ not found"
+          echo "Deployment path: ${{ needs.build-and-push.outputs.deployment_path }}"
+          echo "Image: ${{ needs.build-and-push.outputs.image_full }}"
+
       - name: Update deployment.yaml image tag
         run: |
-          cd infraops
-          IMAGE="${{ needs.build-and-push.outputs.image_base }}:${{ needs.build-and-push.outputs.image_tag }}"
+          IMAGE="${{ needs.build-and-push.outputs.image_full }}"
           FILE="${{ needs.build-and-push.outputs.deployment_path }}"
           
           echo "Updating $FILE with image: $IMAGE"
+          echo "Current dir: $(pwd)"
+          ls -la "$FILE" || echo "FILE NOT FOUND: $FILE"
           
-          # Update container image (matches your deployment.yaml structure)
+          # Update container image
           yq eval '.spec.template.spec.containers[0].image = "'$IMAGE'"' -i "$FILE"
           
           # Verify change
@@ -93,17 +99,16 @@ jobs:
 
       - name: Commit and Push to infraops
         run: |
-          cd infraops
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
-          git add ${{ needs.build-and-push.outputs.deployment_path }}
+          git add .
           
           if git diff --staged --quiet; then
             echo "No changes to commit"
             exit 0
           fi
           
-          git commit -m "chore(deps): update verisafe image to ${{ needs.build-and-push.outputs.image_base }}:${{ needs.build-and-push.outputs.image_tag }}
+          git commit -m "chore(deps): update verisafe image to ${{ needs.build-and-push.outputs.image_full }}
           
           Updated: ${{ needs.build-and-push.outputs.deployment_path }}
           SHA: ${{ needs.build-and-push.outputs.image_tag }}
