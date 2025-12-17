@@ -34,7 +34,7 @@ type StateData struct {
 
 func (a *Auth) RegisterRoutes(router *http.ServeMux) {
 	router.HandleFunc("GET /auth/{provider}", a.LoginHandler)
-	router.HandleFunc("GET /auth/{provider}/callback", a.CallbackHandler)
+	router.HandleFunc("/auth/{provider}/callback", a.CallbackHandler)
 	router.HandleFunc("GET /auth/{provider}/logout", a.LogoutHandler)
 	router.HandleFunc("POST /auth/token/refresh", a.RefreshTokenHandler)
 
@@ -105,6 +105,14 @@ func (a *Auth) LoginHandler(w http.ResponseWriter, r *http.Request) {
 // This handler should be mapped to the `callback` URL configured with the OAuth provider,
 // e.g., `/auth/{provider}/callback`.
 func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		if err := r.ParseForm(); err != nil {
+			a.logger.Error("Failed to parse callback form", "error", err)
+			http.Error(w, "Invalid request", http.StatusBadRequest)
+			return
+		}
+	}
+
 	provider, err := GetProviderName(r)
 	if err != nil {
 		a.logger.Warn("Failed to get provider name for callback", "error", err)
@@ -170,7 +178,7 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 
 // parseStateData extracts and validates the state parameter from the request
 func (a *Auth) parseStateData(r *http.Request) (*StateData, error) {
-	state := r.URL.Query().Get("state")
+	state := r.FormValue("state")
 	if state == "" {
 		return nil, errors.New("missing state")
 	}
