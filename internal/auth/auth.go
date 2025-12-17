@@ -1,14 +1,20 @@
 package auth
 
 import (
+	"crypto/ecdsa"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/sessions"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
+	"github.com/markbates/goth/providers/apple"
 	"github.com/markbates/goth/providers/google"
 	"github.com/markbates/goth/providers/spotify"
 	"github.com/opencrafts-io/verisafe/internal/config"
@@ -98,9 +104,30 @@ func NewAuthenticator(cfg *config.Config, userEventBus *eventbus.UserEventBus, l
 		"user-read-private",
 	)
 
+	appleSecret, err := generateAppleClientSecret(
+		cfg.AuthenticationConfig.AppleTeamID,
+		cfg.AuthenticationConfig.AppleKeyID,
+		cfg.AuthenticationConfig.AppleClientID,
+		cfg.AuthenticationConfig.ApplePrivateKey,
+	)
+	if err != nil {
+		logger.Error("Failed to generate Apple client secret", "error", err)
+		return nil, fmt.Errorf("failed to generate Apple client secret: %w", err)
+	}
+
+	appleProvider := apple.New(
+		cfg.AuthenticationConfig.AppleClientID,
+		appleSecret,
+		strings.Replace(address, "{oauth}", "apple", 1),
+		nil, // HTTP client (nil uses default)
+		apple.ScopeName,
+		apple.ScopeEmail,
+	)
+
 	goth.UseProviders(
 		googleProvider,
 		spotifyProvider,
+		appleProvider,
 	)
 
 	logger.Info("Goth Oauth2 providers initialized successfully")
@@ -110,6 +137,48 @@ func NewAuthenticator(cfg *config.Config, userEventBus *eventbus.UserEventBus, l
 		logger:   logger,
 		eventBus: userEventBus,
 	}, nil
+}
+
+func generateAppleClientSecret(teamID, keyID, clientID, privateKeyContent string) (string, error) {
+	// Decode the PEM-encoded private key
+	block, _ := pem.Decode([]byte(privateKeyContent))
+	if block == nil {
+		return "", fmt.Errorf("failed to decode PEM block from private key")
+	}
+
+	// Parse the PKCS8 private key
+	privateKey, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse private key: %w", err)
+	}
+
+	// Type assert to ECDSA private key
+	ecdsaKey, ok := privateKey.(*ecdsa.PrivateKey)
+	if !ok {
+		return "", fmt.Errorf("private key is not an ECDSA key")
+	}
+
+	// Create JWT claims
+	now := time.Now()
+	claims := jwt.MapClaims{
+		"iss": teamID,
+		"iat": now.Unix(),
+		"exp": now.Add(180 * 24 * time.Hour).Unix(), // Valid for 6 months
+		"aud": "https://appleid.apple.com",
+		"sub": clientID,
+	}
+
+	// Create token with ES256 algorithm
+	token := jwt.NewWithClaims(jwt.SigningMethodES256, claims)
+	token.Header["kid"] = keyID
+
+	// Sign and return the token
+	signedToken, err := token.SignedString(ecdsaKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to sign token: %w", err)
+	}
+
+	return signedToken, nil
 }
 
 // GetProviderName extracts the OAuth provider name from the request context.

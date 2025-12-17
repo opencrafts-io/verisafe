@@ -1,7 +1,9 @@
 package config
 
 import (
+	"encoding/base64"
 	"fmt"
+
 	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
 )
@@ -10,27 +12,32 @@ type Config struct {
 
 	// JWT token configuration
 	JWTConfig struct {
-		ApiSecret   string `envconfig:"API_SECRET"`
-		ExpireDelta int    `envconfig:"EXPIRE_DELTA"`
+		ApiSecret          string `envconfig:"API_SECRET"`
+		ExpireDelta        int    `envconfig:"EXPIRE_DELTA"`
 		RefreshExpireDelta int    `envconfig:"REFRESH_EXPIRE_DELTA"`
 		ServiceExpireDelta int    `envconfig:"SERVICE_EXPIRE_DELTA"`
 	}
 
 	// Authentication configuration
 	AuthenticationConfig struct {
-		GoogleClientID      string `envconfig:"GOOGLE_CLIENT_ID"`
-		GoogleClientSecret  string `envconfig:"GOOGLE_CLIENT_SECRET"`
-		SpotifyClientID     string `envconfig:"SPOTIFY_CLIENT_ID"`
-		SpotifyClientSecret string `envconfig:"SPOTIFY_CLIENT_SECRET"`
-		MaxAge        int    `envconfig:"AUTH_MAX_AGE"`
-		SessionSecret string `envconfig:"SESSION_SECRET"`
-		Environment   string `envconfig:"AUTH_ENV"`
-		AuthAddress string `envconfig:"AUTH_ADDRESS"`
+		AppleClientID         string `envconfig:"APPLE_CLIENT_ID"`
+		AppleTeamID           string `envconfig:"APPLE_TEAM_ID"`
+		AppleKeyID            string `envconfig:"APPLE_KEY_ID"`
+		ApplePrivateKeyBase64 string `envconfig:"APPLE_PRIVATE_KEY_BASE64"`
+		ApplePrivateKey       string
+		GoogleClientID        string `envconfig:"GOOGLE_CLIENT_ID"`
+		GoogleClientSecret    string `envconfig:"GOOGLE_CLIENT_SECRET"`
+		SpotifyClientID       string `envconfig:"SPOTIFY_CLIENT_ID"`
+		SpotifyClientSecret   string `envconfig:"SPOTIFY_CLIENT_SECRET"`
+		MaxAge                int    `envconfig:"AUTH_MAX_AGE"`
+		SessionSecret         string `envconfig:"SESSION_SECRET"`
+		Environment           string `envconfig:"AUTH_ENV"`
+		AuthAddress           string `envconfig:"AUTH_ADDRESS"`
 	}
 
 	// Application configuration
 	AppConfig struct {
-		Port   int    `envconfig:"VERISAFE_PORT"`
+		Port    int    `envconfig:"VERISAFE_PORT"`
 		Address string `envconfig:"VERISAFE_ADDRESS"`
 	}
 
@@ -69,5 +76,14 @@ func LoadConfig() (*Config, error) {
 	if err := envconfig.Process("", &cfg); err != nil {
 		return nil, fmt.Errorf("Failed to load environment variables: %v", err)
 	}
+
+	if cfg.AuthenticationConfig.ApplePrivateKeyBase64 != "" {
+		decoded, err := base64.StdEncoding.DecodeString(cfg.AuthenticationConfig.ApplePrivateKeyBase64)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode Apple private key from base64: %v", err)
+		}
+		cfg.AuthenticationConfig.ApplePrivateKey = string(decoded)
+	}
+
 	return &cfg, nil
 }
