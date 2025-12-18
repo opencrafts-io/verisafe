@@ -6,11 +6,9 @@ on:
       - "**"
 
 jobs:
+
   build-and-push:
     runs-on: ubuntu-latest
-    outputs:
-      image: ${{ steps.img.outputs.image }}
-
     steps:
       - uses: actions/checkout@v4
 
@@ -22,16 +20,13 @@ jobs:
         run: |
           BRANCH="${GITHUB_REF_NAME}"
           SHA="$(git rev-parse --short HEAD)"
-
-          if [[ "$BRANCH" == "main" || "$BRANCH" == "master" ]]; then
+          if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
             IMAGE="opencrafts/verisafe-backend-prod:${SHA}"
           else
             IMAGE="opencrafts/verisafe-backend-staging:${SHA}"
           fi
-
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
-          echo "Built image: $IMAGE"
-
+          echo "Image: $IMAGE"
       - uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -56,59 +51,48 @@ jobs:
           ref: main
 
       - name: Install yq
-        run: |
-          sudo snap install yq
+        run: sudo snap install yq
 
-      - name: Compute target file
+      - name: Compute image and file path
         id: target
         run: |
           BRANCH="${GITHUB_REF_NAME}"
-
-          if [[ "$BRANCH" == "main" || "$BRANCH" == "master" ]]; then
+          SHA="$(git rev-parse --short HEAD)"
+          if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
+            IMAGE="opencrafts/verisafe-backend-prod:${SHA}"
             FILE="services/verisafe/deployment.yaml"
           else
+            IMAGE="opencrafts/verisafe-backend-staging:${SHA}"
             FILE="qaservices/verisafe/deployment.yaml"
           fi
-
-          echo "file=$FILE" >> "$GITHUB_OUTPUT"
-          echo "Target file: $FILE"
-
-      - name: Update Deployment image (safe for multi-doc YAML)
+          echo "IMAGE=$IMAGE" >> "$GITHUB_OUTPUT"
+          echo "FILE=$FILE"  >> "$GITHUB_OUTPUT"
+          echo "Using IMAGE: $IMAGE"
+          echo "Using FILE:  $FILE"
+      - name: Update deployment.yaml
         run: |
-          IMAGE="${{ needs.build-and-push.outputs.image }}"
-          FILE="${{ steps.target.outputs.file }}"
-
-          echo "Updating image to: $IMAGE"
-          echo "In file: $FILE"
-
-          if [[ ! -f "$FILE" ]]; then
-            echo "ERROR: $FILE does not exist"
+          IMAGE="${{ steps.target.outputs.IMAGE }}"
+          FILE="${{ steps.target.outputs.FILE }}"
+          echo "Current dir: $(pwd)"
+          echo "Updating $FILE with image: $IMAGE"
+          if [ ! -f "$FILE" ]; then
+            echo " $FILE does not exist"
+            ls -la
             exit 1
           fi
-
           echo "Old image:"
-          yq eval '. | select(.kind=="Deployment") | .spec.template.spec.containers[].image' "$FILE"
-
-          # Update ALL containers in ALL Deployment documents
-          yq eval-all '
-            select(.kind == "Deployment") |
-            .spec.template.spec.containers[].image = "'"$IMAGE"'"
-          ' -i "$FILE"
-
+          yq eval '.spec.template.spec.containers[0].image' "$FILE" || true
+          yq eval '.spec.template.spec.containers[0].image = "'"$IMAGE"'"' -i "$FILE"
           echo "New image:"
-          yq eval '. | select(.kind=="Deployment") | .spec.template.spec.containers[].image' "$FILE"
-
+          yq eval '.spec.template.spec.containers[0].image' "$FILE"
       - name: Commit and push
         run: |
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
-
-          git add "${{ steps.target.outputs.file }}"
-
+          git add services/verisafe/deployment.yaml qaservices/verisafe/deployment.yaml 2>/dev/null || true
           if git diff --staged --quiet; then
             echo "No changes to commit"
             exit 0
           fi
-
-          git commit -m "chore(verisafe): deploy ${{ needs.build-and-push.outputs.image }}"
-          git push
+          git commit -m "chore: update verisafe image for ${GITHUB_REF_NAME}"
+          git push origin main
