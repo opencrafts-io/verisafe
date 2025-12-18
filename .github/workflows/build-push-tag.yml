@@ -1,4 +1,4 @@
-name: Build, Test, and Update Verisafe Deployments
+name: Build, Push, and Update Verisafe Deployment
 
 on:
   push:
@@ -6,12 +6,11 @@ on:
       - "**"
 
 jobs:
-  build-and-push:
+  build-push-update-infraops:
     runs-on: ubuntu-latest
-    outputs:
-      image: ${{ steps.img.outputs.image }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Repo
+        uses: actions/checkout@v4
 
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
@@ -19,47 +18,41 @@ jobs:
       - name: Compute image name
         id: img
         run: |
-          BRANCH="${GITHUB_REF_NAME}"
+          echo "GITHUB_REF_NAME=${GITHUB_REF_NAME}"
+          BRANCH="${GITHUB_REF_NAME#refs/heads/}"
+          echo "Branch parsed: $BRANCH"
+
           SHA="$(git rev-parse --short HEAD)"
           if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
             IMAGE="opencrafts/verisafe-backend-prod:${SHA}"
           else
             IMAGE="opencrafts/verisafe-backend-staging:${SHA}"
           fi
+
+          echo "Computed IMAGE=$IMAGE"
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
           echo "::remove-mask::$IMAGE"
-          echo "Image computed: $IMAGE"
 
-      - uses: docker/login-action@v3
+      - name: Docker Login
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.img.outputs.image }}
-
-  update-infraops:
-    runs-on: ubuntu-latest
-    needs: build-and-push
-
-    steps:
-      - name: Debug build output
+      - name: Build and Push Docker Image
         run: |
-          echo "Build job image output: '${{ needs.build-and-push.outputs.image }}'"
-          if [ -z "${{ needs.build-and-push.outputs.image }}" ]; then
-            echo "ERROR: Image output is empty!"
-            exit 1
-          fi
+          IMAGE="${{ steps.img.outputs.image }}"
+          echo "Building and pushing image: $IMAGE"
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
 
-      - name: Checkout infraops repo
+      - name: Checkout InfraOps Repo
         uses: actions/checkout@v4
         with:
           repository: opencrafts-io/infraops
           token: ${{ secrets.GH_TOKEN }}
           ref: main
+          path: infraops
 
       - name: Install yq
         run: |
@@ -71,24 +64,23 @@ jobs:
       - name: Compute deployment file path
         id: target
         run: |
-          BRANCH="${GITHUB_REF_NAME}"
+          BRANCH="${GITHUB_REF_NAME#refs/heads/}"
           if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
-            FILE="services/verisafe/deployment.yaml"
+            FILE="infraops/services/verisafe/deployment.yaml"
           else
-            FILE="qaservices/verisafe/deployment.yaml"
+            FILE="infraops/qaservices/verisafe/deployment.yaml"
           fi
           echo "file=$FILE" >> "$GITHUB_OUTPUT"
           echo "Deployment file: $FILE"
 
       - name: Update deployment.yaml
-        env:
-          IMAGE: ${{ needs.build-and-push.outputs.image }}
         run: |
           FILE="${{ steps.target.outputs.file }}"
+          IMAGE="${{ steps.img.outputs.image }}"
           echo "Updating $FILE with image: $IMAGE"
           if [ ! -f "$FILE" ]; then
             echo "ERROR: $FILE does not exist!"
-            ls -la
+            ls -la "$(dirname $FILE)"
             exit 1
           fi
           echo "Old image:"
@@ -98,12 +90,11 @@ jobs:
           yq eval '.spec.template.spec.containers[0].image' "$FILE"
 
       - name: Commit and push changes
-        env:
-          IMAGE: ${{ needs.build-and-push.outputs.image }}
         run: |
-          git config user.name "GitHub Actions Bot"
-          git config user.email "actions@github.com"
           FILE="${{ steps.target.outputs.file }}"
+          IMAGE="${{ steps.img.outputs.image }}"
+          git config user.name "CI Bot from Github Actions"
+          git config user.email "actions@github.com"
           git add "$FILE"
           if git diff --staged --quiet; then
             echo "No changes to commit"
