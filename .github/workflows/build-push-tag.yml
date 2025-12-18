@@ -3,14 +3,23 @@ name: Build, Test, and Update Verisafe Deployments
 on:
   push:
     branches:
-      - "**"
+      - main
+      - master
+      - "**/*"
 
 jobs:
-
   build-and-push:
     runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.img.outputs.image }}
+      sha: ${{ steps.meta.outputs.sha }}
+
     steps:
       - uses: actions/checkout@v4
+
+      - name: Compute git SHA
+        id: meta
+        run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
@@ -19,9 +28,9 @@ jobs:
         id: img
         run: |
           BRANCH="${GITHUB_REF_NAME}"
-          SHA="$(git rev-parse --short HEAD)"
+          SHA="${{ steps.meta.outputs.sha }}"
 
-          if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
+          if [[ "$BRANCH" == "main" || "$BRANCH" == "master" ]]; then
             IMAGE="opencrafts/verisafe-backend-prod:${SHA}"
           else
             IMAGE="opencrafts/verisafe-backend-staging:${SHA}"
@@ -53,77 +62,62 @@ jobs:
           token: ${{ secrets.GH_TOKEN }}
           ref: main
 
-      - name: Install yq
-        run: sudo snap install yq
+      - name: Install yq (fast, non-snap)
+        run: |
+          sudo wget -qO /usr/local/bin/yq \
+            https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+          yq --version
 
-      - name: Compute image and file path
+      - name: Compute target deployment
         id: target
         run: |
           BRANCH="${GITHUB_REF_NAME}"
-          SHA="$(git rev-parse --short HEAD)"
+          IMAGE="${{ needs.build-and-push.outputs.image }}"
 
-          if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
-            IMAGE="opencrafts/verisafe-backend-prod:${SHA}"
+          if [[ "$BRANCH" == "main" || "$BRANCH" == "master" ]]; then
             FILE="services/verisafe/deployment.yaml"
             CONTAINER_NAME="verisafe"
           else
-            IMAGE="opencrafts/verisafe-backend-staging:${SHA}"
             FILE="qaservices/verisafe/deployment.yaml"
             CONTAINER_NAME="qaverisafe"
           fi
 
-          echo "IMAGE=$IMAGE" >> "$GITHUB_OUTPUT"
-          echo "FILE=$FILE" >> "$GITHUB_OUTPUT"
-          echo "CONTAINER_NAME=$CONTAINER_NAME" >> "$GITHUB_OUTPUT"
-          echo "Using IMAGE: $IMAGE"
-          echo "Using FILE:  $FILE"
-          echo "Container:    $CONTAINER_NAME"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+          echo "file=$FILE" >> "$GITHUB_OUTPUT"
+          echo "container=$CONTAINER_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Update deployment.yaml
         run: |
-          IMAGE="${{ steps.target.outputs.IMAGE }}"
-          FILE="${{ steps.target.outputs.FILE }}"
-          NAME="${{ steps.target.outputs.CONTAINER_NAME }}"
+          FILE="${{ steps.target.outputs.file }}"
+          IMAGE="${{ steps.target.outputs.image }}"
+          NAME="${{ steps.target.outputs.container }}"
 
-          echo "Current dir: $(pwd)"
-          echo "Updating $FILE with image: $IMAGE for container: $NAME"
+          test -f "$FILE" || { echo " $FILE not found"; exit 1; }
 
-          if [ ! -f "$FILE" ]; then
-            echo " $FILE does not exist"
-            ls -la
-            exit 1
-          fi
+          echo "Before:"
+          yq '.spec.template.spec.containers[] | .name + ": " + .image' "$FILE"
 
-          echo "Old image(s):"
-          yq eval '.spec.template.spec.containers[] | .name + ": " + .image' "$FILE" || true
+          NAME="$NAME" IMAGE="$IMAGE" yq -i '
+            (. | select(.kind == "Deployment"))
+            .spec.template.spec.containers
+            |= map(if .name == env(NAME) then .image = env(IMAGE) else . end)
+          ' "$FILE"
 
-          yq eval '
-            (.[] | select(.kind == "Deployment"))
-            |= (
-              .spec.template.spec.containers
-              |= map(
-                  if .name == "'"$NAME"'" then
-                    .image = "'"$IMAGE"'"
-                  else
-                    .
-                  end
-                )
-            )
-          ' -i "$FILE"
-
-          echo "New image(s):"
-          yq eval '.spec.template.spec.containers[] | .name + ": " + .image' "$FILE"
+          echo "After:"
+          yq '.spec.template.spec.containers[] | .name + ": " + .image' "$FILE"
 
       - name: Commit and push
         run: |
-          git config user.name "Bot for the CI bit"
+          git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add services/verisafe/deployment.yaml qaservices/verisafe/deployment.yaml 2>/dev/null || true
+
+          git add "${{ steps.target.outputs.file }}"
 
           if git diff --staged --quiet; then
             echo "No changes to commit"
             exit 0
           fi
 
-          git commit -m "chore: update verisafe image for ${GITHUB_REF_NAME}"
+          git commit -m "chore(verisafe): deploy ${{ needs.build-and-push.outputs.image }}"
           git push origin main
