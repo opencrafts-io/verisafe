@@ -27,6 +27,7 @@ jobs:
             IMAGE="opencrafts/verisafe-backend-staging:${SHA}"
           fi
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+          echo "::remove-mask::$IMAGE"
           echo "Image: $IMAGE"
 
       - uses: docker/login-action@v3
@@ -56,8 +57,12 @@ jobs:
           token: ${{ secrets.GH_TOKEN }}
           ref: main
 
-      - name: Install yq
-        run: sudo snap install yq
+      - name: Install yq (official binary)
+        run: |
+          sudo wget -qO /usr/local/bin/yq \
+            https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+          yq --version
 
       - name: Compute file path
         id: target
