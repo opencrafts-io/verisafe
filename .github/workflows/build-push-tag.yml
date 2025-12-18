@@ -77,25 +77,22 @@ jobs:
         run: |
           FILE="${{ steps.target.outputs.file }}"
           IMAGE="${{ steps.img.outputs.image }}"
+          echo "Updating $FILE with image: $IMAGE"
           if [ ! -f "$FILE" ]; then
             echo "ERROR: $FILE does not exist!"
             ls -la "$(dirname $FILE)"
             exit 1
           fi
-
-          OLD_IMAGE=$(yq eval '.spec.template.spec.containers[0].image' "$FILE")
-          echo "Old image: $OLD_IMAGE"
-          echo "New image: $IMAGE"
-
-          if [ "$OLD_IMAGE" = "$IMAGE" ]; then
-            echo "Image already up-to-date, skipping commit."
-            exit 0
-          fi
-
+          echo "Old image:"
+          yq eval '.spec.template.spec.containers[0].image' "$FILE"
           yq eval ".spec.template.spec.containers[0].image = \"$IMAGE\"" -i "$FILE"
-          echo "Updated image in $FILE to $IMAGE"
+          echo "New image:"
+          yq eval '.spec.template.spec.containers[0].image' "$FILE"
 
-          # Commit and push changes
+      - name: Commit and push changes
+        run: |
+          FILE="${{ steps.target.outputs.file }}"
+          IMAGE="${{ steps.img.outputs.image }}"
           git config user.name "CI Bot from Github Actions"
           git config user.email "actions@github.com"
           git add "$FILE"
