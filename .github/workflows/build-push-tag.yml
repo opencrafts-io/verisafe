@@ -6,9 +6,10 @@ on:
       - "**"
 
 jobs:
-
   build-and-push:
     runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.img.outputs.image }}
     steps:
       - uses: actions/checkout@v4
 
@@ -27,6 +28,7 @@ jobs:
           fi
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
           echo "Image: $IMAGE"
+
       - uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -53,30 +55,27 @@ jobs:
       - name: Install yq
         run: sudo snap install yq
 
-      - name: Compute image and file path
+      - name: Compute file path only
         id: target
         run: |
           BRANCH="${GITHUB_REF_NAME}"
-          SHA="$(git rev-parse --short HEAD)"
           if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
-            IMAGE="opencrafts/verisafe-backend-prod:${SHA}"
             FILE="services/verisafe/deployment.yaml"
           else
-            IMAGE="opencrafts/verisafe-backend-staging:${SHA}"
             FILE="qaservices/verisafe/deployment.yaml"
           fi
-          echo "IMAGE=$IMAGE" >> "$GITHUB_OUTPUT"
-          echo "FILE=$FILE"  >> "$GITHUB_OUTPUT"
-          echo "Using IMAGE: $IMAGE"
-          echo "Using FILE:  $FILE"
+          echo "FILE=$FILE" >> "$GITHUB_OUTPUT"
+          echo "Using IMAGE from build: ${{ needs.build-and-push.outputs.image }}"
+          echo "Using FILE: $FILE"
+
       - name: Update deployment.yaml
         run: |
-          IMAGE="${{ steps.target.outputs.IMAGE }}"
+          IMAGE="${{ needs.build-and-push.outputs.image }}"
           FILE="${{ steps.target.outputs.FILE }}"
           echo "Current dir: $(pwd)"
           echo "Updating $FILE with image: $IMAGE"
           if [ ! -f "$FILE" ]; then
-            echo " $FILE does not exist"
+            echo "$FILE does not exist"
             ls -la
             exit 1
           fi
@@ -85,14 +84,16 @@ jobs:
           yq eval '.spec.template.spec.containers[0].image = "'"$IMAGE"'"' -i "$FILE"
           echo "New image:"
           yq eval '.spec.template.spec.containers[0].image' "$FILE"
+
       - name: Commit and push
         run: |
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
-          git add services/verisafe/deployment.yaml qaservices/verisafe/deployment.yaml 2>/dev/null || true
+          FILE="${{ steps.target.outputs.FILE }}"
+          git add "$FILE"
           if git diff --staged --quiet; then
             echo "No changes to commit"
             exit 0
           fi
-          git commit -m "chore: update verisafe image for ${GITHUB_REF_NAME}"
+          git commit -m "chore: update verisafe image to ${{ needs.build-and-push.outputs.image }} (${GITHUB_REF_NAME})"
           git push origin main
