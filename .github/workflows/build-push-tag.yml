@@ -3,32 +3,25 @@ name: Build, Test, and Update Verisafe Deployments
 on:
   push:
     branches:
-      - main
-      - master
-      - "**/*"
+      - "**"
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
     outputs:
-      image: ${{ steps.image.outputs.image }}
+      image: ${{ steps.img.outputs.image }}
 
     steps:
-      - name: Checkout app repo
-        uses: actions/checkout@v4
-
-      - name: Compute short SHA
-        id: sha
-        run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
 
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
 
       - name: Compute image name
-        id: image
+        id: img
         run: |
           BRANCH="${GITHUB_REF_NAME}"
-          SHA="${{ steps.sha.outputs.sha }}"
+          SHA="$(git rev-parse --short HEAD)"
 
           if [[ "$BRANCH" == "main" || "$BRANCH" == "master" ]]; then
             IMAGE="opencrafts/verisafe-backend-prod:${SHA}"
@@ -37,20 +30,18 @@ jobs:
           fi
 
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
-          echo "🚀 Building $IMAGE"
+          echo "Built image: $IMAGE"
 
-      - name: Login to DockerHub
-        uses: docker/login-action@v3
+      - uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push image
-        uses: docker/build-push-action@v5
+      - uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: ${{ steps.image.outputs.image }}
+          tags: ${{ steps.img.outputs.image }}
 
   update-infraops:
     runs-on: ubuntu-latest
@@ -64,85 +55,61 @@ jobs:
           token: ${{ secrets.GH_TOKEN }}
           ref: main
 
-      - name: Install yq (official binary)
+      - name: Install yq
         run: |
-          sudo wget -qO /usr/local/bin/yq \
-            https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
-          sudo chmod +x /usr/local/bin/yq
-          yq --version
+          sudo snap install yq
 
-      - name: Compute deployment target
+      - name: Compute target file
         id: target
         run: |
           BRANCH="${GITHUB_REF_NAME}"
-          IMAGE="${{ needs.build-and-push.outputs.image }}"
 
           if [[ "$BRANCH" == "main" || "$BRANCH" == "master" ]]; then
             FILE="services/verisafe/deployment.yaml"
-            CONTAINER="verisafe"
           else
             FILE="qaservices/verisafe/deployment.yaml"
-            CONTAINER="qaverisafe"
           fi
 
           echo "file=$FILE" >> "$GITHUB_OUTPUT"
-          echo "container=$CONTAINER" >> "$GITHUB_OUTPUT"
-          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+          echo "Target file: $FILE"
 
-          echo " File: $FILE"
-          echo " Container: $CONTAINER"
-          echo " Image: $IMAGE"
-
-      - name: Validate deployment YAML
+      - name: Update Deployment image (safe for multi-doc YAML)
         run: |
+          IMAGE="${{ needs.build-and-push.outputs.image }}"
           FILE="${{ steps.target.outputs.file }}"
 
-          test -f "$FILE" || { echo "$FILE not found"; exit 1; }
+          echo "Updating image to: $IMAGE"
+          echo "In file: $FILE"
 
-          echo "🔍 Containers found:"
-          yq '.spec.template.spec.containers[].name' "$FILE"
-
-          if yq '.spec.template.spec.containers[] | select(.name == null or .name == "")' "$FILE" | grep -q .; then
-            echo "Found container with empty name. Fix YAML before deploying."
+          if [[ ! -f "$FILE" ]]; then
+            echo "ERROR: $FILE does not exist"
             exit 1
           fi
 
-      - name: Update image in deployment
-        run: |
-          FILE="${{ steps.target.outputs.file }}"
-          IMAGE="${{ steps.target.outputs.image }}"
-          NAME="${{ steps.target.outputs.container }}"
+          echo "Old image:"
+          yq eval '. | select(.kind=="Deployment") | .spec.template.spec.containers[].image' "$FILE"
 
-          echo "Before:"
-          yq '.spec.template.spec.containers[] | .name + ": " + .image' "$FILE"
-
-          NAME="$NAME" IMAGE="$IMAGE" yq eval -i '
+          yq eval '
             (. | select(.kind == "Deployment")
-               | .spec.template.spec.containers)
-            |= map(
-                if .name == env(NAME)
-                then .image = env(IMAGE)
-                else .
-                end
-              )
-          ' "$FILE"
+             | .spec.template.spec.containers[]
+             | select(.name == "qaverisafe")
+             | .image) = "'"$IMAGE"'"
+          ' -i "$FILE"
 
-          echo "After:"
-          yq '.spec.template.spec.containers[] | .name + ": " + .image' "$FILE"
+          echo "New image:"
+          yq eval '. | select(.kind=="Deployment") | .spec.template.spec.containers[].image' "$FILE"
 
-
-
-      - name: Commit and push changes
+      - name: Commit and push
         run: |
-          git config user.name "github-actions"
+          git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
 
           git add "${{ steps.target.outputs.file }}"
 
           if git diff --staged --quiet; then
-            echo "🟢 No changes to commit"
+            echo "No changes to commit"
             exit 0
           fi
 
           git commit -m "chore(verisafe): deploy ${{ needs.build-and-push.outputs.image }}"
-          git push origin main
+          git push
