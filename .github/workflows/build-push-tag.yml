@@ -65,23 +65,28 @@ jobs:
           if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
             IMAGE="opencrafts/verisafe-backend-prod:${SHA}"
             FILE="services/verisafe/deployment.yaml"
+            CONTAINER_NAME="verisafe"
           else
             IMAGE="opencrafts/verisafe-backend-staging:${SHA}"
             FILE="qaservices/verisafe/deployment.yaml"
+            CONTAINER_NAME="qaverisafe"
           fi
 
           echo "IMAGE=$IMAGE" >> "$GITHUB_OUTPUT"
-          echo "FILE=$FILE"  >> "$GITHUB_OUTPUT"
+          echo "FILE=$FILE" >> "$GITHUB_OUTPUT"
+          echo "CONTAINER_NAME=$CONTAINER_NAME" >> "$GITHUB_OUTPUT"
           echo "Using IMAGE: $IMAGE"
           echo "Using FILE:  $FILE"
+          echo "Container:    $CONTAINER_NAME"
 
       - name: Update deployment.yaml
         run: |
           IMAGE="${{ steps.target.outputs.IMAGE }}"
           FILE="${{ steps.target.outputs.FILE }}"
+          NAME="${{ steps.target.outputs.CONTAINER_NAME }}"
 
           echo "Current dir: $(pwd)"
-          echo "Updating $FILE with image: $IMAGE"
+          echo "Updating $FILE with image: $IMAGE for container: $NAME"
 
           if [ ! -f "$FILE" ]; then
             echo " $FILE does not exist"
@@ -89,17 +94,29 @@ jobs:
             exit 1
           fi
 
-          echo "Old image:"
-          yq eval '.spec.template.spec.containers[0].image' "$FILE" || true
+          echo "Old image(s):"
+          yq eval '.spec.template.spec.containers[] | .name + ": " + .image' "$FILE" || true
 
-          yq eval '.spec.template.spec.containers[0].image = "'"$IMAGE"'"' -i "$FILE"
+          yq eval '
+            (.[] | select(.kind == "Deployment"))
+            |= (
+              .spec.template.spec.containers
+              |= map(
+                  if .name == "'"$NAME"'" then
+                    .image = "'"$IMAGE"'"
+                  else
+                    .
+                  end
+                )
+            )
+          ' -i "$FILE"
 
-          echo "New image:"
-          yq eval '.spec.template.spec.containers[0].image' "$FILE"
+          echo "New image(s):"
+          yq eval '.spec.template.spec.containers[] | .name + ": " + .image' "$FILE"
 
       - name: Commit and push
         run: |
-          git config user.name "GitHub Actions Bot"
+          git config user.name "Bot for the CI bit"
           git config user.email "actions@github.com"
           git add services/verisafe/deployment.yaml qaservices/verisafe/deployment.yaml 2>/dev/null || true
 
