@@ -89,9 +89,9 @@ jobs:
           echo "container=$CONTAINER" >> "$GITHUB_OUTPUT"
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
 
-          echo "📄 File: $FILE"
-          echo "📦 Container: $CONTAINER"
-          echo "🖼 Image: $IMAGE"
+          echo " File: $FILE"
+          echo " Container: $CONTAINER"
+          echo " Image: $IMAGE"
 
       - name: Validate deployment YAML
         run: |
@@ -117,8 +117,8 @@ jobs:
           yq '.spec.template.spec.containers[] | .name + ": " + .image' "$FILE"
 
           NAME="$NAME" IMAGE="$IMAGE" yq eval -i '
-            select(.kind == "Deployment")
-            .spec.template.spec.containers
+            (. | select(.kind == "Deployment")
+               | .spec.template.spec.containers)
             |= map(
                 if .name == env(NAME)
                 then .image = env(IMAGE)
@@ -129,6 +129,8 @@ jobs:
 
           echo "After:"
           yq '.spec.template.spec.containers[] | .name + ": " + .image' "$FILE"
+
+
 
       - name: Commit and push changes
         run: |
