@@ -91,10 +91,17 @@ jobs:
 
       - name: Commit and push changes
         run: |
-          FILE="${{ steps.target.outputs.file }}"
+          cd infraops
           IMAGE="${{ steps.img.outputs.image }}"
           git config user.name "CI Bot from Github Actions"
           git config user.email "actions@github.com"
+          
+          if [ "${{ github.ref_name }}" = "main" ] || [ "${{ github.ref_name }}" = "master" ]; then
+            FILE="services/verisafe/deployment.yaml"
+          else
+            FILE="qaservices/verisafe/deployment.yaml"
+          fi
+          
           git add "$FILE"
-          git commit -m "chore: update verisafe image to $IMAGE (${GITHUB_REF_NAME})"
+          git commit -m "chore: update verisafe image to $IMAGE (${{ github.ref_name }})"
           git push origin main
