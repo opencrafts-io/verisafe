@@ -45,6 +45,10 @@ jobs:
     needs: build-and-push
 
     steps:
+      - name: Debug build outputs
+        run: |
+          echo "Build job image output: ${{ needs.build-and-push.outputs.image }}"
+
       - name: Checkout infraops repo
         uses: actions/checkout@v4
         with:
@@ -55,7 +59,7 @@ jobs:
       - name: Install yq
         run: sudo snap install yq
 
-      - name: Compute file path only
+      - name: Compute file path
         id: target
         run: |
           BRANCH="${GITHUB_REF_NAME}"
@@ -65,13 +69,13 @@ jobs:
             FILE="qaservices/verisafe/deployment.yaml"
           fi
           echo "FILE=$FILE" >> "$GITHUB_OUTPUT"
-          echo "Using IMAGE from build: ${{ needs.build-and-push.outputs.image }}"
-          echo "Using FILE: $FILE"
 
       - name: Update deployment.yaml
+        env:
+          IMAGE: ${{ needs.build-and-push.outputs.image }}
         run: |
-          IMAGE="${{ needs.build-and-push.outputs.image }}"
           FILE="${{ steps.target.outputs.FILE }}"
+          echo "IMAGE env var: $IMAGE"
           echo "Current dir: $(pwd)"
           echo "Updating $FILE with image: $IMAGE"
           if [ ! -f "$FILE" ]; then
@@ -86,6 +90,8 @@ jobs:
           yq eval '.spec.template.spec.containers[0].image' "$FILE"
 
       - name: Commit and push
+        env:
+          IMAGE: ${{ needs.build-and-push.outputs.image }}
         run: |
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
@@ -95,5 +101,5 @@ jobs:
             echo "No changes to commit"
             exit 0
           fi
-          git commit -m "chore: update verisafe image to ${{ needs.build-and-push.outputs.image }} (${GITHUB_REF_NAME})"
+          git commit -m "chore: update verisafe image to $IMAGE (${GITHUB_REF_NAME})"
           git push origin main
