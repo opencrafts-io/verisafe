@@ -89,11 +89,12 @@ jobs:
           echo "Old image:"
           yq eval '. | select(.kind=="Deployment") | .spec.template.spec.containers[].image' "$FILE"
 
+          # Update ALL containers with the built image tag (not just specific name)
           yq eval '
-            (. | select(.kind == "Deployment")
-             | .spec.template.spec.containers[]
-             | select(.name == "qaverisafe")
-             | .image) = "'"$IMAGE"'"
+            .documents[]? | 
+            select(.kind == "Deployment") |
+            .spec.template.spec.containers[] |= 
+              (.image //= "'"$IMAGE"'")
           ' -i "$FILE"
 
           echo "New image:"
