@@ -1,50 +1,85 @@
-name: Build, Push, and Update Verisafe Deployment
+name: Build, Push, and Update verisafe Backend
 
 on:
   push:
     branches:
-      - "**"
+      - '**'
 
 jobs:
-  build-push-update-infraops:
+  build-push-update:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout Repo
+      - name: Checkout verisafe Repo
         uses: actions/checkout@v4
 
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.4'
+          cache: true
 
-      - name: Compute image name
-        id: img
+      - name: Install pack CLI
         run: |
-          echo "GITHUB_REF_NAME=${GITHUB_REF_NAME}"
-          BRANCH="${GITHUB_REF_NAME#refs/heads/}"
-          echo "Branch parsed: $BRANCH"
+          curl -sSL "https://github.com/buildpacks/pack/releases/download/v0.38.2/pack-v0.38.2-linux.tgz" | tar -xz
+          sudo mv pack /usr/local/bin/pack
 
-          SHA="$(git rev-parse --short HEAD)"
-          if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
-            IMAGE="opencrafts/verisafe-backend-prod:${SHA}"
+      - name: Cache CNB Layers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pack
+          key: cnb-${{ runner.os }}-${{ github.ref }}-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            cnb-${{ runner.os }}-${{ github.ref }}
+            cnb-${{ runner.os }}
+
+      - name: Set Docker Tags
+        id: tags
+        run: |
+          BRANCH=$(echo "${GITHUB_REF##*/}" | tr '[:upper:]' '[:lower:]' | tr '/' '-')
+          SHA=$(git rev-parse --short HEAD)
+
+          if [ "$BRANCH" = "main" ]; then
+            IMAGE_TAG="prod"
+            IMAGE_BASE="${{ secrets.DOCKERHUB_USERNAME }}/verisafe-backend-prod"
           else
-            IMAGE="opencrafts/verisafe-backend-staging:${SHA}"
+            IMAGE_TAG="dev"
+            IMAGE_BASE="${{ secrets.DOCKERHUB_USERNAME }}/verisafe-backend-staging"
           fi
 
-          echo "Computed IMAGE=$IMAGE"
-          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
-          echo "::remove-mask::$IMAGE"
+          echo "image_base=$IMAGE_BASE" >> $GITHUB_OUTPUT
+          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "sha_tag=$SHA" >> $GITHUB_OUTPUT
 
-      - name: Docker Login
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Log in to Docker Hub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
-      - name: Build and Push Docker Image
+      - name: Build verisafe Image with Buildpacks
         run: |
-          IMAGE="${{ steps.img.outputs.image }}"
-          echo "Building and pushing image: $IMAGE"
-          docker build -t "$IMAGE" .
-          docker push "$IMAGE"
+          IMAGE_BASE=${{ steps.tags.outputs.image_base }}
+          IMAGE_TAG=${{ steps.tags.outputs.image_tag }}
+          SHA_TAG=${{ steps.tags.outputs.sha_tag }}
+
+          echo "🔨 Building $IMAGE_BASE:$IMAGE_TAG and $IMAGE_BASE:$SHA_TAG"
+
+          pack build "$IMAGE_BASE:$IMAGE_TAG" \
+            --buildpack paketo-buildpacks/go \
+            --builder paketobuildpacks/builder-jammy-base \
+            --cache "type=build;format=volume"
+
+          docker tag "$IMAGE_BASE:$IMAGE_TAG" "$IMAGE_BASE:$SHA_TAG"
+
+      - name: Push verisafe Images
+        run: |
+          IMAGE_BASE=${{ steps.tags.outputs.image_base }}
+          IMAGE_TAG=${{ steps.tags.outputs.image_tag }}
+          SHA_TAG=${{ steps.tags.outputs.sha_tag }}
+
+          echo "Pushing $IMAGE_BASE:$IMAGE_TAG"
+          docker push "$IMAGE_BASE:$IMAGE_TAG"
+
+          echo "Pushing $IMAGE_BASE:$SHA_TAG"
+          docker push "$IMAGE_BASE:$SHA_TAG"
 
       - name: Checkout InfraOps Repo
         uses: actions/checkout@v4
@@ -76,7 +111,7 @@ jobs:
       - name: Update deployment.yaml
         run: |
           FILE="${{ steps.target.outputs.file }}"
-          IMAGE="${{ steps.img.outputs.image }}"
+          IMAGE="${{ steps.tags.outputs.image_base }}:${{ steps.tags.outputs.sha_tag }}"
           echo "Updating $FILE with image: $IMAGE"
           if [ ! -f "$FILE" ]; then
             echo "ERROR: $FILE does not exist!"
@@ -92,7 +127,7 @@ jobs:
       - name: Commit and push changes
         run: |
           cd infraops
-          IMAGE="${{ steps.img.outputs.image }}"
+          IMAGE="${{ steps.tags.outputs.image_base }}:${{ steps.tags.outputs.sha_tag }}"
           git config user.name "CI Bot from Github Actions"
           git config user.email "actions@github.com"
           
