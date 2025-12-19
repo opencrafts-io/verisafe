@@ -69,10 +69,10 @@ type Config struct {
 func LoadConfig() (*Config, error) {
 	cfg := Config{}
 
-	// load the configs
-	if err := godotenv.Load(".env"); err != nil {
-		return nil, fmt.Errorf("Failed to load environment variables: %v", err)
-	}
+	// 1. Attempt to load .env file.
+	// We ignore the error so it doesn't crash if the file is missing.
+	_ = godotenv.Load()
+
 	if err := envconfig.Process("", &cfg); err != nil {
 		return nil, fmt.Errorf("Failed to load environment variables: %v", err)
 	}
