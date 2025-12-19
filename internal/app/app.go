@@ -58,6 +58,12 @@ func New(logger *slog.Logger, config *config.Config) (*App, error) {
 		return nil, err
 	}
 
+	logger.Info(
+		"Using the following secrets",
+		slog.Any("secrets", config),
+		slog.Any("API_SECRET", config.JWTConfig.ApiSecret),
+	)
+
 	return &App{
 		config:               config,
 		logger:               logger,
