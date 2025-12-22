@@ -1,0 +1,49 @@
+name: Discord Push Notification
+
+on:
+  push:
+    branches:
+      - main
+      - staging
+
+jobs:
+  notify-discord:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Discord Notification
+        uses: Ilshidur/action-discord@master
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        with:
+          args: |
+            **@everyone stay alert because there is a deployment** 
+            **New Push to ${{ github.repository }}**           
+            **Pusher**: `${{ github.actor }}`
+            **Branch**: `${{ github.ref_name }}`
+            **Commit**: `${{ github.sha }}`
+            **Message**: `${{ github.event.head_commit.message }}`
+            **Repo**: [${{ github.repository }}](${{ github.server_url }}/${{ github.repository }}/tree/${{ github.ref_name }})
+            **Author**: `${{ github.event.head_commit.author.name }}`
+            
+             [View Commit](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
+
+      - name: Send Detailed Discord Embed (Multi-line commits)
+        if: >-
+          github.event.commits != '' &&
+          contains(github.event.commits, 'message')
+        uses: Ilshidur/action-discord@master
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        with:
+          args: |
+            ** Batch Push - Multiple commits**
+            
+            **Repository**: `${{ github.repository }}`
+            **Branch**: `${{ github.ref_name }}`
+            **Pusher**: `${{ github.actor }}`
+            
+            **Recent Commits**:
+            • ${{ github.event.commits[0].message }}
+            • ${{ github.event.commits[1].message || '...' }}
+            
+             [View All Changes](${{ github.server_url }}/${{ github.repository }}/compare/${{ github.event.before }}...${{ github.sha }})

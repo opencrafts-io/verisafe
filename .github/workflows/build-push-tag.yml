@@ -3,7 +3,9 @@ name: Build, Push, and Update Verisafe Deployment
 on:
   push:
     branches:
-      - "**"
+      - main
+      - staging
+      
 
 jobs:
   build-push-update-infraops:
