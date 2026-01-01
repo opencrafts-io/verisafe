@@ -131,7 +131,6 @@ func NewAuthenticator(cfg *config.Config, userEventBus *eventbus.UserEventBus, l
 	)
 
 	logger.Info("Goth Oauth2 providers initialized successfully")
-
 	return &Auth{
 		config:   cfg,
 		logger:   logger,
