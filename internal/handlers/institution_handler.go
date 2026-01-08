@@ -8,12 +8,14 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/opencrafts-io/verisafe/internal/config"
+	"github.com/opencrafts-io/verisafe/internal/eventbus"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/repository"
 )
 
 type InstitutionHandler struct {
-	Logger *slog.Logger
+	Logger              *slog.Logger
+	InstitutionEventBus *eventbus.InstitutionEventBus
 }
 
 func (ih *InstitutionHandler) RegisterInstitutionHadlers(cfg *config.Config, router *http.ServeMux) {
