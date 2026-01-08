@@ -72,7 +72,7 @@ func NewInstitutionEventBus(cfg *config.Config, logger *slog.Logger) (*Instituti
 }
 
 // PublishInstitutionCreated publishes an institution created event to the event bus
-func (b *UserEventBus) PublishInstitutionCreated(ctx context.Context, institution repository.Institution, requestID string) error {
+func (b *InstitutionEventBus) PublishInstitutionCreated(ctx context.Context, institution repository.Institution, requestID string) error {
 	event := InstitutionEvent{
 		Institution: institution,
 		Metadata: InstitutionEventMetaData{
@@ -94,7 +94,7 @@ func (b *UserEventBus) PublishInstitutionCreated(ctx context.Context, institutio
 }
 
 // PublishInstitutionUpdated publishes an institution updated event to the event bus
-func (b *UserEventBus) PublishInstitutionUpdated(ctx context.Context, institution repository.Institution, requestID string) error {
+func (b *InstitutionEventBus) PublishInstitutionUpdated(ctx context.Context, institution repository.Institution, requestID string) error {
 	event := InstitutionEvent{
 		Institution: institution,
 		Metadata: InstitutionEventMetaData{
@@ -116,7 +116,7 @@ func (b *UserEventBus) PublishInstitutionUpdated(ctx context.Context, institutio
 }
 
 // PublishInstitutionDeleted publishes an institution deleted event to the event bus
-func (b *UserEventBus) PublishInstitutionDeleted(ctx context.Context, institution repository.Institution, requestID string) error {
+func (b *InstitutionEventBus) PublishInstitutionDeleted(ctx context.Context, institution repository.Institution, requestID string) error {
 	event := InstitutionEvent{
 		Institution: institution,
 		Metadata: InstitutionEventMetaData{
