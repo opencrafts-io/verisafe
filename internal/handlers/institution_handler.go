@@ -109,6 +109,10 @@ func (ih *InstitutionHandler) RegisterInstitution(w http.ResponseWriter, r *http
 		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
 		return
 	}
+	if ih.InstitutionEventBus != nil {
+		requestID := eventbus.GenerateRequestID()
+		_ = ih.InstitutionEventBus.PublishInstitutionCreated(r.Context(), created, requestID)
+	}
 
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(created)
@@ -155,6 +159,10 @@ func (ih *InstitutionHandler) UpdateInstitutionDetails(w http.ResponseWriter, r 
 		ih.Logger.Error("Error committing transaction", slog.Any("error", err))
 		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
 		return
+	}
+	if ih.InstitutionEventBus != nil {
+		requestID := eventbus.GenerateRequestID()
+		_ = ih.InstitutionEventBus.PublishInstitutionUpdated(r.Context(), updated, requestID)
 	}
 
 	json.NewEncoder(w).Encode(updated)
@@ -236,6 +244,13 @@ func (ih *InstitutionHandler) DeleteInstitution(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	institution, err := repo.GetInstitution(r.Context(), int32(id))
+	if err != nil {
+		ih.Logger.Error("Failed to get institution", slog.Any("error", err))
+		http.Error(w, `{"error":"institution not found"}`, http.StatusNotFound)
+		return
+	}
+
 	if err := repo.DeleteInstitution(r.Context(), int32(id)); err != nil {
 		ih.Logger.Error("Failed to delete institution", slog.Any("error", err))
 		http.Error(w, `{"error":"failed to delete institution"}`, http.StatusInternalServerError)
@@ -246,6 +261,11 @@ func (ih *InstitutionHandler) DeleteInstitution(w http.ResponseWriter, r *http.R
 		ih.Logger.Error("Error committing transaction", slog.Any("error", err))
 		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
 		return
+	}
+
+	if ih.InstitutionEventBus != nil {
+		requestID := eventbus.GenerateRequestID()
+		_ = ih.InstitutionEventBus.PublishInstitutionDeleted(r.Context(), institution, requestID)
 	}
 
 	w.WriteHeader(http.StatusNoContent)
