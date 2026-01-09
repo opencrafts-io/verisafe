@@ -27,7 +27,10 @@ func (a *App) loadRoutes() http.Handler {
 	socialHandler := handlers.SocialHandler{Logger: a.logger}
 	roleHandler := handlers.RoleHandler{Logger: a.logger}
 	permHandler := handlers.PermissionHandler{Logger: a.logger}
-	institutionHandler := handlers.InstitutionHandler{Logger: a.logger}
+	institutionHandler := handlers.InstitutionHandler{
+		Logger:              a.logger,
+		InstitutionEventBus: a.institutionEventBus,
+	}
 	leaderboardHandler := handlers.LeaderBoardHandler{Logger: a.logger}
 	activityHandler := handlers.ActivityHandler{Logger: a.logger}
 	streakhanlder := handlers.StreakHandler{Logger: a.logger, NotificationEventBus: a.notificationEventBus}
