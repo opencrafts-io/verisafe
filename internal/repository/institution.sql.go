@@ -111,6 +111,18 @@ func (q *Queries) GetInstitution(ctx context.Context, institutionID int32) (Inst
 	return i, err
 }
 
+const getInstitutionsCount = `-- name: GetInstitutionsCount :one
+SELECT count(*) from institutions
+`
+
+// Returns the number of all institutions in the system
+func (q *Queries) GetInstitutionsCount(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, getInstitutionsCount)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const listAccountsForInstitution = `-- name: ListAccountsForInstitution :many
 SELECT a.id, a.email, a.name, a.created_at, a.updated_at, a.terms_accepted, a.onboarded, a.type, a.national_id, a.username, a.avatar_url, a.bio, a.vibe_points, a.phone
 FROM accounts a
