@@ -31,8 +31,8 @@ func (ih *InstitutionHandler) RegisterInstitutionHadlers(cfg *config.Config, rou
 
 	router.Handle("GET /institutions/fanout",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg, ih.Logger),
-			middleware.HasPermission([]string{"create:institutions:any"}),
+		middleware.IsAuthenticated(cfg, ih.Logger),
+		middleware.HasPermission([]string{"create:institutions:any"}),
 		)(http.HandlerFunc(ih.FanoutInstitutions)))
 
 	router.Handle("PATCH /institutions/update/{id}",
@@ -550,8 +550,8 @@ func (ih *InstitutionHandler) FanoutInstitutions(w http.ResponseWriter, r *http.
 	// Check for errors
 	if len(errChan) > 0 {
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "Some batches failed to publish",
+		json.NewEncoder(w).Encode(map[string]any{
+			"error":  "Some batches failed to publish",
 		})
 		return
 	}

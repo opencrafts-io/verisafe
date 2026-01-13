@@ -56,8 +56,8 @@ func NewInstitutionEventBus(cfg *config.Config, logger *slog.Logger) (*Instituti
 
 	rabbitMQBus, err := NewRabbitMQEventBus(
 		rabbitMQConnString,
-		cfg.RabbitMQConfig.Exchange,
-		FanoutExchangeType,
+		"professor.exchange",
+		DirectExchangeType,
 	)
 
 	if err != nil {
