@@ -11,6 +11,7 @@ import (
 )
 
 const DBConnectionContextKey = "db.middlewares.connection"
+const DBPoolContextKey = "db.middlewares.pool"
 
 type DBConnectionMiddleWare struct {
 	Pool   *pgxpool.Pool
@@ -39,6 +40,7 @@ func withDBConnection(logger *slog.Logger, pool *pgxpool.Pool, next http.Handler
 		defer conn.Release()
 
 		ctx := context.WithValue(r.Context(), DBConnectionContextKey, conn)
+		ctx = context.WithValue(ctx, DBPoolContextKey, pool)
 		next.ServeHTTP(w, r.WithContext(ctx))
 
 	})
@@ -52,4 +54,14 @@ func GetDBConnFromContext(ctx context.Context) (*pgxpool.Conn, error) {
 		return nil, errors.New("database connection not found in context")
 	}
 	return conn, nil
+}
+
+// GetDBPoolFromContext retrieves the pgxpool.Pool from the request context.
+// Use this when you need to acquire multiple connections (e.g., for concurrent operations).
+func GetDBPoolFromContext(ctx context.Context) (*pgxpool.Pool, error) {
+	pool, ok := ctx.Value(DBPoolContextKey).(*pgxpool.Pool)
+	if !ok || pool == nil {
+		return nil, errors.New("database pool not found in context")
+	}
+	return pool, nil
 }

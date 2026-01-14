@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -31,8 +32,8 @@ func (ih *InstitutionHandler) RegisterInstitutionHadlers(cfg *config.Config, rou
 
 	router.Handle("GET /institutions/fanout",
 		middleware.CreateStack(
-		middleware.IsAuthenticated(cfg, ih.Logger),
-		middleware.HasPermission([]string{"create:institutions:any"}),
+			middleware.IsAuthenticated(cfg, ih.Logger),
+			middleware.HasPermission([]string{"create:institutions:any"}),
 		)(http.HandlerFunc(ih.FanoutInstitutions)))
 
 	router.Handle("PATCH /institutions/update/{id}",
@@ -477,7 +478,9 @@ func (ih *InstitutionHandler) RemoveAccountInstitution(w http.ResponseWriter, r 
 
 func (ih *InstitutionHandler) FanoutInstitutions(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+
+	// Get the pool for concurrent operations
+	pool, err := middleware.GetDBPoolFromContext(r.Context())
 	if err != nil {
 		ih.Logger.Error("Error while processing request", slog.Any("error", err))
 		w.WriteHeader(http.StatusInternalServerError)
@@ -487,8 +490,8 @@ func (ih *InstitutionHandler) FanoutInstitutions(w http.ResponseWriter, r *http.
 		return
 	}
 
-	repo := repository.New(conn)
-	institutionCount, err := repo.GetInstitutionsCount(r.Context())
+	// For the initial count, we can use the pool directly
+	institutionCount, err := repository.New(pool).GetInstitutionsCount(r.Context())
 	if err != nil {
 		ih.Logger.Error("Error while processing request", slog.Any("error", err))
 		w.WriteHeader(http.StatusInternalServerError)
@@ -500,25 +503,28 @@ func (ih *InstitutionHandler) FanoutInstitutions(w http.ResponseWriter, r *http.
 
 	batchSize := 1000
 	totalBatches := (int(institutionCount) + batchSize - 1) / batchSize
-	publishedCount := 0
 
-	// Use a worker pool to limit concurrent goroutines
+	var publishedCount int64
 	workerCount := 5
 	semaphore := make(chan struct{}, workerCount)
 	var wg sync.WaitGroup
 	errChan := make(chan error, totalBatches)
 
-	for batch := range totalBatches {
+	for batch := 0; batch < totalBatches; batch++ {
 		wg.Add(1)
-		semaphore <- struct{}{} // Acquire slot
+		semaphore <- struct{}{}
 
 		go func(batchNum int) {
 			defer wg.Done()
-			defer func() { <-semaphore }() // Release slot
+			defer func() { <-semaphore }()
 
 			offset := batchNum * batchSize
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 			defer cancel()
+
+			// Each goroutine uses the pool - it will acquire and release connections automatically
+			repo := repository.New(pool)
+
 			institutions, err := repo.ListInstitutions(ctx, repository.ListInstitutionsParams{
 				Limit:  int32(batchSize),
 				Offset: int32(offset),
@@ -532,14 +538,18 @@ func (ih *InstitutionHandler) FanoutInstitutions(w http.ResponseWriter, r *http.
 				return
 			}
 
-			// Publish synchronously within the goroutine
+			// Publish each institution
 			for _, institution := range institutions {
 				requestID := eventbus.GenerateRequestID()
 				if err := ih.InstitutionEventBus.PublishInstitutionCreated(ctx, institution, requestID); err != nil {
-					errChan <- err
+					ih.Logger.Error("Error publishing institution",
+						slog.Any("error", err),
+						slog.Int("batch", batchNum),
+					)
+					errChan <- fmt.Errorf("batch %d, institution publish: %w", batchNum, err)
 					return
 				}
-				publishedCount++
+				atomic.AddInt64(&publishedCount, 1)
 			}
 		}(batch)
 	}
@@ -547,17 +557,27 @@ func (ih *InstitutionHandler) FanoutInstitutions(w http.ResponseWriter, r *http.
 	wg.Wait()
 	close(errChan)
 
-	// Check for errors
-	if len(errChan) > 0 {
+	// Collect all errors
+	var errors []error
+	for err := range errChan {
+		errors = append(errors, err)
+	}
+
+	if len(errors) > 0 {
+		ih.Logger.Error("Failed to publish some batches",
+			slog.Int("error_count", len(errors)),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]any{
-			"error":  "Some batches failed to publish",
+			"error":   "Some batches failed to publish",
+			"details": fmt.Sprintf("%d batches failed", len(errors)),
 		})
 		return
 	}
 
+	finalCount := atomic.LoadInt64(&publishedCount)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]any{
-		"message": fmt.Sprintf("Published %d institutions to the event bus", publishedCount),
+		"message": fmt.Sprintf("Published %d institutions to the event bus", finalCount),
 	})
 }
