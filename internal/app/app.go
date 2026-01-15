@@ -21,6 +21,7 @@ type App struct {
 	pool                 *pgxpool.Pool
 	userEventBus         *eventbus.UserEventBus
 	notificationEventBus *eventbus.NotificationEventBus
+	institutionEventBus  *eventbus.InstitutionEventBus
 }
 
 // Returns a new instance of the application
@@ -53,6 +54,11 @@ func New(logger *slog.Logger, config *config.Config) (*App, error) {
 		return nil, err
 	}
 
+	institutionEventBus, err := eventbus.NewInstitutionEventBus(config, logger)
+	if err != nil {
+		return nil, err
+	}
+
 	notificationEventBus, err := eventbus.NewNotificationEventBus(config, logger)
 	if err != nil {
 		return nil, err
@@ -64,6 +70,7 @@ func New(logger *slog.Logger, config *config.Config) (*App, error) {
 		pool:                 connPool,
 		userEventBus:         userEventBus,
 		notificationEventBus: notificationEventBus,
+		institutionEventBus:  institutionEventBus,
 	}, nil
 }
 
