@@ -1,19 +1,26 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
+	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/opencrafts-io/verisafe/internal/config"
+	"github.com/opencrafts-io/verisafe/internal/eventbus"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/repository"
 )
 
 type InstitutionHandler struct {
-	Logger *slog.Logger
+	Logger              *slog.Logger
+	InstitutionEventBus *eventbus.InstitutionEventBus
 }
 
 func (ih *InstitutionHandler) RegisterInstitutionHadlers(cfg *config.Config, router *http.ServeMux) {
@@ -22,6 +29,12 @@ func (ih *InstitutionHandler) RegisterInstitutionHadlers(cfg *config.Config, rou
 		middleware.IsAuthenticated(cfg, ih.Logger),
 		middleware.HasPermission([]string{"create:institutions:any"}),
 	)(http.HandlerFunc(ih.RegisterInstitution)))
+
+	router.Handle("GET /institutions/fanout",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(cfg, ih.Logger),
+			middleware.HasPermission([]string{"create:institutions:any"}),
+		)(http.HandlerFunc(ih.FanoutInstitutions)))
 
 	router.Handle("PATCH /institutions/update/{id}",
 		middleware.CreateStack(
@@ -107,6 +120,10 @@ func (ih *InstitutionHandler) RegisterInstitution(w http.ResponseWriter, r *http
 		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
 		return
 	}
+	if ih.InstitutionEventBus != nil {
+		requestID := eventbus.GenerateRequestID()
+		_ = ih.InstitutionEventBus.PublishInstitutionCreated(r.Context(), created, requestID)
+	}
 
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(created)
@@ -153,6 +170,10 @@ func (ih *InstitutionHandler) UpdateInstitutionDetails(w http.ResponseWriter, r 
 		ih.Logger.Error("Error committing transaction", slog.Any("error", err))
 		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
 		return
+	}
+	if ih.InstitutionEventBus != nil {
+		requestID := eventbus.GenerateRequestID()
+		_ = ih.InstitutionEventBus.PublishInstitutionUpdated(r.Context(), updated, requestID)
 	}
 
 	json.NewEncoder(w).Encode(updated)
@@ -234,6 +255,13 @@ func (ih *InstitutionHandler) DeleteInstitution(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	institution, err := repo.GetInstitution(r.Context(), int32(id))
+	if err != nil {
+		ih.Logger.Error("Failed to get institution", slog.Any("error", err))
+		http.Error(w, `{"error":"institution not found"}`, http.StatusNotFound)
+		return
+	}
+
 	if err := repo.DeleteInstitution(r.Context(), int32(id)); err != nil {
 		ih.Logger.Error("Failed to delete institution", slog.Any("error", err))
 		http.Error(w, `{"error":"failed to delete institution"}`, http.StatusInternalServerError)
@@ -244,6 +272,11 @@ func (ih *InstitutionHandler) DeleteInstitution(w http.ResponseWriter, r *http.R
 		ih.Logger.Error("Error committing transaction", slog.Any("error", err))
 		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
 		return
+	}
+
+	if ih.InstitutionEventBus != nil {
+		requestID := eventbus.GenerateRequestID()
+		_ = ih.InstitutionEventBus.PublishInstitutionDeleted(r.Context(), institution, requestID)
 	}
 
 	w.WriteHeader(http.StatusNoContent)
@@ -441,4 +474,110 @@ func (ih *InstitutionHandler) RemoveAccountInstitution(w http.ResponseWriter, r 
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]any{"message": "Successfully removed from institution"})
+}
+
+func (ih *InstitutionHandler) FanoutInstitutions(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// Get the pool for concurrent operations
+	pool, err := middleware.GetDBPoolFromContext(r.Context())
+	if err != nil {
+		ih.Logger.Error("Error while processing request", slog.Any("error", err))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "We ran into a problem while servicing your request please try again later",
+		})
+		return
+	}
+
+	// For the initial count, we can use the pool directly
+	institutionCount, err := repository.New(pool).GetInstitutionsCount(r.Context())
+	if err != nil {
+		ih.Logger.Error("Error while processing request", slog.Any("error", err))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "We ran into an error while trying to service your request",
+		})
+		return
+	}
+
+	batchSize := 1000
+	totalBatches := (int(institutionCount) + batchSize - 1) / batchSize
+
+	var publishedCount int64
+	workerCount := 5
+	semaphore := make(chan struct{}, workerCount)
+	var wg sync.WaitGroup
+	errChan := make(chan error, totalBatches)
+
+	for batch := 0; batch < totalBatches; batch++ {
+		wg.Add(1)
+		semaphore <- struct{}{}
+
+		go func(batchNum int) {
+			defer wg.Done()
+			defer func() { <-semaphore }()
+
+			offset := batchNum * batchSize
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			defer cancel()
+
+			// Each goroutine uses the pool - it will acquire and release connections automatically
+			repo := repository.New(pool)
+
+			institutions, err := repo.ListInstitutions(ctx, repository.ListInstitutionsParams{
+				Limit:  int32(batchSize),
+				Offset: int32(offset),
+			})
+			if err != nil {
+				ih.Logger.Error("Error fetching batch",
+					slog.Any("error", err),
+					slog.Int("batch", batchNum),
+				)
+				errChan <- fmt.Errorf("batch %d: %w", batchNum, err)
+				return
+			}
+
+			// Publish each institution
+			for _, institution := range institutions {
+				requestID := eventbus.GenerateRequestID()
+				if err := ih.InstitutionEventBus.PublishInstitutionCreated(ctx, institution, requestID); err != nil {
+					ih.Logger.Error("Error publishing institution",
+						slog.Any("error", err),
+						slog.Int("batch", batchNum),
+					)
+					errChan <- fmt.Errorf("batch %d, institution publish: %w", batchNum, err)
+					return
+				}
+				atomic.AddInt64(&publishedCount, 1)
+			}
+		}(batch)
+	}
+
+	wg.Wait()
+	close(errChan)
+
+	// Collect all errors
+	var errors []error
+	for err := range errChan {
+		errors = append(errors, err)
+	}
+
+	if len(errors) > 0 {
+		ih.Logger.Error("Failed to publish some batches",
+			slog.Int("error_count", len(errors)),
+		)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]any{
+			"error":   "Some batches failed to publish",
+			"details": fmt.Sprintf("%d batches failed", len(errors)),
+		})
+		return
+	}
+
+	finalCount := atomic.LoadInt64(&publishedCount)
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]any{
+		"message": fmt.Sprintf("Published %d institutions to the event bus", finalCount),
+	})
 }

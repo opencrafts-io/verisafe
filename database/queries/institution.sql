@@ -76,3 +76,8 @@ WHERE ai.institution_id = $1
 ORDER BY a.name
 LIMIT $2
 OFFSET $3;
+
+
+-- name: GetInstitutionsCount :one
+-- Returns the number of all institutions in the system
+SELECT count(*) from institutions;
