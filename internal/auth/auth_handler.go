@@ -151,7 +151,7 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if provider == "apple" {
-		if user.FirstName == "" && appleData.Name.FirstName != "" {
+		if user.FirstName == "" && (appleData.Name.FirstName != "" || appleData.Name.LastName != "") {
 			user.FirstName = appleData.Name.FirstName
 			user.LastName = appleData.Name.LastName
 			user.Name = strings.TrimSpace(user.FirstName + " " + user.LastName)
