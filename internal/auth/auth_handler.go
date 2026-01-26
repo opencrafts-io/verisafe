@@ -32,6 +32,14 @@ type StateData struct {
 	RedirectURI string
 }
 
+type appleUserJSON struct {
+	Name struct {
+		FirstName string `json:"firstName"`
+		LastName  string `json:"lastName"`
+	} `json:"name"`
+	Email string `json:"email"`
+}
+
 func (a *Auth) RegisterRoutes(router *http.ServeMux) {
 	router.HandleFunc("GET /auth/{provider}", a.LoginHandler)
 	router.HandleFunc("/auth/{provider}/callback", a.CallbackHandler)
@@ -120,6 +128,13 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var appleData appleUserJSON
+	if provider == "apple" && r.FormValue("user") != "" {
+		if err := json.Unmarshal([]byte(r.FormValue("user")), &appleData); err != nil {
+			a.logger.Warn("Failed to unmarshal apple user form", "error", err)
+		}
+	}
+
 	// Parse state data
 	stateData, err := a.parseStateData(r)
 	if err != nil {
@@ -133,6 +148,14 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		a.logger.Error("OAuth authentication failed", slog.Any("error", err))
 		http.Error(w, "Authentication flow failed", http.StatusInternalServerError)
 		return
+	}
+
+	if provider == "apple" {
+		if user.FirstName == "" && (appleData.Name.FirstName != "" || appleData.Name.LastName != "") {
+			user.FirstName = appleData.Name.FirstName
+			user.LastName = appleData.Name.LastName
+			user.Name = strings.TrimSpace(user.FirstName + " " + user.LastName)
+		}
 	}
 
 	// Get database connection and start transaction
