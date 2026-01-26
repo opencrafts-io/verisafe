@@ -129,7 +129,6 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var appleData appleUserJSON
-	a.logger.Info("apple user payload", slog.Any("user", r.FormValue("user")))
 	if provider == "apple" && r.FormValue("user") != "" {
 		if err := json.Unmarshal([]byte(r.FormValue("user")), &appleData); err != nil {
 			a.logger.Warn("Failed to unmarshal apple user form", "error", err)
