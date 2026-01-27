@@ -196,6 +196,36 @@ func (q *Queries) GetAllAccounts(ctx context.Context, arg GetAllAccountsParams) 
 	return items, nil
 }
 
+const markAccountForDeletion = `-- name: MarkAccountForDeletion :exec
+UPDATE accounts
+  SET
+    deleted_at = now()
+  WHERE 
+    id = $1
+  AND deleted_at IS NULL
+`
+
+// Marks an account for deletion
+func (q *Queries) MarkAccountForDeletion(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, markAccountForDeletion, id)
+	return err
+}
+
+const markAccountForRecovery = `-- name: MarkAccountForRecovery :exec
+UPDATE accounts
+  SET
+    deleted_at = NULL
+  WHERE 
+    id = $1
+  AND deleted_at IS NOT NULL
+`
+
+// Recovers an account from scheduled deletion
+func (q *Queries) MarkAccountForRecovery(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, markAccountForRecovery, id)
+	return err
+}
+
 const searchAccountByEmail = `-- name: SearchAccountByEmail :many
 SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type, national_id, username, avatar_url, bio, vibe_points, phone, deleted_at FROM accounts 
 WHERE lower(email) LIKE '%' || lower($3::varchar) || '%'
