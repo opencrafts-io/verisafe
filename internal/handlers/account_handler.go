@@ -70,6 +70,12 @@ func (ah *AccountHandler) RegisterHandlers(router *http.ServeMux) {
 			middleware.HasPermission([]string{"update:account:own"}),
 		)(http.HandlerFunc(ah.MarkAccountForDeletion)),
 	)
+	router.Handle("POST /accounts/recovery",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(ah.Cfg, ah.Logger),
+			middleware.HasPermission([]string{"update:account:own"}),
+		)(http.HandlerFunc(ah.RecoverAccountFromDeletion)),
+	)
 
 	router.Handle("PATCH /accounts/me/phone",
 		middleware.CreateStack(
@@ -1071,5 +1077,74 @@ func (ah *AccountHandler) MarkAccountForDeletion(w http.ResponseWriter, r *http.
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]any{
 		"message": "Your account will be permanently deleted after 14 days. You may cancel this request by signing in before that time.",
+	})
+}
+
+func (ah *AccountHandler) RecoverAccountFromDeletion(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value(middleware.AuthUserClaims).(*utils.VerisafeClaims)
+	w.Header().Set("Content-Type", "application/json")
+	conn, err := middleware.GetDBConnFromContext(r.Context())
+	if err != nil {
+		ah.Logger.Error("Error while processing request", slog.Any("error", err))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "We ran into a problem while servicing your request please try again later",
+		})
+		return
+	}
+
+	tx, err := conn.Begin(r.Context())
+	if err != nil {
+		ah.Logger.Error("Error attempting to prepare transaction", slog.Any("error", err))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "We ran into an error while trying to recover your account",
+		})
+		return
+
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback(r.Context())
+		}
+	}()
+
+	repo := repository.New(tx)
+
+	id, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		ah.Logger.Error("Error while parsing user id", slog.Any("error", err))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "We ran into an error while trying to recover your account",
+		})
+		return
+	}
+
+	err = repo.MarkAccountForRecovery(r.Context(), id)
+	if err != nil {
+		ah.Logger.Error(
+			"Error while attempting to mark account for deletion",
+			slog.Any("error", err),
+		)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "We couldn't delete your account at the moment please try again later",
+		})
+		return
+	}
+
+	if err = tx.Commit(r.Context()); err != nil {
+		ah.Logger.Error("Error while committing transaction", slog.Any("error", err))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "We ran into a problem while servicing your request please try again later",
+		})
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]any{
+		"message": "Account recovery was successful. All access has been restored",
 	})
 }
