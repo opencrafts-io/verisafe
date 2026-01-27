@@ -104,15 +104,15 @@ type BotAccountRequest struct {
 		AvatarUrl *string `json:"avatar_url"`
 	} `json:"account"`
 	ServiceToken struct {
-		Name             string                 `json:"name" validate:"required,min=1,max=100"`
-		Description      *string                `json:"description"`
-		ExpiresInDays    *int                   `json:"expires_in_days" validate:"omitempty,min=1,max=3650"`
-		Scopes           []string               `json:"scopes"`
-		MaxUses          *int                   `json:"max_uses" validate:"omitempty,min=1"`
-		RotationPolicy   *RotationPolicy        `json:"rotation_policy"`
-		IPWhitelist      []string               `json:"ip_whitelist"`
-		UserAgentPattern *string                `json:"user_agent_pattern"`
-		Metadata         map[string]interface{} `json:"metadata"`
+		Name             string          `json:"name" validate:"required,min=1,max=100"`
+		Description      *string         `json:"description"`
+		ExpiresInDays    *int            `json:"expires_in_days" validate:"omitempty,min=1,max=3650"`
+		Scopes           []string        `json:"scopes"`
+		MaxUses          *int            `json:"max_uses" validate:"omitempty,min=1"`
+		RotationPolicy   *RotationPolicy `json:"rotation_policy"`
+		IPWhitelist      []string        `json:"ip_whitelist"`
+		UserAgentPattern *string         `json:"user_agent_pattern"`
+		Metadata         map[string]any  `json:"metadata"`
 	} `json:"service_token"`
 }
 
@@ -133,15 +133,15 @@ type BotAccountResponse struct {
 		CreatedAt time.Time `json:"created_at"`
 	} `json:"account"`
 	ServiceToken struct {
-		ID          uuid.UUID              `json:"id"`
-		Name        string                 `json:"name"`
-		Description *string                `json:"description"`
-		Token       string                 `json:"token"`
-		ExpiresAt   *time.Time             `json:"expires_at"`
-		Scopes      []string               `json:"scopes"`
-		MaxUses     *int                   `json:"max_uses"`
-		CreatedAt   time.Time              `json:"created_at"`
-		Metadata    map[string]interface{} `json:"metadata"`
+		ID          uuid.UUID      `json:"id"`
+		Name        string         `json:"name"`
+		Description *string        `json:"description"`
+		Token       string         `json:"token"`
+		ExpiresAt   *time.Time     `json:"expires_at"`
+		Scopes      []string       `json:"scopes"`
+		MaxUses     *int           `json:"max_uses"`
+		CreatedAt   time.Time      `json:"created_at"`
+		Metadata    map[string]any `json:"metadata"`
 	} `json:"service_token"`
 }
 
@@ -677,7 +677,7 @@ func (ah *AccountHandler) VerifyPhone(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		eventRequestID := eventbus.GenerateRequestID()
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()	
+		defer cancel()
 
 		if err := ah.UserEventBus.PublishUserUpdated(ctx, updated, eventRequestID); err != nil {
 			ah.Logger.Error("Failed to publish user updated event",
@@ -760,9 +760,9 @@ func (ah *AccountHandler) SearchAccountsByEmail(w http.ResponseWriter, r *http.R
 	}
 
 	// Prepare response
-	response := map[string]interface{}{
+	response := map[string]any{
 		"accounts": accounts,
-		"pagination": map[string]interface{}{
+		"pagination": map[string]any{
 			"limit":  pagination.Limit,
 			"offset": pagination.Offset,
 			"total":  len(accounts),
@@ -843,9 +843,9 @@ func (ah *AccountHandler) SearchAccountsByName(w http.ResponseWriter, r *http.Re
 	}
 
 	// Prepare response
-	response := map[string]interface{}{
+	response := map[string]any{
 		"accounts": accounts,
-		"pagination": map[string]interface{}{
+		"pagination": map[string]any{
 			"limit":  pagination.Limit,
 			"offset": pagination.Offset,
 			"total":  len(accounts),
@@ -983,9 +983,9 @@ func (ah *AccountHandler) SearchAccountsByUsername(w http.ResponseWriter, r *htt
 	}
 
 	// Prepare response
-	response := map[string]interface{}{
+	response := map[string]any{
 		"accounts": accounts,
-		"pagination": map[string]interface{}{
+		"pagination": map[string]any{
 			"limit":  pagination.Limit,
 			"offset": pagination.Offset,
 			"total":  len(accounts),
