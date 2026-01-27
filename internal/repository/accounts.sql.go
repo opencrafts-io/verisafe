@@ -14,7 +14,7 @@ import (
 const createAccount = `-- name: CreateAccount :one
 INSERT INTO accounts (email, name, type, avatar_url)
 VALUES ($1, $2, $3, $4)
-RETURNING id, email, name, created_at, updated_at, terms_accepted, onboarded, type, national_id, username, avatar_url, bio, vibe_points, phone
+RETURNING id, email, name, created_at, updated_at, terms_accepted, onboarded, type, national_id, username, avatar_url, bio, vibe_points, phone, deleted_at
 `
 
 type CreateAccountParams struct {
@@ -47,12 +47,13 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (A
 		&i.Bio,
 		&i.VibePoints,
 		&i.Phone,
+		&i.DeletedAt,
 	)
 	return i, err
 }
 
 const getAccountByEmail = `-- name: GetAccountByEmail :one
-SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type, national_id, username, avatar_url, bio, vibe_points, phone FROM accounts 
+SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type, national_id, username, avatar_url, bio, vibe_points, phone, deleted_at FROM accounts 
 WHERE lower(email) = lower($1::varchar)
 LIMIT 1
 `
@@ -75,12 +76,13 @@ func (q *Queries) GetAccountByEmail(ctx context.Context, email string) (Account,
 		&i.Bio,
 		&i.VibePoints,
 		&i.Phone,
+		&i.DeletedAt,
 	)
 	return i, err
 }
 
 const getAccountByID = `-- name: GetAccountByID :one
-SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type, national_id, username, avatar_url, bio, vibe_points, phone FROM accounts 
+SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type, national_id, username, avatar_url, bio, vibe_points, phone, deleted_at FROM accounts 
 WHERE id = $1
 `
 
@@ -102,12 +104,13 @@ func (q *Queries) GetAccountByID(ctx context.Context, id uuid.UUID) (Account, er
 		&i.Bio,
 		&i.VibePoints,
 		&i.Phone,
+		&i.DeletedAt,
 	)
 	return i, err
 }
 
 const getAccountByUsername = `-- name: GetAccountByUsername :one
-SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type, national_id, username, avatar_url, bio, vibe_points, phone FROM accounts WHERE lower(username) = lower($1::varchar)
+SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type, national_id, username, avatar_url, bio, vibe_points, phone, deleted_at FROM accounts WHERE lower(username) = lower($1::varchar)
 `
 
 func (q *Queries) GetAccountByUsername(ctx context.Context, username string) (Account, error) {
@@ -128,6 +131,7 @@ func (q *Queries) GetAccountByUsername(ctx context.Context, username string) (Ac
 		&i.Bio,
 		&i.VibePoints,
 		&i.Phone,
+		&i.DeletedAt,
 	)
 	return i, err
 }
@@ -145,7 +149,7 @@ func (q *Queries) GetAccountsCount(ctx context.Context) (int64, error) {
 }
 
 const getAllAccounts = `-- name: GetAllAccounts :many
-SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type, national_id, username, avatar_url, bio, vibe_points, phone FROM accounts WHERE type = 'human' 
+SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type, national_id, username, avatar_url, bio, vibe_points, phone, deleted_at FROM accounts WHERE type = 'human' 
 LIMIT $1
 OFFSET $2
 `
@@ -180,6 +184,7 @@ func (q *Queries) GetAllAccounts(ctx context.Context, arg GetAllAccountsParams) 
 			&i.Bio,
 			&i.VibePoints,
 			&i.Phone,
+			&i.DeletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -192,7 +197,7 @@ func (q *Queries) GetAllAccounts(ctx context.Context, arg GetAllAccountsParams) 
 }
 
 const searchAccountByEmail = `-- name: SearchAccountByEmail :many
-SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type, national_id, username, avatar_url, bio, vibe_points, phone FROM accounts 
+SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type, national_id, username, avatar_url, bio, vibe_points, phone, deleted_at FROM accounts 
 WHERE lower(email) LIKE '%' || lower($3::varchar) || '%'
 LIMIT $1
 OFFSET $2
@@ -228,6 +233,7 @@ func (q *Queries) SearchAccountByEmail(ctx context.Context, arg SearchAccountByE
 			&i.Bio,
 			&i.VibePoints,
 			&i.Phone,
+			&i.DeletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -240,7 +246,7 @@ func (q *Queries) SearchAccountByEmail(ctx context.Context, arg SearchAccountByE
 }
 
 const searchAccountByName = `-- name: SearchAccountByName :many
-SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type, national_id, username, avatar_url, bio, vibe_points, phone FROM accounts 
+SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type, national_id, username, avatar_url, bio, vibe_points, phone, deleted_at FROM accounts 
 WHERE lower(name) LIKE '%' || lower($3::varchar) || '%'
 LIMIT $1
 OFFSET $2
@@ -276,6 +282,7 @@ func (q *Queries) SearchAccountByName(ctx context.Context, arg SearchAccountByNa
 			&i.Bio,
 			&i.VibePoints,
 			&i.Phone,
+			&i.DeletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -288,7 +295,7 @@ func (q *Queries) SearchAccountByName(ctx context.Context, arg SearchAccountByNa
 }
 
 const searchAccountByUsername = `-- name: SearchAccountByUsername :many
-SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type, national_id, username, avatar_url, bio, vibe_points, phone FROM accounts 
+SELECT id, email, name, created_at, updated_at, terms_accepted, onboarded, type, national_id, username, avatar_url, bio, vibe_points, phone, deleted_at FROM accounts 
 WHERE lower(username) LIKE '%' || lower($3::varchar) || '%'
 LIMIT $1
 OFFSET $2
@@ -324,6 +331,7 @@ func (q *Queries) SearchAccountByUsername(ctx context.Context, arg SearchAccount
 			&i.Bio,
 			&i.VibePoints,
 			&i.Phone,
+			&i.DeletedAt,
 		); err != nil {
 			return nil, err
 		}
