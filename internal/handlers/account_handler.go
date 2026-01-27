@@ -1124,12 +1124,12 @@ func (ah *AccountHandler) RecoverAccountFromDeletion(w http.ResponseWriter, r *h
 	err = repo.MarkAccountForRecovery(r.Context(), id)
 	if err != nil {
 		ah.Logger.Error(
-			"Error while attempting to mark account for deletion",
+			"Error while attempting to recover account from deletion",
 			slog.Any("error", err),
 		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We couldn't delete your account at the moment please try again later",
+			"error": "We couldn't recover your account at the moment please try again later",
 		})
 		return
 	}
