@@ -21,10 +21,12 @@ import (
 const AuthUserClaims = "middleware.auth.claims"
 const AuthUserPerms = "middleware.auth.perms"
 const AuthUserRoles = "middleware.auth.roles"
+const AuthUserIsPendingDeletion = "middleware.auth.pending_deletion"
 
 func IsAuthenticated(cfg *config.Config, logger *slog.Logger) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
 			w.Header().Add("Content-Type", "application/json")
 
 			authHeader := r.Header.Get("Authorization")
@@ -47,7 +49,11 @@ func IsAuthenticated(cfg *config.Config, logger *slog.Logger) Middleware {
 				json.NewEncoder(w).Encode(map[string]any{"error": "Internal server error"})
 				return
 			}
-			defer tx.Rollback(r.Context())
+			defer func() {
+				if err != nil {
+					tx.Rollback(r.Context())
+				}
+			}()
 
 			repo := repository.New(tx)
 
@@ -94,6 +100,16 @@ func IsAuthenticated(cfg *config.Config, logger *slog.Logger) Middleware {
 					w.WriteHeader(http.StatusUnauthorized)
 					json.NewEncoder(w).Encode(map[string]any{"error": "Unauthorized"})
 					return
+				}
+
+				if account.DeletedAt != nil {
+					if time.Now().After(account.DeletedAt.Add(14 * 24 * time.Hour)) {
+						w.WriteHeader(http.StatusUnauthorized)
+						json.NewEncoder(w).Encode(map[string]any{"error": "Account was permanently deleted"})
+						return
+					}
+					// Add a flag to context so downstream handlers know this user is in "Ghost Mode"
+					ctx = context.WithValue(ctx, AuthUserIsPendingDeletion, true)
 				}
 
 				// Verify account is a bot account
@@ -155,7 +171,7 @@ func IsAuthenticated(cfg *config.Config, logger *slog.Logger) Middleware {
 				return
 			}
 
-			authContext := context.WithValue(r.Context(), AuthUserClaims, claims)
+			authContext := context.WithValue(ctx, AuthUserClaims, claims)
 			rolesContext := context.WithValue(authContext, AuthUserRoles, roles)
 			permsContext := context.WithValue(rolesContext, AuthUserPerms, perms)
 
