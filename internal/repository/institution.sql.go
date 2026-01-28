@@ -124,7 +124,7 @@ func (q *Queries) GetInstitutionsCount(ctx context.Context) (int64, error) {
 }
 
 const listAccountsForInstitution = `-- name: ListAccountsForInstitution :many
-SELECT a.id, a.email, a.name, a.created_at, a.updated_at, a.terms_accepted, a.onboarded, a.type, a.national_id, a.username, a.avatar_url, a.bio, a.vibe_points, a.phone
+SELECT a.id, a.email, a.name, a.created_at, a.updated_at, a.terms_accepted, a.onboarded, a.type, a.national_id, a.username, a.avatar_url, a.bio, a.vibe_points, a.phone, a.deleted_at
 FROM accounts a
 JOIN account_institutions ai ON a.id = ai.account_id
 WHERE ai.institution_id = $1
@@ -163,6 +163,7 @@ func (q *Queries) ListAccountsForInstitution(ctx context.Context, arg ListAccoun
 			&i.Bio,
 			&i.VibePoints,
 			&i.Phone,
+			&i.DeletedAt,
 		); err != nil {
 			return nil, err
 		}

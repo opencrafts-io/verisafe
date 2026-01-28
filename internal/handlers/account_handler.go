@@ -64,6 +64,19 @@ func (ah *AccountHandler) RegisterHandlers(router *http.ServeMux) {
 		)(http.HandlerFunc(ah.UpdatePersonalAccount)),
 	)
 
+	router.Handle("POST /accounts/deletion-request",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(ah.Cfg, ah.Logger),
+			middleware.HasPermission([]string{"update:account:own"}),
+		)(http.HandlerFunc(ah.MarkAccountForDeletion)),
+	)
+	router.Handle("POST /accounts/recovery",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(ah.Cfg, ah.Logger),
+			middleware.HasPermission([]string{"update:account:own"}),
+		)(http.HandlerFunc(ah.RecoverAccountFromDeletion)),
+	)
+
 	router.Handle("PATCH /accounts/me/phone",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(ah.Cfg, ah.Logger),
@@ -104,15 +117,15 @@ type BotAccountRequest struct {
 		AvatarUrl *string `json:"avatar_url"`
 	} `json:"account"`
 	ServiceToken struct {
-		Name             string                 `json:"name" validate:"required,min=1,max=100"`
-		Description      *string                `json:"description"`
-		ExpiresInDays    *int                   `json:"expires_in_days" validate:"omitempty,min=1,max=3650"`
-		Scopes           []string               `json:"scopes"`
-		MaxUses          *int                   `json:"max_uses" validate:"omitempty,min=1"`
-		RotationPolicy   *RotationPolicy        `json:"rotation_policy"`
-		IPWhitelist      []string               `json:"ip_whitelist"`
-		UserAgentPattern *string                `json:"user_agent_pattern"`
-		Metadata         map[string]interface{} `json:"metadata"`
+		Name             string          `json:"name" validate:"required,min=1,max=100"`
+		Description      *string         `json:"description"`
+		ExpiresInDays    *int            `json:"expires_in_days" validate:"omitempty,min=1,max=3650"`
+		Scopes           []string        `json:"scopes"`
+		MaxUses          *int            `json:"max_uses" validate:"omitempty,min=1"`
+		RotationPolicy   *RotationPolicy `json:"rotation_policy"`
+		IPWhitelist      []string        `json:"ip_whitelist"`
+		UserAgentPattern *string         `json:"user_agent_pattern"`
+		Metadata         map[string]any  `json:"metadata"`
 	} `json:"service_token"`
 }
 
@@ -133,15 +146,15 @@ type BotAccountResponse struct {
 		CreatedAt time.Time `json:"created_at"`
 	} `json:"account"`
 	ServiceToken struct {
-		ID          uuid.UUID              `json:"id"`
-		Name        string                 `json:"name"`
-		Description *string                `json:"description"`
-		Token       string                 `json:"token"`
-		ExpiresAt   *time.Time             `json:"expires_at"`
-		Scopes      []string               `json:"scopes"`
-		MaxUses     *int                   `json:"max_uses"`
-		CreatedAt   time.Time              `json:"created_at"`
-		Metadata    map[string]interface{} `json:"metadata"`
+		ID          uuid.UUID      `json:"id"`
+		Name        string         `json:"name"`
+		Description *string        `json:"description"`
+		Token       string         `json:"token"`
+		ExpiresAt   *time.Time     `json:"expires_at"`
+		Scopes      []string       `json:"scopes"`
+		MaxUses     *int           `json:"max_uses"`
+		CreatedAt   time.Time      `json:"created_at"`
+		Metadata    map[string]any `json:"metadata"`
 	} `json:"service_token"`
 }
 
@@ -677,7 +690,7 @@ func (ah *AccountHandler) VerifyPhone(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		eventRequestID := eventbus.GenerateRequestID()
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()	
+		defer cancel()
 
 		if err := ah.UserEventBus.PublishUserUpdated(ctx, updated, eventRequestID); err != nil {
 			ah.Logger.Error("Failed to publish user updated event",
@@ -760,9 +773,9 @@ func (ah *AccountHandler) SearchAccountsByEmail(w http.ResponseWriter, r *http.R
 	}
 
 	// Prepare response
-	response := map[string]interface{}{
+	response := map[string]any{
 		"accounts": accounts,
-		"pagination": map[string]interface{}{
+		"pagination": map[string]any{
 			"limit":  pagination.Limit,
 			"offset": pagination.Offset,
 			"total":  len(accounts),
@@ -843,9 +856,9 @@ func (ah *AccountHandler) SearchAccountsByName(w http.ResponseWriter, r *http.Re
 	}
 
 	// Prepare response
-	response := map[string]interface{}{
+	response := map[string]any{
 		"accounts": accounts,
-		"pagination": map[string]interface{}{
+		"pagination": map[string]any{
 			"limit":  pagination.Limit,
 			"offset": pagination.Offset,
 			"total":  len(accounts),
@@ -983,9 +996,9 @@ func (ah *AccountHandler) SearchAccountsByUsername(w http.ResponseWriter, r *htt
 	}
 
 	// Prepare response
-	response := map[string]interface{}{
+	response := map[string]any{
 		"accounts": accounts,
-		"pagination": map[string]interface{}{
+		"pagination": map[string]any{
 			"limit":  pagination.Limit,
 			"offset": pagination.Offset,
 			"total":  len(accounts),
@@ -996,4 +1009,142 @@ func (ah *AccountHandler) SearchAccountsByUsername(w http.ResponseWriter, r *htt
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
+}
+
+func (ah *AccountHandler) MarkAccountForDeletion(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value(middleware.AuthUserClaims).(*utils.VerisafeClaims)
+	w.Header().Set("Content-Type", "application/json")
+	conn, err := middleware.GetDBConnFromContext(r.Context())
+	if err != nil {
+		ah.Logger.Error("Error while processing request", slog.Any("error", err))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "We ran into a problem while servicing your request please try again later",
+		})
+		return
+	}
+
+	tx, err := conn.Begin(r.Context())
+	if err != nil {
+		ah.Logger.Error("Error attempting to prepare transaction", slog.Any("error", err))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "We ran into an error while trying to delete your account",
+		})
+		return
+
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback(r.Context())
+		}
+	}()
+
+	repo := repository.New(tx)
+
+	id, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		ah.Logger.Error("Error while parsing user id", slog.Any("error", err))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "We ran into an error while trying to delete your account",
+		})
+		return
+	}
+
+	err = repo.MarkAccountForDeletion(r.Context(), id)
+	if err != nil {
+		ah.Logger.Error(
+			"Error while attempting to mark account for deletion",
+			slog.Any("error", err),
+		)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "We couldn't delete your account at the moment please try again later",
+		})
+		return
+	}
+
+	if err = tx.Commit(r.Context()); err != nil {
+		ah.Logger.Error("Error while committing transaction", slog.Any("error", err))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "We ran into a problem while servicing your request please try again later",
+		})
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]any{
+		"message": "Your account will be permanently deleted after 14 days. You may cancel this request by signing in before that time.",
+	})
+}
+
+func (ah *AccountHandler) RecoverAccountFromDeletion(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value(middleware.AuthUserClaims).(*utils.VerisafeClaims)
+	w.Header().Set("Content-Type", "application/json")
+	conn, err := middleware.GetDBConnFromContext(r.Context())
+	if err != nil {
+		ah.Logger.Error("Error while processing request", slog.Any("error", err))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "We ran into a problem while servicing your request please try again later",
+		})
+		return
+	}
+
+	tx, err := conn.Begin(r.Context())
+	if err != nil {
+		ah.Logger.Error("Error attempting to prepare transaction", slog.Any("error", err))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "We ran into an error while trying to recover your account",
+		})
+		return
+
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback(r.Context())
+		}
+	}()
+
+	repo := repository.New(tx)
+
+	id, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		ah.Logger.Error("Error while parsing user id", slog.Any("error", err))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "We ran into an error while trying to recover your account",
+		})
+		return
+	}
+
+	err = repo.MarkAccountForRecovery(r.Context(), id)
+	if err != nil {
+		ah.Logger.Error(
+			"Error while attempting to recover account from deletion",
+			slog.Any("error", err),
+		)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "We couldn't recover your account at the moment please try again later",
+		})
+		return
+	}
+
+	if err = tx.Commit(r.Context()); err != nil {
+		ah.Logger.Error("Error while committing transaction", slog.Any("error", err))
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "We ran into a problem while servicing your request please try again later",
+		})
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]any{
+		"message": "Account recovery was successful. All access has been restored",
+	})
 }
