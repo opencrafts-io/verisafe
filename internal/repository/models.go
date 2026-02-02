@@ -72,6 +72,7 @@ type Account struct {
 	Bio           *string          `json:"bio"`
 	VibePoints    int64            `json:"vibe_points"`
 	Phone         *string          `json:"phone"`
+	DeletedAt     *time.Time       `json:"deleted_at"`
 }
 
 type AccountInstitution struct {
