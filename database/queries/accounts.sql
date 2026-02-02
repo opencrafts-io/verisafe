@@ -72,3 +72,24 @@ UPDATE accounts
 -- name: GetAccountsCount :one
 -- Returns the number of all human accounts in the system
 SELECT count(id) FROM accounts WHERE type = 'human';
+
+
+-- name: MarkAccountForDeletion :exec
+-- Marks an account for deletion
+UPDATE accounts
+  SET
+    deleted_at = now()
+  WHERE 
+    id = $1
+  AND deleted_at IS NULL;
+
+
+
+-- name: MarkAccountForRecovery :exec
+-- Recovers an account from scheduled deletion
+UPDATE accounts
+  SET
+    deleted_at = NULL
+  WHERE 
+    id = $1
+  AND deleted_at IS NOT NULL;
