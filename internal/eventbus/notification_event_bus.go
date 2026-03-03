@@ -27,6 +27,7 @@ func NewNotificationEventBus(cfg *config.Config, logger *slog.Logger) (*Notifica
 		rabbitMQConnString,
 		"gossip-monger.exchange",
 		DirectExchangeType,
+		logger,
 	)
 
 	if err != nil {
@@ -63,4 +64,9 @@ func (neb *NotificationEventBus) PublishPushNotificationRequested(
 	)
 
 	return neb.bus.Publish(ctx, routingKey, event)
+}
+
+// Close cancels the internal context, signalling all active handlers to stop.
+func (b *NotificationEventBus) Close() {
+	b.bus.Close()
 }
