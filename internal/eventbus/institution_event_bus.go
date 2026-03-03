@@ -58,6 +58,7 @@ func NewInstitutionEventBus(cfg *config.Config, logger *slog.Logger) (*Instituti
 		rabbitMQConnString,
 		"professor.exchange",
 		DirectExchangeType,
+		logger,
 	)
 
 	if err != nil {
@@ -135,4 +136,9 @@ func (b *InstitutionEventBus) PublishInstitutionDeleted(ctx context.Context, ins
 	)
 
 	return b.bus.Publish(ctx, routingKey, event)
+}
+
+// Close cancels the internal context, signalling all active handlers to stop.
+func (b *InstitutionEventBus) Close() {
+	b.bus.Close()
 }
