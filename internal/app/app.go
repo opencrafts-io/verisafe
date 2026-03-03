@@ -123,7 +123,9 @@ func (a *App) Start(ctx context.Context) error {
 	sCtx, cancel := context.WithTimeout(context.Background(), time.Second*15)
 	defer cancel()
 
-	srv.Shutdown(sCtx)
-
+	srv.Shutdown(sCtx)	
+	a.userEventBus.Close()
+	a.institutionEventBus.Close()
+	a.notificationEventBus.Close()
 	return nil
 }
