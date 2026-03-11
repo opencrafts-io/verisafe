@@ -16,7 +16,10 @@ type SocialHandler struct {
 	Logger *slog.Logger
 }
 
-func (sh *SocialHandler) RegisterRoutes(cfg *config.Config, router *http.ServeMux) {
+func (sh *SocialHandler) RegisterRoutes(
+	cfg *config.Config,
+	router *http.ServeMux,
+) {
 	router.Handle("GET /socials/me",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(cfg, sh.Logger),
@@ -33,7 +36,10 @@ func (sh *SocialHandler) RegisterRoutes(cfg *config.Config, router *http.ServeMu
 }
 
 // Returns all user socials accounts specified by id
-func (sh *SocialHandler) GetUserIDSocials(w http.ResponseWriter, r *http.Request) {
+func (sh *SocialHandler) GetUserIDSocials(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	w.Header().Set("Content-Type", "application/json")
 	rawID := r.PathValue("user_id")
 	id, err := uuid.Parse(rawID)
@@ -49,7 +55,10 @@ func (sh *SocialHandler) GetUserIDSocials(w http.ResponseWriter, r *http.Request
 	w.Header().Set("Content-Type", "application/json")
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
-		sh.Logger.Error("Error while processing request", slog.Any("error", err))
+		sh.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -63,7 +72,10 @@ func (sh *SocialHandler) GetUserIDSocials(w http.ResponseWriter, r *http.Request
 
 	socials, err := repo.GetAllAccountSocials(r.Context(), id)
 	if err != nil {
-		sh.Logger.Error("Error while processing request", slog.Any("error", err))
+		sh.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We couldn't fetch your social login providers at the moment please try again",
@@ -72,7 +84,10 @@ func (sh *SocialHandler) GetUserIDSocials(w http.ResponseWriter, r *http.Request
 	}
 
 	if err = tx.Commit(r.Context()); err != nil {
-		sh.Logger.Error("Error while committing transaction", slog.Any("error", err))
+		sh.Logger.Error(
+			"Error while committing transaction",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]any{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -86,14 +101,20 @@ func (sh *SocialHandler) GetUserIDSocials(w http.ResponseWriter, r *http.Request
 }
 
 // Returns all user social accounts
-func (sh *SocialHandler) GetAllUserSocials(w http.ResponseWriter, r *http.Request) {
+func (sh *SocialHandler) GetAllUserSocials(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	w.Header().Set("Content-Type", "application/json")
 
 	// Parse the id from the token
 	claims := r.Context().Value(middleware.AuthUserClaims).(*utils.VerisafeClaims)
 	id, err := uuid.Parse(claims.Subject)
 	if err != nil {
-		sh.Logger.Error("Error while processing request", slog.Any("error", err))
+		sh.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "Please check your request auth token and try again",
@@ -103,7 +124,10 @@ func (sh *SocialHandler) GetAllUserSocials(w http.ResponseWriter, r *http.Reques
 
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
-		sh.Logger.Error("Error while processing request", slog.Any("error", err))
+		sh.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -117,7 +141,10 @@ func (sh *SocialHandler) GetAllUserSocials(w http.ResponseWriter, r *http.Reques
 
 	socials, err := repo.GetAllAccountSocials(r.Context(), id)
 	if err != nil {
-		sh.Logger.Error("Error while processing request", slog.Any("error", err))
+		sh.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We couldn't fetch your social login providers at the moment please try again",
@@ -126,7 +153,10 @@ func (sh *SocialHandler) GetAllUserSocials(w http.ResponseWriter, r *http.Reques
 	}
 
 	if err = tx.Commit(r.Context()); err != nil {
-		sh.Logger.Error("Error while committing transaction", slog.Any("error", err))
+		sh.Logger.Error(
+			"Error while committing transaction",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]any{
 			"error": "We ran into a problem while servicing your request please try again later",

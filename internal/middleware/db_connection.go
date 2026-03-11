@@ -25,11 +25,18 @@ func WithDBConnection(logger *slog.Logger, pool *pgxpool.Pool) Middleware {
 
 }
 
-func withDBConnection(logger *slog.Logger, pool *pgxpool.Pool, next http.Handler) http.Handler {
+func withDBConnection(
+	logger *slog.Logger,
+	pool *pgxpool.Pool,
+	next http.Handler,
+) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := pool.Acquire(r.Context())
 		if err != nil {
-			logger.Error("Failed to acquire database connection from pool ", slog.Any("error", err))
+			logger.Error(
+				"Failed to acquire database connection from pool ",
+				slog.Any("error", err),
+			)
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(w).Encode(map[string]string{

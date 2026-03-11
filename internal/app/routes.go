@@ -23,7 +23,10 @@ func (a *App) loadRoutes() http.Handler {
 		UserEventBus: a.userEventBus,
 		Cfg:          a.config,
 	}
-	serviceTokenHandler := handlers.ServiceTokenHandler{Logger: a.logger, Cfg: a.config}
+	serviceTokenHandler := handlers.ServiceTokenHandler{
+		Logger: a.logger,
+		Cfg:    a.config,
+	}
 	socialHandler := handlers.SocialHandler{Logger: a.logger}
 	roleHandler := handlers.RoleHandler{Logger: a.logger}
 	permHandler := handlers.PermissionHandler{Logger: a.logger}
@@ -33,7 +36,10 @@ func (a *App) loadRoutes() http.Handler {
 	}
 	leaderboardHandler := handlers.LeaderBoardHandler{Logger: a.logger}
 	activityHandler := handlers.ActivityHandler{Logger: a.logger}
-	streakhanlder := handlers.StreakHandler{Logger: a.logger, NotificationEventBus: a.notificationEventBus}
+	streakhanlder := handlers.StreakHandler{
+		Logger:               a.logger,
+		NotificationEventBus: a.notificationEventBus,
+	}
 
 	// ping handler
 	router.HandleFunc("GET /ping", handlers.PingHandler)

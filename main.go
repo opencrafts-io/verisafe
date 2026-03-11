@@ -15,7 +15,10 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		logger.Error("Failed to load configuration file", slog.Any("error", err))
+		logger.Error(
+			"Failed to load configuration file",
+			slog.Any("error", err),
+		)
 		return
 	}
 

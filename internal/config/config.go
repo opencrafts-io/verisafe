@@ -78,9 +78,14 @@ func LoadConfig() (*Config, error) {
 	}
 
 	if cfg.AuthenticationConfig.ApplePrivateKeyBase64 != "" {
-		decoded, err := base64.StdEncoding.DecodeString(cfg.AuthenticationConfig.ApplePrivateKeyBase64)
+		decoded, err := base64.StdEncoding.DecodeString(
+			cfg.AuthenticationConfig.ApplePrivateKeyBase64,
+		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to decode Apple private key from base64: %v", err)
+			return nil, fmt.Errorf(
+				"failed to decode Apple private key from base64: %v",
+				err,
+			)
 		}
 		cfg.AuthenticationConfig.ApplePrivateKey = string(decoded)
 	}

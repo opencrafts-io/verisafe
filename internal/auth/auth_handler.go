@@ -76,7 +76,11 @@ func (a *Auth) LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 		redirectURI = r.URL.Query().Get("redirect_uri")
 		if redirectURI == "" {
-			http.Error(w, "Programming error: missing redirect_uri", http.StatusBadRequest)
+			http.Error(
+				w,
+				"Programming error: missing redirect_uri",
+				http.StatusBadRequest,
+			)
 			return
 		}
 	}
@@ -124,7 +128,11 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	provider, err := GetProviderName(r)
 	if err != nil {
 		a.logger.Warn("Failed to get provider name for callback", "error", err)
-		http.Error(w, "Failed to get provider name for callback", http.StatusBadRequest)
+		http.Error(
+			w,
+			"Failed to get provider name for callback",
+			http.StatusBadRequest,
+		)
 		return
 	}
 
@@ -146,12 +154,17 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	user, err := a.completeOAuthAuth(w, r)
 	if err != nil {
 		a.logger.Error("OAuth authentication failed", slog.Any("error", err))
-		http.Error(w, "Authentication flow failed", http.StatusInternalServerError)
+		http.Error(
+			w,
+			"Authentication flow failed",
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
 	if provider == "apple" {
-		if user.FirstName == "" && (appleData.Name.FirstName != "" || appleData.Name.LastName != "") {
+		if user.FirstName == "" &&
+			(appleData.Name.FirstName != "" || appleData.Name.LastName != "") {
 			user.FirstName = appleData.Name.FirstName
 			user.LastName = appleData.Name.LastName
 			user.Name = strings.TrimSpace(user.FirstName + " " + user.LastName)
@@ -162,7 +175,11 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	_, tx, repo, err := a.getDBConnectionAndRepo(r)
 	if err != nil {
 		a.logger.Error("Database connection failed", slog.Any("error", err))
-		http.Error(w, "Failed to establish database connection", http.StatusInternalServerError)
+		http.Error(
+			w,
+			"Failed to establish database connection",
+			http.StatusInternalServerError,
+		)
 		return
 	}
 	defer tx.Rollback(r.Context())
@@ -171,30 +188,52 @@ func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	account, err := a.handleAccountManagement(r, repo, user)
 	if err != nil {
 		a.logger.Error("Account management failed", slog.Any("error", err))
-		http.Error(w, "Failed to manage account", http.StatusInternalServerError)
+		http.Error(
+			w,
+			"Failed to manage account",
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
 	// Handle social account management
 	err = a.handleSocialAccountManagement(r, repo, user, account, provider)
 	if err != nil {
-		a.logger.Error("Social account management failed", slog.Any("error", err))
-		http.Error(w, "Failed to manage social account", http.StatusInternalServerError)
+		a.logger.Error(
+			"Social account management failed",
+			slog.Any("error", err),
+		)
+		http.Error(
+			w,
+			"Failed to manage social account",
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
 	// Commit transaction
 	if err = tx.Commit(r.Context()); err != nil {
 		a.logger.Error("Transaction commit failed", slog.Any("error", err))
-		http.Error(w, "Error while committing transaction", http.StatusInternalServerError)
+		http.Error(
+			w,
+			"Error while committing transaction",
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
 	// Generate tokens and redirect
 	err = a.generateTokensAndRedirect(w, r, account, stateData)
 	if err != nil {
-		a.logger.Error("Token generation and redirect failed", slog.Any("error", err))
-		http.Error(w, "Failed to generate tokens", http.StatusInternalServerError)
+		a.logger.Error(
+			"Token generation and redirect failed",
+			slog.Any("error", err),
+		)
+		http.Error(
+			w,
+			"Failed to generate tokens",
+			http.StatusInternalServerError,
+		)
 		return
 	}
 }
@@ -223,7 +262,10 @@ func (a *Auth) parseStateData(r *http.Request) (*StateData, error) {
 }
 
 // completeOAuthAuth completes the OAuth authentication flow using Goth
-func (a *Auth) completeOAuthAuth(w http.ResponseWriter, r *http.Request) (goth.User, error) {
+func (a *Auth) completeOAuthAuth(
+	w http.ResponseWriter,
+	r *http.Request,
+) (goth.User, error) {
 	user, err := gothic.CompleteUserAuth(w, r)
 	if err != nil {
 		return goth.User{}, fmt.Errorf("failed to complete OAuth auth: %w", err)
@@ -232,7 +274,9 @@ func (a *Auth) completeOAuthAuth(w http.ResponseWriter, r *http.Request) (goth.U
 }
 
 // getDBConnectionAndRepo establishes database connection and creates repository
-func (a *Auth) getDBConnectionAndRepo(r *http.Request) (*pgxpool.Conn, pgx.Tx, *repository.Queries, error) {
+func (a *Auth) getDBConnectionAndRepo(
+	r *http.Request,
+) (*pgxpool.Conn, pgx.Tx, *repository.Queries, error) {
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to get DB connection: %w", err)
@@ -248,24 +292,37 @@ func (a *Auth) getDBConnectionAndRepo(r *http.Request) (*pgxpool.Conn, pgx.Tx, *
 }
 
 // handleAccountManagement creates or retrieves the user account
-func (a *Auth) handleAccountManagement(r *http.Request, repo *repository.Queries, user goth.User) (repository.Account, error) {
+func (a *Auth) handleAccountManagement(
+	r *http.Request,
+	repo *repository.Queries,
+	user goth.User,
+) (repository.Account, error) {
 	account, err := repo.GetAccountByEmail(r.Context(), user.Email)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return repository.Account{}, fmt.Errorf("failed to check user existence: %w", err)
+		return repository.Account{}, fmt.Errorf(
+			"failed to check user existence: %w",
+			err,
+		)
 	}
 
 	// Create user if they don't exist
 	if errors.Is(err, pgx.ErrNoRows) {
 		userParams := repository.CreateAccountParams{
-			Email:     user.Email,
-			Name:      strings.Join([]string{user.FirstName, user.LastName}, " "),
+			Email: user.Email,
+			Name: strings.Join(
+				[]string{user.FirstName, user.LastName},
+				" ",
+			),
 			Type:      repository.AccountTypeHuman,
 			AvatarUrl: &user.AvatarURL,
 		}
 
 		account, err = repo.CreateAccount(r.Context(), userParams)
 		if err != nil {
-			return repository.Account{}, fmt.Errorf("failed to create account: %w", err)
+			return repository.Account{}, fmt.Errorf(
+				"failed to create account: %w",
+				err,
+			)
 		}
 
 		// Publish user created event
@@ -286,37 +343,54 @@ func (a *Auth) handleAccountManagement(r *http.Request, repo *repository.Queries
 }
 
 // handleSocialAccountManagement creates or updates the social account connection
-func (a *Auth) handleSocialAccountManagement(r *http.Request, repo *repository.Queries, user goth.User, account repository.Account, provider string) error {
-	socialAccount, err := repo.GetSocialByExternalUserID(r.Context(), user.UserID)
+func (a *Auth) handleSocialAccountManagement(
+	r *http.Request,
+	repo *repository.Queries,
+	user goth.User,
+	account repository.Account,
+	provider string,
+) error {
+	socialAccount, err := repo.GetSocialByExternalUserID(
+		r.Context(),
+		user.UserID,
+	)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return fmt.Errorf("failed to fetch social connection: %w", err)
 	}
 
 	// If the social account does not exist yet create it
 	if errors.Is(err, pgx.ErrNoRows) {
-		socialAccount, err = repo.CreateSocial(r.Context(), repository.CreateSocialParams{
-			UserID:            user.UserID,
-			AccountID:         account.ID,
-			Provider:          provider,
-			Email:             &user.Email,
-			Name:              &user.Name,
-			FirstName:         &user.FirstName,
-			LastName:          &user.LastName,
-			NickName:          &user.NickName,
-			Description:       &user.Description,
-			AvatarUrl:         &user.AvatarURL,
-			Location:          &user.Location,
-			AccessToken:       &user.AccessToken,
-			AccessTokenSecret: &user.AccessTokenSecret,
-			RefreshToken:      &user.RefreshToken,
-			ExpiresAt:         pgtype.Timestamp{Time: user.ExpiresAt},
-		})
+		socialAccount, err = repo.CreateSocial(
+			r.Context(),
+			repository.CreateSocialParams{
+				UserID:            user.UserID,
+				AccountID:         account.ID,
+				Provider:          provider,
+				Email:             &user.Email,
+				Name:              &user.Name,
+				FirstName:         &user.FirstName,
+				LastName:          &user.LastName,
+				NickName:          &user.NickName,
+				Description:       &user.Description,
+				AvatarUrl:         &user.AvatarURL,
+				Location:          &user.Location,
+				AccessToken:       &user.AccessToken,
+				AccessTokenSecret: &user.AccessTokenSecret,
+				RefreshToken:      &user.RefreshToken,
+				ExpiresAt:         pgtype.Timestamp{Time: user.ExpiresAt},
+			},
+		)
 
 		if err != nil {
 			return fmt.Errorf("failed to create social connection: %w", err)
 		}
-		a.logger.Info("New social connection created for user",
-			slog.Any("created_user", account), slog.Any("social_account", socialAccount),
+		a.logger.Info(
+			"New social connection created for user",
+			slog.Any(
+				"created_user",
+				account,
+			),
+			slog.Any("social_account", socialAccount),
 		)
 	} else {
 		// Update the social account
@@ -360,13 +434,22 @@ func (a *Auth) handleSocialAccountManagement(r *http.Request, repo *repository.Q
 }
 
 // generateTokensAndRedirect generates JWT tokens and redirects based on platform
-func (a *Auth) generateTokensAndRedirect(w http.ResponseWriter, r *http.Request, account repository.Account, stateData *StateData) error {
+func (a *Auth) generateTokensAndRedirect(
+	w http.ResponseWriter,
+	r *http.Request,
+	account repository.Account,
+	stateData *StateData,
+) error {
 	token, err := utils.GenerateJWT(account.ID, *a.config)
 	if err != nil {
 		return fmt.Errorf("failed to generate JWT token: %w", err)
 	}
 
-	refreshToken, err := utils.GenerateJWT(account.ID, *a.config, utils.UserRefreshToken)
+	refreshToken, err := utils.GenerateJWT(
+		account.ID,
+		*a.config,
+		utils.UserRefreshToken,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to generate refresh token: %w", err)
 	}
@@ -374,14 +457,23 @@ func (a *Auth) generateTokensAndRedirect(w http.ResponseWriter, r *http.Request,
 	// Redirect based on platform
 	if stateData.Platform == authPlatformWebValue {
 		// Web: redirect back to client
-		finalURL := fmt.Sprintf("%s?token=%s&refresh_token=%s", stateData.RedirectURI, token, refreshToken)
+		finalURL := fmt.Sprintf(
+			"%s?token=%s&refresh_token=%s",
+			stateData.RedirectURI,
+			token,
+			refreshToken,
+		)
 		http.Redirect(w, r, finalURL, http.StatusFound)
 		return nil
 	}
 
 	if stateData.Platform == authPlatformMobileValue {
 		// Mobile: use deep link
-		finalURL := fmt.Sprintf("academia://callback?token=%s&refresh_token=%s", token, refreshToken)
+		finalURL := fmt.Sprintf(
+			"academia://callback?token=%s&refresh_token=%s",
+			token,
+			refreshToken,
+		)
 		http.Redirect(w, r, finalURL, http.StatusFound)
 		return nil
 	}
@@ -401,8 +493,18 @@ func (a *Auth) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := gothic.Logout(w, r); err != nil {
-		a.logger.Error("Error logging out from OAuth provider", "provider", provider, "error", err)
-		http.Error(w, fmt.Sprintf("Error logging out from %s: %v", provider, err), http.StatusInternalServerError)
+		a.logger.Error(
+			"Error logging out from OAuth provider",
+			"provider",
+			provider,
+			"error",
+			err,
+		)
+		http.Error(
+			w,
+			fmt.Sprintf("Error logging out from %s: %v", provider, err),
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
@@ -410,7 +512,12 @@ func (a *Auth) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	// e.g., if using gorilla/sessions: sessions.Default(r).Clear() or sessions.Default(r).Options.MaxAge = -1
 
 	a.logger.Info("Successfully logged out", "provider", provider)
-	http.Redirect(w, r, "/", http.StatusTemporaryRedirect) // Redirectto to homepage
+	http.Redirect(
+		w,
+		r,
+		"/",
+		http.StatusTemporaryRedirect,
+	) // Redirectto to homepage
 }
 
 // RefreshTokenHandler  refreshes the user token and provides a new set of tokens to be used
@@ -433,11 +540,18 @@ func (a *Auth) RefreshTokenHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate the token
-	claims, err := utils.ValidateRefreshToken(refreshTokenData.RefreshToken, a.config.JWTConfig.ApiSecret)
+	claims, err := utils.ValidateRefreshToken(
+		refreshTokenData.RefreshToken,
+		a.config.JWTConfig.ApiSecret,
+	)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		a.logger.Error("Failed to validate refresh token", slog.Any("token", refreshTokenData.RefreshToken))
-		json.NewEncoder(w).Encode(map[string]any{"error": "We couldn't validate your refresh token at the moment"})
+		a.logger.Error(
+			"Failed to validate refresh token",
+			slog.Any("token", refreshTokenData.RefreshToken),
+		)
+		json.NewEncoder(w).
+			Encode(map[string]any{"error": "We couldn't validate your refresh token at the moment"})
 		return
 	}
 
@@ -466,7 +580,11 @@ func (a *Auth) RefreshTokenHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	refreshToken, err := utils.GenerateJWT(userID, *a.config, utils.UserRefreshToken)
+	refreshToken, err := utils.GenerateJWT(
+		userID,
+		*a.config,
+		utils.UserRefreshToken,
+	)
 	if err != nil {
 		a.logger.Error("Failed to generate user refresh token",
 			slog.Any("raw", userID.String()),
