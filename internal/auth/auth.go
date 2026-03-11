@@ -27,7 +27,11 @@ type Auth struct {
 	eventBus *eventbus.UserEventBus
 }
 
-func NewAuthenticator(cfg *config.Config, userEventBus *eventbus.UserEventBus, logger *slog.Logger) (*Auth, error) {
+func NewAuthenticator(
+	cfg *config.Config,
+	userEventBus *eventbus.UserEventBus,
+	logger *slog.Logger,
+) (*Auth, error) {
 	sessionSecret := cfg.AuthenticationConfig.SessionSecret
 
 	if sessionSecret == "" {
@@ -36,7 +40,9 @@ func NewAuthenticator(cfg *config.Config, userEventBus *eventbus.UserEventBus, l
 	}
 
 	store := sessions.NewCookieStore([]byte(sessionSecret))
-	store.MaxAge(86400 * cfg.AuthenticationConfig.MaxAge) // Session expires in 30 days
+	store.MaxAge(
+		86400 * cfg.AuthenticationConfig.MaxAge,
+	) // Session expires in 30 days
 	// store.Options.Path = "/"
 	// store.Options.HttpOnly = true
 	//
@@ -51,7 +57,8 @@ func NewAuthenticator(cfg *config.Config, userEventBus *eventbus.UserEventBus, l
 	store.Options.Path = "/"
 	store.Options.HttpOnly = true
 
-	if cfg.AuthenticationConfig.Environment == "production" || cfg.AuthenticationConfig.Environment == "staging" {
+	if cfg.AuthenticationConfig.Environment == "production" ||
+		cfg.AuthenticationConfig.Environment == "staging" {
 		store.Options.Secure = true
 		store.Options.SameSite = http.SameSiteNoneMode
 	} else {
@@ -112,7 +119,10 @@ func NewAuthenticator(cfg *config.Config, userEventBus *eventbus.UserEventBus, l
 	)
 	if err != nil {
 		logger.Error("Failed to generate Apple client secret", "error", err)
-		return nil, fmt.Errorf("failed to generate Apple client secret: %w", err)
+		return nil, fmt.Errorf(
+			"failed to generate Apple client secret: %w",
+			err,
+		)
 	}
 
 	appleProvider := apple.New(
@@ -138,7 +148,9 @@ func NewAuthenticator(cfg *config.Config, userEventBus *eventbus.UserEventBus, l
 	}, nil
 }
 
-func generateAppleClientSecret(teamID, keyID, clientID, privateKeyContent string) (string, error) {
+func generateAppleClientSecret(
+	teamID, keyID, clientID, privateKeyContent string,
+) (string, error) {
 	// Decode the PEM-encoded private key
 	block, _ := pem.Decode([]byte(privateKeyContent))
 	if block == nil {

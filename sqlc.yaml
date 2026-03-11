@@ -14,6 +14,7 @@ sql:
         emit_empty_slices: true              # Ensures empty slices are correctly handled
         emit_prepared_queries: true          # Enables prepared queries
         emit_pointers_for_null_types: true
+        emit_interface: true
         package: "repository"                # The Go package name for generated code
         out: "internal/repository"           # The output directory for generated code
         sql_package: "pgx/v5"                # The SQL package to use for Postgres queries

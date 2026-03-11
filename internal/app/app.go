@@ -27,7 +27,6 @@ type App struct {
 // Returns a new instance of the application
 // with a connection instance to the database pool
 func New(logger *slog.Logger, config *config.Config) (*App, error) {
-
 	dbConfig, err := pgxpool.ParseConfig(fmt.Sprintf(
 		"postgresql://%s:%s@%s:%d/%s?sslmode=disable",
 		config.DatabaseConfig.DatabaseUser,
@@ -42,7 +41,9 @@ func New(logger *slog.Logger, config *config.Config) (*App, error) {
 
 	dbConfig.MaxConns = config.DatabaseConfig.DatabasePoolMaxConnections
 	dbConfig.MinConns = config.DatabaseConfig.DatabasePoolMinConnections
-	dbConfig.MaxConnLifetime = time.Hour * time.Duration(config.DatabaseConfig.DatabasePoolMaxConnectionLifetime)
+	dbConfig.MaxConnLifetime = time.Hour * time.Duration(
+		config.DatabaseConfig.DatabasePoolMaxConnectionLifetime,
+	)
 
 	connPool, err := pgxpool.NewWithConfig(context.Background(), dbConfig)
 	if err != nil {
@@ -59,7 +60,10 @@ func New(logger *slog.Logger, config *config.Config) (*App, error) {
 		return nil, err
 	}
 
-	notificationEventBus, err := eventbus.NewNotificationEventBus(config, logger)
+	notificationEventBus, err := eventbus.NewNotificationEventBus(
+		config,
+		logger,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +80,6 @@ func New(logger *slog.Logger, config *config.Config) (*App, error) {
 
 // Starts the application server
 func (a *App) Start(ctx context.Context) error {
-
 	database.RunGooseMigrations(a.logger, a.pool)
 
 	allowedOrigins := []string{
@@ -92,7 +95,11 @@ func (a *App) Start(ctx context.Context) error {
 	router := a.loadRoutes()
 
 	srv := &http.Server{
-		Addr:    fmt.Sprintf("%s:%d", a.config.AppConfig.Address, a.config.AppConfig.Port),
+		Addr: fmt.Sprintf(
+			"%s:%d",
+			a.config.AppConfig.Address,
+			a.config.AppConfig.Port,
+		),
 		Handler: middlewares(router),
 	}
 
@@ -123,7 +130,7 @@ func (a *App) Start(ctx context.Context) error {
 	sCtx, cancel := context.WithTimeout(context.Background(), time.Second*15)
 	defer cancel()
 
-	srv.Shutdown(sCtx)	
+	srv.Shutdown(sCtx)
 	a.userEventBus.Close()
 	a.institutionEventBus.Close()
 	a.notificationEventBus.Close()

@@ -16,7 +16,10 @@ type LeaderBoardHandler struct {
 	Logger *slog.Logger
 }
 
-func (lh *LeaderBoardHandler) RegisterLeaderBoardHandlers(cfg *config.Config, router *http.ServeMux) {
+func (lh *LeaderBoardHandler) RegisterLeaderBoardHandlers(
+	cfg *config.Config,
+	router *http.ServeMux,
+) {
 	router.Handle("GET /leaderboard/global", middleware.CreateStack(
 		middleware.IsAuthenticated(cfg, lh.Logger),
 	)(http.HandlerFunc(lh.GetGlobalLeaderBoard)))
@@ -26,20 +29,34 @@ func (lh *LeaderBoardHandler) RegisterLeaderBoardHandlers(cfg *config.Config, ro
 
 }
 
-func (lh *LeaderBoardHandler) GetGlobalUserRank(w http.ResponseWriter, r *http.Request) {
+func (lh *LeaderBoardHandler) GetGlobalUserRank(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 
 	w.Header().Set("Content-Type", "application/json")
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
-		lh.Logger.Error("Error while processing request", slog.Any("error", err))
-		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+		lh.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
+		http.Error(
+			w,
+			`{"error":"internal server error"}`,
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
 	tx, err := conn.Begin(r.Context())
 	if err != nil {
 		lh.Logger.Error("Failed to start transaction", slog.Any("error", err))
-		http.Error(w, `{"error":"Cannot process your request at the moment"}`, http.StatusInternalServerError)
+		http.Error(
+			w,
+			`{"error":"Cannot process your request at the moment"}`,
+			http.StatusInternalServerError,
+		)
 		return
 	}
 	defer tx.Rollback(r.Context())
@@ -55,7 +72,10 @@ func (lh *LeaderBoardHandler) GetGlobalUserRank(w http.ResponseWriter, r *http.R
 	leaderboardRank, err := repo.GetLeaderBoardRankForUser(r.Context(), id)
 
 	if err != nil {
-		lh.Logger.Error("Failed to retrieve leaderboard", slog.Any("error", err))
+		lh.Logger.Error(
+			"Failed to retrieve leaderboard",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]any{
 			"error": "We couldn't provide the global leaderboard at the moment",
@@ -66,19 +86,33 @@ func (lh *LeaderBoardHandler) GetGlobalUserRank(w http.ResponseWriter, r *http.R
 }
 
 // Returns the global leaderboard using the limit offset scheme
-func (lh *LeaderBoardHandler) GetGlobalLeaderBoard(w http.ResponseWriter, r *http.Request) {
+func (lh *LeaderBoardHandler) GetGlobalLeaderBoard(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	w.Header().Set("Content-Type", "application/json")
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
-		lh.Logger.Error("Error while processing request", slog.Any("error", err))
-		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+		lh.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
+		http.Error(
+			w,
+			`{"error":"internal server error"}`,
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
 	tx, err := conn.Begin(r.Context())
 	if err != nil {
 		lh.Logger.Error("Failed to start transaction", slog.Any("error", err))
-		http.Error(w, `{"error":"Cannot process your request at the moment"}`, http.StatusInternalServerError)
+		http.Error(
+			w,
+			`{"error":"Cannot process your request at the moment"}`,
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
@@ -90,7 +124,10 @@ func (lh *LeaderBoardHandler) GetGlobalLeaderBoard(w http.ResponseWriter, r *htt
 
 	totalCount, err := repo.GetGlobalLeaderBoardCount(r.Context())
 	if err != nil {
-		lh.Logger.Error("Failed to get leaderboard count", slog.Any("error", err))
+		lh.Logger.Error(
+			"Failed to get leaderboard count",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]any{
 			"error": "We couldn't provide the global leaderboard at the moment",
@@ -98,13 +135,19 @@ func (lh *LeaderBoardHandler) GetGlobalLeaderBoard(w http.ResponseWriter, r *htt
 		return
 	}
 
-	leaderboard, err := repo.GetLeaderboard(r.Context(), repository.GetLeaderboardParams{
-		Limit:  int32(pageParams.PageSize),
-		Offset: int32(pageParams.Offset),
-	})
+	leaderboard, err := repo.GetLeaderboard(
+		r.Context(),
+		repository.GetLeaderboardParams{
+			Limit:  int32(pageParams.PageSize),
+			Offset: int32(pageParams.Offset),
+		},
+	)
 
 	if err != nil {
-		lh.Logger.Error("Failed to retrieve leaderboard", slog.Any("error", err))
+		lh.Logger.Error(
+			"Failed to retrieve leaderboard",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]any{
 			"error": "We couldn't provide the global leaderboard at the moment",
@@ -112,6 +155,11 @@ func (lh *LeaderBoardHandler) GetGlobalLeaderBoard(w http.ResponseWriter, r *htt
 		return
 	}
 
-	response := pagination.BuildPaginatedResponse(r, totalCount, leaderboard, pageParams)
+	response := pagination.BuildPaginatedResponse(
+		r,
+		totalCount,
+		leaderboard,
+		pageParams,
+	)
 	json.NewEncoder(w).Encode(response)
 }

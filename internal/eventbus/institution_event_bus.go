@@ -46,7 +46,10 @@ type InstitutionEventBus struct {
 }
 
 // NewInstitutionEventBus creates a new UserEventBus instance.
-func NewInstitutionEventBus(cfg *config.Config, logger *slog.Logger) (*InstitutionEventBus, error) {
+func NewInstitutionEventBus(
+	cfg *config.Config,
+	logger *slog.Logger,
+) (*InstitutionEventBus, error) {
 	rabbitMQConnString := fmt.Sprintf("amqp://%s:%s@%s:%d/",
 		cfg.RabbitMQConfig.RabbitMQUser,
 		cfg.RabbitMQConfig.RabbitMQPass,
@@ -63,7 +66,10 @@ func NewInstitutionEventBus(cfg *config.Config, logger *slog.Logger) (*Instituti
 
 	if err != nil {
 		logger.Error("Failed to initialize RabbitMQ event bus", "error", err)
-		return nil, fmt.Errorf("failed to initialize RabbitMQ event bus: %w", err)
+		return nil, fmt.Errorf(
+			"failed to initialize RabbitMQ event bus: %w",
+			err,
+		)
 	}
 
 	return &InstitutionEventBus{
@@ -73,7 +79,11 @@ func NewInstitutionEventBus(cfg *config.Config, logger *slog.Logger) (*Instituti
 }
 
 // PublishInstitutionCreated publishes an institution created event to the event bus
-func (b *InstitutionEventBus) PublishInstitutionCreated(ctx context.Context, institution repository.Institution, requestID string) error {
+func (b *InstitutionEventBus) PublishInstitutionCreated(
+	ctx context.Context,
+	institution repository.Institution,
+	requestID string,
+) error {
 	event := InstitutionEvent{
 		Institution: institution,
 		Metadata: InstitutionEventMetaData{
@@ -95,7 +105,11 @@ func (b *InstitutionEventBus) PublishInstitutionCreated(ctx context.Context, ins
 }
 
 // PublishInstitutionUpdated publishes an institution updated event to the event bus
-func (b *InstitutionEventBus) PublishInstitutionUpdated(ctx context.Context, institution repository.Institution, requestID string) error {
+func (b *InstitutionEventBus) PublishInstitutionUpdated(
+	ctx context.Context,
+	institution repository.Institution,
+	requestID string,
+) error {
 	event := InstitutionEvent{
 		Institution: institution,
 		Metadata: InstitutionEventMetaData{
@@ -117,7 +131,11 @@ func (b *InstitutionEventBus) PublishInstitutionUpdated(ctx context.Context, ins
 }
 
 // PublishInstitutionDeleted publishes an institution deleted event to the event bus
-func (b *InstitutionEventBus) PublishInstitutionDeleted(ctx context.Context, institution repository.Institution, requestID string) error {
+func (b *InstitutionEventBus) PublishInstitutionDeleted(
+	ctx context.Context,
+	institution repository.Institution,
+	requestID string,
+) error {
 	event := InstitutionEvent{
 		Institution: institution,
 		Metadata: InstitutionEventMetaData{

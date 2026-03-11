@@ -6,8 +6,8 @@ import (
 
 // NotificationEvent represents the complete notification event structure
 type NotificationEvent struct {
-	Notification NotificationPayload `json:"notification"`
-	Meta         NotificationEventMetadata       `json:"meta"`
+	Notification NotificationPayload       `json:"notification"`
+	Meta         NotificationEventMetadata `json:"meta"`
 }
 
 // NotificationPayload contains the notification details

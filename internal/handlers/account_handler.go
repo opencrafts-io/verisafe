@@ -133,7 +133,7 @@ type BotAccountRequest struct {
 type RotationPolicy struct {
 	AutoRotate           bool `json:"auto_rotate"`
 	RotationIntervalDays int  `json:"rotation_interval_days" validate:"omitempty,min=1,max=365"`
-	NotifyBeforeDays     int  `json:"notify_before_days" validate:"omitempty,min=1,max=30"`
+	NotifyBeforeDays     int  `json:"notify_before_days"     validate:"omitempty,min=1,max=30"`
 }
 
 // BotAccountResponse represents the response for bot account creation with token
@@ -159,13 +159,19 @@ type BotAccountResponse struct {
 }
 
 // Creates a bot account with an enhanced service token
-func (ah *AccountHandler) CreateBotAccount(w http.ResponseWriter, r *http.Request) {
+func (ah *AccountHandler) CreateBotAccount(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	w.Header().Set("Content-Type", "application/json")
 
 	// Parse request
 	var req BotAccountRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		ah.Logger.Error("Failed to parse request body", slog.String("error", err.Error()))
+		ah.Logger.Error(
+			"Failed to parse request body",
+			slog.String("error", err.Error()),
+		)
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "Invalid request body",
@@ -192,7 +198,10 @@ func (ah *AccountHandler) CreateBotAccount(w http.ResponseWriter, r *http.Reques
 
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
-		ah.Logger.Error("Error while processing request", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -202,7 +211,10 @@ func (ah *AccountHandler) CreateBotAccount(w http.ResponseWriter, r *http.Reques
 
 	tx, err := conn.Begin(r.Context())
 	if err != nil {
-		ah.Logger.Error("Error while beginning transaction", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while beginning transaction",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -265,7 +277,10 @@ func (ah *AccountHandler) CreateBotAccount(w http.ResponseWriter, r *http.Reques
 	// Generate secure service token
 	token, err := ah.generateSecureToken()
 	if err != nil {
-		ah.Logger.Error("Failed to generate secure token", slog.String("error", err.Error()))
+		ah.Logger.Error(
+			"Failed to generate secure token",
+			slog.String("error", err.Error()),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "Failed to generate service token",
@@ -289,7 +304,10 @@ func (ah *AccountHandler) CreateBotAccount(w http.ResponseWriter, r *http.Reques
 	if req.ServiceToken.RotationPolicy != nil {
 		rotationPolicyJSON, err = json.Marshal(req.ServiceToken.RotationPolicy)
 		if err != nil {
-			ah.Logger.Error("Failed to marshal rotation policy", slog.String("error", err.Error()))
+			ah.Logger.Error(
+				"Failed to marshal rotation policy",
+				slog.String("error", err.Error()),
+			)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(map[string]string{
 				"error": "Invalid rotation policy",
@@ -303,7 +321,10 @@ func (ah *AccountHandler) CreateBotAccount(w http.ResponseWriter, r *http.Reques
 	if req.ServiceToken.Metadata != nil {
 		metadataJSON, err = json.Marshal(req.ServiceToken.Metadata)
 		if err != nil {
-			ah.Logger.Error("Failed to marshal metadata", slog.String("error", err.Error()))
+			ah.Logger.Error(
+				"Failed to marshal metadata",
+				slog.String("error", err.Error()),
+			)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(map[string]string{
 				"error": "Invalid metadata",
@@ -313,28 +334,34 @@ func (ah *AccountHandler) CreateBotAccount(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Create service token
-	serviceToken, err := repo.CreateServiceToken(r.Context(), repository.CreateServiceTokenParams{
-		AccountID:   created.ID,
-		Name:        req.ServiceToken.Name,
-		Description: req.ServiceToken.Description,
-		TokenHash:   utils.HashToken(token),
-		ExpiresAt:   expiresAt,
-		Scopes:      req.ServiceToken.Scopes,
-		MaxUses: func() *int32 {
-			if req.ServiceToken.MaxUses == nil {
-				return nil
-			}
-			val := int32(*req.ServiceToken.MaxUses)
-			return &val
-		}(),
-		RotationPolicy:   rotationPolicyJSON,
-		IpWhitelist:      req.ServiceToken.IPWhitelist,
-		UserAgentPattern: req.ServiceToken.UserAgentPattern,
-		CreatedBy:        pgtype.UUID{Bytes: created.ID, Valid: true},
-		Metadata:         metadataJSON,
-	})
+	serviceToken, err := repo.CreateServiceToken(
+		r.Context(),
+		repository.CreateServiceTokenParams{
+			AccountID:   created.ID,
+			Name:        req.ServiceToken.Name,
+			Description: req.ServiceToken.Description,
+			TokenHash:   utils.HashToken(token),
+			ExpiresAt:   expiresAt,
+			Scopes:      req.ServiceToken.Scopes,
+			MaxUses: func() *int32 {
+				if req.ServiceToken.MaxUses == nil {
+					return nil
+				}
+				val := int32(*req.ServiceToken.MaxUses)
+				return &val
+			}(),
+			RotationPolicy:   rotationPolicyJSON,
+			IpWhitelist:      req.ServiceToken.IPWhitelist,
+			UserAgentPattern: req.ServiceToken.UserAgentPattern,
+			CreatedBy:        pgtype.UUID{Bytes: created.ID, Valid: true},
+			Metadata:         metadataJSON,
+		},
+	)
 	if err != nil {
-		ah.Logger.Error("Failed to create service token", slog.String("error", err.Error()))
+		ah.Logger.Error(
+			"Failed to create service token",
+			slog.String("error", err.Error()),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "Failed to create service token",
@@ -343,7 +370,10 @@ func (ah *AccountHandler) CreateBotAccount(w http.ResponseWriter, r *http.Reques
 	}
 
 	if err = tx.Commit(r.Context()); err != nil {
-		ah.Logger.Error("Error while committing transaction", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while committing transaction",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]any{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -399,11 +429,17 @@ func (ah *AccountHandler) generateSecureToken() (string, error) {
 }
 
 // Publishes all accounts to other services via the event bus
-func (ah *AccountHandler) FanoutAccouts(w http.ResponseWriter, r *http.Request) {
+func (ah *AccountHandler) FanoutAccouts(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	w.Header().Set("Content-Type", "application/json")
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
-		ah.Logger.Error("Error while processing request", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -414,7 +450,10 @@ func (ah *AccountHandler) FanoutAccouts(w http.ResponseWriter, r *http.Request) 
 	repo := repository.New(conn)
 	userCount, err := repo.GetAccountsCount(r.Context())
 	if err != nil {
-		ah.Logger.Error("Error while processing request", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into an error while trying to service your request",
@@ -441,12 +480,18 @@ func (ah *AccountHandler) FanoutAccouts(w http.ResponseWriter, r *http.Request) 
 			defer func() { <-semaphore }() // Release slot
 
 			offset := batchNum * batchSize
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+			ctx, cancel := context.WithTimeout(
+				context.Background(),
+				30*time.Minute,
+			)
 			defer cancel()
-			users, err := repo.GetAllAccounts(ctx, repository.GetAllAccountsParams{
-				Limit:  int32(batchSize),
-				Offset: int32(offset),
-			})
+			users, err := repo.GetAllAccounts(
+				ctx,
+				repository.GetAllAccountsParams{
+					Limit:  int32(batchSize),
+					Offset: int32(offset),
+				},
+			)
 			if err != nil {
 				ah.Logger.Error("Error fetching batch",
 					slog.Any("error", err),
@@ -485,16 +530,25 @@ func (ah *AccountHandler) FanoutAccouts(w http.ResponseWriter, r *http.Request) 
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]any{
-		"message": fmt.Sprintf("Published %d users to the event bus", publishedCount),
+		"message": fmt.Sprintf(
+			"Published %d users to the event bus",
+			publishedCount,
+		),
 	})
 }
 
-func (ah *AccountHandler) GetPersonalAccount(w http.ResponseWriter, r *http.Request) {
+func (ah *AccountHandler) GetPersonalAccount(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	claims := r.Context().Value(middleware.AuthUserClaims).(*utils.VerisafeClaims)
 	w.Header().Set("Content-Type", "application/json")
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
-		ah.Logger.Error("Error while processing request", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -518,7 +572,10 @@ func (ah *AccountHandler) GetPersonalAccount(w http.ResponseWriter, r *http.Requ
 
 	user, err := repo.GetAccountByID(r.Context(), id)
 	if errors.Is(err, sql.ErrNoRows) {
-		ah.Logger.Error("Error while processing request", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "Account does not exist your token might be from a different flavor",
@@ -527,7 +584,10 @@ func (ah *AccountHandler) GetPersonalAccount(w http.ResponseWriter, r *http.Requ
 
 	}
 	if err != nil {
-		ah.Logger.Error("Error while processing request", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into an error while trying to fetch your account",
@@ -538,9 +598,13 @@ func (ah *AccountHandler) GetPersonalAccount(w http.ResponseWriter, r *http.Requ
 	json.NewEncoder(w).Encode(user)
 }
 
-func (ah *AccountHandler) UpdatePersonalAccount(w http.ResponseWriter, r *http.Request) {
+func (ah *AccountHandler) UpdatePersonalAccount(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	var accData repository.UpdateAccountDetailsParams
-	if err := json.NewDecoder(r.Body).Decode(&accData); err != nil || accData.Name == "" {
+	if err := json.NewDecoder(r.Body).Decode(&accData); err != nil ||
+		accData.Name == "" {
 		ah.Logger.Error("Failed to parse request body", slog.Any("error", err))
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{
@@ -562,7 +626,10 @@ func (ah *AccountHandler) UpdatePersonalAccount(w http.ResponseWriter, r *http.R
 	w.Header().Set("Content-Type", "application/json")
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
-		ah.Logger.Error("Error while processing request", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -576,7 +643,10 @@ func (ah *AccountHandler) UpdatePersonalAccount(w http.ResponseWriter, r *http.R
 
 	err = repo.UpdateAccountDetails(r.Context(), accData)
 	if err != nil {
-		ah.Logger.Error("Error while processing request", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into an error while trying to update your account",
@@ -585,7 +655,10 @@ func (ah *AccountHandler) UpdatePersonalAccount(w http.ResponseWriter, r *http.R
 	}
 	updated, err := repo.GetAccountByID(r.Context(), accData.ID)
 	if err != nil {
-		ah.Logger.Error("Error while processing request", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into an error while trying to fetch your account",
@@ -594,7 +667,10 @@ func (ah *AccountHandler) UpdatePersonalAccount(w http.ResponseWriter, r *http.R
 	}
 
 	if err = tx.Commit(r.Context()); err != nil {
-		ah.Logger.Error("Error while committing transaction", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while committing transaction",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]any{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -627,7 +703,8 @@ func (ah *AccountHandler) UpdatePersonalAccount(w http.ResponseWriter, r *http.R
 // Use a provider such as AT or One Signal etc
 func (ah *AccountHandler) VerifyPhone(w http.ResponseWriter, r *http.Request) {
 	var accData repository.UpdateAccountPhoneNumberParams
-	if err := json.NewDecoder(r.Body).Decode(&accData); err != nil || len(accData.Phone) < 5 {
+	if err := json.NewDecoder(r.Body).Decode(&accData); err != nil ||
+		len(accData.Phone) < 5 {
 		ah.Logger.Error("Failed to parse request body", slog.Any("error", err))
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{
@@ -649,7 +726,10 @@ func (ah *AccountHandler) VerifyPhone(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
-		ah.Logger.Error("Error while processing request", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -663,7 +743,10 @@ func (ah *AccountHandler) VerifyPhone(w http.ResponseWriter, r *http.Request) {
 
 	err = repo.UpdateAccountPhoneNumber(r.Context(), accData)
 	if err != nil {
-		ah.Logger.Error("Error while processing request", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into an error while trying to update your account",
@@ -672,7 +755,10 @@ func (ah *AccountHandler) VerifyPhone(w http.ResponseWriter, r *http.Request) {
 	}
 	updated, err := repo.GetAccountByID(r.Context(), accData.ID)
 	if err != nil {
-		ah.Logger.Error("Error while processing request", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into an error while trying to fetch your account",
@@ -680,7 +766,10 @@ func (ah *AccountHandler) VerifyPhone(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err = tx.Commit(r.Context()); err != nil {
-		ah.Logger.Error("Error while committing transaction", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while committing transaction",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]any{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -706,7 +795,10 @@ func (ah *AccountHandler) VerifyPhone(w http.ResponseWriter, r *http.Request) {
 }
 
 // SearchAccountsByEmail handles searching for accounts by email address
-func (ah *AccountHandler) SearchAccountsByEmail(w http.ResponseWriter, r *http.Request) {
+func (ah *AccountHandler) SearchAccountsByEmail(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	w.Header().Set("Content-Type", "application/json")
 
 	// Get search query from URL parameters
@@ -725,7 +817,10 @@ func (ah *AccountHandler) SearchAccountsByEmail(w http.ResponseWriter, r *http.R
 	// Get database connection
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
-		ah.Logger.Error("Error while processing request", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -736,7 +831,10 @@ func (ah *AccountHandler) SearchAccountsByEmail(w http.ResponseWriter, r *http.R
 	// Begin transaction
 	tx, err := conn.Begin(r.Context())
 	if err != nil {
-		ah.Logger.Error("Error while beginning transaction", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while beginning transaction",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -748,13 +846,19 @@ func (ah *AccountHandler) SearchAccountsByEmail(w http.ResponseWriter, r *http.R
 	repo := repository.New(tx)
 
 	// Search accounts by email
-	accounts, err := repo.SearchAccountByEmail(r.Context(), repository.SearchAccountByEmailParams{
-		Email:  query,
-		Limit:  int32(pagination.Limit),
-		Offset: int32(pagination.Offset),
-	})
+	accounts, err := repo.SearchAccountByEmail(
+		r.Context(),
+		repository.SearchAccountByEmailParams{
+			Email:  query,
+			Limit:  int32(pagination.Limit),
+			Offset: int32(pagination.Offset),
+		},
+	)
 	if err != nil {
-		ah.Logger.Error("Failed to search accounts by email", slog.Any("error", err))
+		ah.Logger.Error(
+			"Failed to search accounts by email",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We couldn't complete this request at the moment please try again later",
@@ -764,7 +868,10 @@ func (ah *AccountHandler) SearchAccountsByEmail(w http.ResponseWriter, r *http.R
 
 	// Commit transaction
 	if err = tx.Commit(r.Context()); err != nil {
-		ah.Logger.Error("Error while committing transaction", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while committing transaction",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -789,7 +896,10 @@ func (ah *AccountHandler) SearchAccountsByEmail(w http.ResponseWriter, r *http.R
 }
 
 // SearchAccountsByName handles searching for accounts by name
-func (ah *AccountHandler) SearchAccountsByName(w http.ResponseWriter, r *http.Request) {
+func (ah *AccountHandler) SearchAccountsByName(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	w.Header().Set("Content-Type", "application/json")
 
 	// Get search query from URL parameters
@@ -808,7 +918,10 @@ func (ah *AccountHandler) SearchAccountsByName(w http.ResponseWriter, r *http.Re
 	// Get database connection
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
-		ah.Logger.Error("Error while processing request", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -819,7 +932,10 @@ func (ah *AccountHandler) SearchAccountsByName(w http.ResponseWriter, r *http.Re
 	// Begin transaction
 	tx, err := conn.Begin(r.Context())
 	if err != nil {
-		ah.Logger.Error("Error while beginning transaction", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while beginning transaction",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -831,13 +947,19 @@ func (ah *AccountHandler) SearchAccountsByName(w http.ResponseWriter, r *http.Re
 	repo := repository.New(tx)
 
 	// Search accounts by name
-	accounts, err := repo.SearchAccountByName(r.Context(), repository.SearchAccountByNameParams{
-		Name:   query,
-		Limit:  int32(pagination.Limit),
-		Offset: int32(pagination.Offset),
-	})
+	accounts, err := repo.SearchAccountByName(
+		r.Context(),
+		repository.SearchAccountByNameParams{
+			Name:   query,
+			Limit:  int32(pagination.Limit),
+			Offset: int32(pagination.Offset),
+		},
+	)
 	if err != nil {
-		ah.Logger.Error("Failed to search accounts by name", slog.Any("error", err))
+		ah.Logger.Error(
+			"Failed to search accounts by name",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We couldn't complete this request at the moment please try again later",
@@ -847,7 +969,10 @@ func (ah *AccountHandler) SearchAccountsByName(w http.ResponseWriter, r *http.Re
 
 	// Commit transaction
 	if err = tx.Commit(r.Context()); err != nil {
-		ah.Logger.Error("Error while committing transaction", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while committing transaction",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -871,14 +996,20 @@ func (ah *AccountHandler) SearchAccountsByName(w http.ResponseWriter, r *http.Re
 	json.NewEncoder(w).Encode(response)
 }
 
-func (ah *AccountHandler) GetAllUserAccounts(w http.ResponseWriter, r *http.Request) {
+func (ah *AccountHandler) GetAllUserAccounts(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	w.Header().Set("Content-Type", "application/json")
 	// Get pagination from context
 	pagination := middleware.GetPagination(r.Context())
 	// Get database connection
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
-		ah.Logger.Error("Error while processing request", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -889,7 +1020,10 @@ func (ah *AccountHandler) GetAllUserAccounts(w http.ResponseWriter, r *http.Requ
 	// Begin transaction
 	tx, err := conn.Begin(r.Context())
 	if err != nil {
-		ah.Logger.Error("Error while beginning transaction", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while beginning transaction",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -901,10 +1035,13 @@ func (ah *AccountHandler) GetAllUserAccounts(w http.ResponseWriter, r *http.Requ
 	repo := repository.New(tx)
 
 	// Search accounts by username
-	accounts, err := repo.GetAllAccounts(r.Context(), repository.GetAllAccountsParams{
-		Limit:  int32(pagination.Limit),
-		Offset: int32(pagination.Offset),
-	})
+	accounts, err := repo.GetAllAccounts(
+		r.Context(),
+		repository.GetAllAccountsParams{
+			Limit:  int32(pagination.Limit),
+			Offset: int32(pagination.Offset),
+		},
+	)
 	if err != nil {
 		ah.Logger.Error("Failed to get all accounts", slog.Any("error", err))
 		w.WriteHeader(http.StatusInternalServerError)
@@ -916,7 +1053,10 @@ func (ah *AccountHandler) GetAllUserAccounts(w http.ResponseWriter, r *http.Requ
 
 	// Commit transaction
 	if err = tx.Commit(r.Context()); err != nil {
-		ah.Logger.Error("Error while committing transaction", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while committing transaction",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -929,7 +1069,10 @@ func (ah *AccountHandler) GetAllUserAccounts(w http.ResponseWriter, r *http.Requ
 }
 
 // SearchAccountsByUsername handles searching for accounts by username
-func (ah *AccountHandler) SearchAccountsByUsername(w http.ResponseWriter, r *http.Request) {
+func (ah *AccountHandler) SearchAccountsByUsername(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	w.Header().Set("Content-Type", "application/json")
 
 	// Get search query from URL parameters
@@ -948,7 +1091,10 @@ func (ah *AccountHandler) SearchAccountsByUsername(w http.ResponseWriter, r *htt
 	// Get database connection
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
-		ah.Logger.Error("Error while processing request", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -959,7 +1105,10 @@ func (ah *AccountHandler) SearchAccountsByUsername(w http.ResponseWriter, r *htt
 	// Begin transaction
 	tx, err := conn.Begin(r.Context())
 	if err != nil {
-		ah.Logger.Error("Error while beginning transaction", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while beginning transaction",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -971,13 +1120,19 @@ func (ah *AccountHandler) SearchAccountsByUsername(w http.ResponseWriter, r *htt
 	repo := repository.New(tx)
 
 	// Search accounts by username
-	accounts, err := repo.SearchAccountByUsername(r.Context(), repository.SearchAccountByUsernameParams{
-		Username: query,
-		Limit:    int32(pagination.Limit),
-		Offset:   int32(pagination.Offset),
-	})
+	accounts, err := repo.SearchAccountByUsername(
+		r.Context(),
+		repository.SearchAccountByUsernameParams{
+			Username: query,
+			Limit:    int32(pagination.Limit),
+			Offset:   int32(pagination.Offset),
+		},
+	)
 	if err != nil {
-		ah.Logger.Error("Failed to search accounts by username", slog.Any("error", err))
+		ah.Logger.Error(
+			"Failed to search accounts by username",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We couldn't complete this request at the moment please try again later",
@@ -987,7 +1142,10 @@ func (ah *AccountHandler) SearchAccountsByUsername(w http.ResponseWriter, r *htt
 
 	// Commit transaction
 	if err = tx.Commit(r.Context()); err != nil {
-		ah.Logger.Error("Error while committing transaction", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while committing transaction",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -1011,12 +1169,18 @@ func (ah *AccountHandler) SearchAccountsByUsername(w http.ResponseWriter, r *htt
 	json.NewEncoder(w).Encode(response)
 }
 
-func (ah *AccountHandler) MarkAccountForDeletion(w http.ResponseWriter, r *http.Request) {
+func (ah *AccountHandler) MarkAccountForDeletion(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	claims := r.Context().Value(middleware.AuthUserClaims).(*utils.VerisafeClaims)
 	w.Header().Set("Content-Type", "application/json")
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
-		ah.Logger.Error("Error while processing request", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -1026,7 +1190,10 @@ func (ah *AccountHandler) MarkAccountForDeletion(w http.ResponseWriter, r *http.
 
 	tx, err := conn.Begin(r.Context())
 	if err != nil {
-		ah.Logger.Error("Error attempting to prepare transaction", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error attempting to prepare transaction",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into an error while trying to delete your account",
@@ -1066,7 +1233,10 @@ func (ah *AccountHandler) MarkAccountForDeletion(w http.ResponseWriter, r *http.
 	}
 
 	if err = tx.Commit(r.Context()); err != nil {
-		ah.Logger.Error("Error while committing transaction", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while committing transaction",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -1080,12 +1250,18 @@ func (ah *AccountHandler) MarkAccountForDeletion(w http.ResponseWriter, r *http.
 	})
 }
 
-func (ah *AccountHandler) RecoverAccountFromDeletion(w http.ResponseWriter, r *http.Request) {
+func (ah *AccountHandler) RecoverAccountFromDeletion(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	claims := r.Context().Value(middleware.AuthUserClaims).(*utils.VerisafeClaims)
 	w.Header().Set("Content-Type", "application/json")
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
-		ah.Logger.Error("Error while processing request", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -1095,7 +1271,10 @@ func (ah *AccountHandler) RecoverAccountFromDeletion(w http.ResponseWriter, r *h
 
 	tx, err := conn.Begin(r.Context())
 	if err != nil {
-		ah.Logger.Error("Error attempting to prepare transaction", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error attempting to prepare transaction",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into an error while trying to recover your account",
@@ -1135,7 +1314,10 @@ func (ah *AccountHandler) RecoverAccountFromDeletion(w http.ResponseWriter, r *h
 	}
 
 	if err = tx.Commit(r.Context()); err != nil {
-		ah.Logger.Error("Error while committing transaction", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while committing transaction",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",

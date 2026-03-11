@@ -25,8 +25,10 @@ type wrappedWriter struct {
 // is sent to the client, and then it stores the `statusCode` internally
 // in the `wrappedWriter` struct for later retrieval (e.g., for logging).
 func (w *wrappedWriter) WriteHeader(statusCode int) {
-	w.ResponseWriter.WriteHeader(statusCode) // Call the original WriteHeader method.
-	w.statusCode = statusCode                // Store the status code for logging.
+	w.ResponseWriter.WriteHeader(
+		statusCode,
+	) // Call the original WriteHeader method.
+	w.statusCode = statusCode // Store the status code for logging.
 }
 
 // Logging is a middleware function that logs details about incoming HTTP requests

@@ -36,17 +36,25 @@ func IsAuthenticated(cfg *config.Config, logger *slog.Logger) Middleware {
 
 			conn, err := GetDBConnFromContext(r.Context())
 			if err != nil {
-				logger.Error("failed to get db conn", slog.String("err", err.Error()))
+				logger.Error(
+					"failed to get db conn",
+					slog.String("err", err.Error()),
+				)
 				w.WriteHeader(http.StatusInternalServerError)
-				json.NewEncoder(w).Encode(map[string]any{"error": "Internal server error"})
+				json.NewEncoder(w).
+					Encode(map[string]any{"error": "Internal server error"})
 				return
 			}
 
 			tx, err := conn.Begin(r.Context())
 			if err != nil {
-				logger.Error("failed to begin tx", slog.String("err", err.Error()))
+				logger.Error(
+					"failed to begin tx",
+					slog.String("err", err.Error()),
+				)
 				w.WriteHeader(http.StatusInternalServerError)
-				json.NewEncoder(w).Encode(map[string]any{"error": "Internal server error"})
+				json.NewEncoder(w).
+					Encode(map[string]any{"error": "Internal server error"})
 				return
 			}
 			defer func() {
@@ -61,10 +69,14 @@ func IsAuthenticated(cfg *config.Config, logger *slog.Logger) Middleware {
 			// --- Bearer Token
 			case strings.HasPrefix(authHeader, "Bearer "):
 				token := strings.TrimPrefix(authHeader, "Bearer ")
-				parsedClaims, err := utils.ValidateJWT(token, cfg.JWTConfig.ApiSecret)
+				parsedClaims, err := utils.ValidateJWT(
+					token,
+					cfg.JWTConfig.ApiSecret,
+				)
 				if err != nil {
 					w.WriteHeader(http.StatusUnauthorized)
-					json.NewEncoder(w).Encode(map[string]any{"error": err.Error()})
+					json.NewEncoder(w).
+						Encode(map[string]any{"error": err.Error()})
 					return
 				}
 				claims = parsedClaims
@@ -73,50 +85,76 @@ func IsAuthenticated(cfg *config.Config, logger *slog.Logger) Middleware {
 			case apiKey != "":
 
 				hashed := utils.HashToken(apiKey)
-				serviceToken, err := repo.GetServiceTokenByHash(r.Context(), hashed)
+				serviceToken, err := repo.GetServiceTokenByHash(
+					r.Context(),
+					hashed,
+				)
 				if err != nil {
 					w.WriteHeader(http.StatusUnauthorized)
-					json.NewEncoder(w).Encode(map[string]any{"error": "Invalid or expired API key"})
+					json.NewEncoder(w).
+						Encode(map[string]any{"error": "Invalid or expired API key"})
 					return
 				}
 
 				// Enhanced validation for service tokens
 				if err := validateServiceToken(serviceToken, r); err != nil {
 					w.WriteHeader(http.StatusUnauthorized)
-					json.NewEncoder(w).Encode(map[string]any{"error": err.Error()})
+					json.NewEncoder(w).
+						Encode(map[string]any{"error": err.Error()})
 					return
 				}
 
 				// Update last used timestamp
 				if err := repo.UpdateServiceTokenLastUsed(r.Context(), serviceToken.ID); err != nil {
-					logger.Error("Failed to update service token last used", slog.String("error", err.Error()))
+					logger.Error(
+						"Failed to update service token last used",
+						slog.String("error", err.Error()),
+					)
 					// Don't fail the request for this, just log it
 				}
 
 				// Get account and perms
-				account, err := repo.GetAccountByID(r.Context(), serviceToken.AccountID)
+				account, err := repo.GetAccountByID(
+					r.Context(),
+					serviceToken.AccountID,
+				)
 				if err != nil {
-					logger.Error("Failed to load account from API key", slog.Any("error", err))
+					logger.Error(
+						"Failed to load account from API key",
+						slog.Any("error", err),
+					)
 					w.WriteHeader(http.StatusUnauthorized)
-					json.NewEncoder(w).Encode(map[string]any{"error": "Unauthorized"})
+					json.NewEncoder(w).
+						Encode(map[string]any{"error": "Unauthorized"})
 					return
 				}
 
 				if account.DeletedAt != nil {
-					if time.Now().After(account.DeletedAt.Add(14 * 24 * time.Hour)) {
+					if time.Now().
+						After(account.DeletedAt.Add(14 * 24 * time.Hour)) {
 						w.WriteHeader(http.StatusUnauthorized)
-						json.NewEncoder(w).Encode(map[string]any{"error": "Account was permanently deleted"})
+						json.NewEncoder(w).
+							Encode(map[string]any{"error": "Account was permanently deleted"})
 						return
 					}
 					// Add a flag to context so downstream handlers know this user is in "Ghost Mode"
-					ctx = context.WithValue(ctx, AuthUserIsPendingDeletion, true)
+					ctx = context.WithValue(
+						ctx,
+						AuthUserIsPendingDeletion,
+						true,
+					)
 				}
 
 				// Verify account is a bot account
 				if account.Type != repository.AccountTypeBot {
-					logger.Error("Service token used by non-bot account", slog.String("account_id", account.ID.String()), slog.String("account_type", string(account.Type)))
+					logger.Error(
+						"Service token used by non-bot account",
+						slog.String("account_id", account.ID.String()),
+						slog.String("account_type", string(account.Type)),
+					)
 					w.WriteHeader(http.StatusUnauthorized)
-					json.NewEncoder(w).Encode(map[string]any{"error": "Service tokens can only be used by bot accounts"})
+					json.NewEncoder(w).
+						Encode(map[string]any{"error": "Service tokens can only be used by bot accounts"})
 					return
 				}
 
@@ -135,7 +173,8 @@ func IsAuthenticated(cfg *config.Config, logger *slog.Logger) Middleware {
 
 			default:
 				w.WriteHeader(http.StatusUnauthorized)
-				json.NewEncoder(w).Encode(map[string]any{"error": "Missing Authorization or X-API-Key header"})
+				json.NewEncoder(w).
+					Encode(map[string]any{"error": "Missing Authorization or X-API-Key header"})
 				return
 			}
 
@@ -143,9 +182,13 @@ func IsAuthenticated(cfg *config.Config, logger *slog.Logger) Middleware {
 			// Retrieve the roles & perms
 			subID, err := uuid.Parse(claims.Subject)
 			if err != nil {
-				logger.Error("Failed to retrieve id from token", slog.Any("error", err))
+				logger.Error(
+					"Failed to retrieve id from token",
+					slog.Any("error", err),
+				)
 				w.WriteHeader(http.StatusUnauthorized)
-				json.NewEncoder(w).Encode(map[string]any{"error": "We couldn't decode your token please relogin"})
+				json.NewEncoder(w).
+					Encode(map[string]any{"error": "We couldn't decode your token please relogin"})
 				return
 			}
 
@@ -156,7 +199,8 @@ func IsAuthenticated(cfg *config.Config, logger *slog.Logger) Middleware {
 					slog.Any("account_id", subID),
 				)
 				w.WriteHeader(http.StatusUnauthorized)
-				json.NewEncoder(w).Encode(map[string]any{"error": "We couldn't retrieve your roles"})
+				json.NewEncoder(w).
+					Encode(map[string]any{"error": "We couldn't retrieve your roles"})
 				return
 			}
 
@@ -167,13 +211,18 @@ func IsAuthenticated(cfg *config.Config, logger *slog.Logger) Middleware {
 					slog.Any("account_id", subID),
 				)
 				w.WriteHeader(http.StatusUnauthorized)
-				json.NewEncoder(w).Encode(map[string]any{"error": "We couldn't retrieve your roles"})
+				json.NewEncoder(w).
+					Encode(map[string]any{"error": "We couldn't retrieve your roles"})
 				return
 			}
 
 			authContext := context.WithValue(ctx, AuthUserClaims, claims)
 			rolesContext := context.WithValue(authContext, AuthUserRoles, roles)
-			permsContext := context.WithValue(rolesContext, AuthUserPerms, perms)
+			permsContext := context.WithValue(
+				rolesContext,
+				AuthUserPerms,
+				perms,
+			)
 
 			next.ServeHTTP(w, r.WithContext(permsContext))
 		})
@@ -210,7 +259,10 @@ func HasPermission(permissions []string) Middleware {
 }
 
 // validateServiceToken performs comprehensive validation of a service token
-func validateServiceToken(token repository.ServiceToken, r *http.Request) error {
+func validateServiceToken(
+	token repository.ServiceToken,
+	r *http.Request,
+) error {
 	// Check if token is revoked
 	if token.RevokedAt != nil {
 		return fmt.Errorf("token has been revoked")
@@ -222,7 +274,8 @@ func validateServiceToken(token repository.ServiceToken, r *http.Request) error 
 	}
 
 	// Check usage limits
-	if token.MaxUses != nil && token.UseCount != nil && *token.UseCount >= *token.MaxUses {
+	if token.MaxUses != nil && token.UseCount != nil &&
+		*token.UseCount >= *token.MaxUses {
 		return fmt.Errorf("token usage limit exceeded")
 	}
 
