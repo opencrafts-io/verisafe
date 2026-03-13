@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/opencrafts-io/verisafe/internal/auth"
+	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/handlers"
 )
 
@@ -41,6 +42,11 @@ func (a *App) loadRoutes() http.Handler {
 		NotificationEventBus: a.notificationEventBus,
 	}
 
+	deviceHandler := handlers.DeviceHandler{
+		DB:     &core.PgxPoolAdapter{Pool: a.pool},
+		Logger: a.logger,
+	}
+
 	// ping handler
 	router.HandleFunc("GET /ping", handlers.PingHandler)
 
@@ -57,5 +63,7 @@ func (a *App) loadRoutes() http.Handler {
 	leaderboardHandler.RegisterLeaderBoardHandlers(a.config, router)
 	activityHandler.RegisterHadlers(a.config, router)
 	streakhanlder.RegisterRoutes(a.config, router)
+	deviceHandler.RegisterRoutes(a.config, router)
+
 	return router
 }

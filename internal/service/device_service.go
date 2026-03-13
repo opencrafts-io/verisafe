@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/repository"
 )
 
@@ -54,16 +53,12 @@ func (s *deviceService) RegisterDevice(
 ) (*DeviceOutput, error) {
 	params, err := deviceRegistrationInputToRepoParams(input)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", core.ErrInvalidInput, err)
+		return nil, err
 	}
 
 	row, err := s.querier.RecordUserDevice(ctx, params)
 	if err != nil {
-		return nil, fmt.Errorf(
-			"%w: failed to persist device: %v",
-			core.ErrInternal,
-			err,
-		)
+		return nil, err
 	}
 
 	output := deviceRowToOutput(row)
