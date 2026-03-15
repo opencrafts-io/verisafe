@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/netip"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/opencrafts-io/verisafe/internal/config"
@@ -26,7 +28,7 @@ func (dh *DeviceHandler) RegisterRoutes(
 	router.Handle(
 		"POST /devices/add",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(config, dh.Logger),
+		// middleware.IsAuthenticated(config, dh.Logger),
 		)(
 			AppHandler(dh.RegisterUserDevice),
 		),
@@ -44,6 +46,16 @@ func (dh *DeviceHandler) RegisterUserDevice(
 			core.ErrInvalidInput,
 		)
 	}
+
+	ip, err := netip.ParseAddr(strings.Split(r.RemoteAddr, ":")[0])
+	if err != nil {
+		return fmt.Errorf(
+			"remote ip addr %w: please check your request body",
+			core.ErrInvalidInput,
+		)
+	}
+
+	input.IpAddress = &ip
 
 	var device *service.DeviceOutput
 

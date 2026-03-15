@@ -7,6 +7,7 @@ package repository
 import (
 	"database/sql/driver"
 	"fmt"
+	"net/netip"
 	"time"
 
 	"github.com/google/uuid"
@@ -274,9 +275,11 @@ type UserDevice struct {
 	UserID       uuid.UUID        `json:"user_id"`
 	DeviceName   *string          `json:"device_name"`
 	Platform     *string          `json:"platform"`
-	PushToken    *string          `json:"push_token"`
+	DeviceToken  *string          `json:"device_token"`
 	LastActiveAt pgtype.Timestamp `json:"last_active_at"`
 	CreatedAt    pgtype.Timestamp `json:"created_at"`
+	IpAddress    *netip.Addr      `json:"ip_address"`
+	Country      *string          `json:"country"`
 }
 
 type UserPermissionsView struct {
