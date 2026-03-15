@@ -12,6 +12,7 @@ import (
 	"github.com/opencrafts-io/verisafe/database"
 	"github.com/opencrafts-io/verisafe/internal/config"
 	"github.com/opencrafts-io/verisafe/internal/eventbus"
+	"github.com/opencrafts-io/verisafe/internal/geo"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 )
 
@@ -22,6 +23,7 @@ type App struct {
 	userEventBus         *eventbus.UserEventBus
 	notificationEventBus *eventbus.NotificationEventBus
 	institutionEventBus  *eventbus.InstitutionEventBus
+	geoIPLocator         *geo.GeoIPLocater
 }
 
 // Returns a new instance of the application
@@ -68,6 +70,14 @@ func New(logger *slog.Logger, config *config.Config) (*App, error) {
 		return nil, err
 	}
 
+	gil, err := geo.NewGeoIPLocater(
+		"./database/mmdb/GeoLite2-City.mmdb",
+		"./database/mmdb/GeoLite2-ASN.mmdb",
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	return &App{
 		config:               config,
 		logger:               logger,
@@ -75,6 +85,7 @@ func New(logger *slog.Logger, config *config.Config) (*App, error) {
 		userEventBus:         userEventBus,
 		notificationEventBus: notificationEventBus,
 		institutionEventBus:  institutionEventBus,
+		geoIPLocator:         gil,
 	}, nil
 }
 
@@ -131,6 +142,7 @@ func (a *App) Start(ctx context.Context) error {
 	defer cancel()
 
 	srv.Shutdown(sCtx)
+	a.geoIPLocator.Close()
 	a.userEventBus.Close()
 	a.institutionEventBus.Close()
 	a.notificationEventBus.Close()
