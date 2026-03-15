@@ -3,6 +3,7 @@ package service_test
 import (
 	"context"
 	"errors"
+	"net/netip"
 	"testing"
 	"time"
 
@@ -18,11 +19,15 @@ import (
 )
 
 func validInput() service.DeviceRegistrationInput {
+	ip := netip.MustParseAddr("127.0.0.1")
+	country := "KE"
 	return service.DeviceRegistrationInput{
 		UserID:       uuid.MustParse("00000000-0000-0000-0000-000000000001"),
 		DeviceName:   "iPhone 15",
 		Platform:     "ios",
-		PushToken:    "tok_abc123",
+		DeviceToken:  "tok_abc123",
+		IpAddress:    &ip,
+		Country:      &country,
 		LastActiveAt: "2024-01-15T10:00:00Z",
 	}
 }
@@ -30,14 +35,16 @@ func validInput() service.DeviceRegistrationInput {
 func fakeDeviceRow(
 	input service.DeviceRegistrationInput,
 ) repository.UserDevice {
-	name, platform, token := input.DeviceName, input.Platform, input.PushToken
+	name, platform, token := input.DeviceName, input.Platform, input.DeviceToken
 	ts, _ := time.Parse(time.RFC3339, input.LastActiveAt)
 	return repository.UserDevice{
 		ID:           uuid.MustParse("00000000-0000-0000-0000-000000000099"),
 		UserID:       input.UserID,
 		DeviceName:   &name,
 		Platform:     &platform,
-		PushToken:    &token,
+		DeviceToken:  &token,
+		IpAddress:    input.IpAddress,
+		Country:      input.Country,
 		LastActiveAt: pgtype.Timestamp{Time: ts, Valid: true},
 		CreatedAt: pgtype.Timestamp{
 			Time:  time.Date(2024, 1, 15, 10, 0, 0, 0, time.UTC),
@@ -67,7 +74,7 @@ func TestRegisterDevice_Success(t *testing.T) {
 	assert.Equal(t, input.UserID, result.UserID)
 	assert.Equal(t, input.DeviceName, result.DeviceName)
 	assert.Equal(t, input.Platform, result.Platform)
-	assert.Equal(t, input.PushToken, result.PushToken)
+	assert.Equal(t, input.DeviceToken, result.DeviceToken)
 	assert.Equal(t, input.LastActiveAt, result.LastActiveAt)
 }
 
@@ -154,7 +161,7 @@ func TestRegisterDevice_NilPointersInRow(t *testing.T) {
 		UserID:       uuid.MustParse("00000000-0000-0000-0000-000000000001"),
 		DeviceName:   nil,
 		Platform:     nil,
-		PushToken:    nil,
+		DeviceToken:  nil,
 		LastActiveAt: pgtype.Timestamp{Time: time.Now(), Valid: true},
 		CreatedAt:    pgtype.Timestamp{Time: time.Now(), Valid: true},
 	}
@@ -170,5 +177,5 @@ func TestRegisterDevice_NilPointersInRow(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "", result.DeviceName)
 	assert.Equal(t, "", result.Platform)
-	assert.Equal(t, "", result.PushToken)
+	assert.Equal(t, "", result.DeviceToken)
 }

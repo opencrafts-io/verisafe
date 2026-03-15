@@ -818,10 +818,10 @@ func (mr *MockQuerierMockRecorder) GetSocialByExternalUserID(ctx, userID any) *g
 }
 
 // GetUserDevices mocks base method.
-func (m *MockQuerier) GetUserDevices(ctx context.Context, userID uuid.UUID) ([]repository.UserDevice, error) {
+func (m *MockQuerier) GetUserDevices(ctx context.Context, userID uuid.UUID) ([]repository.GetUserDevicesRow, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUserDevices", ctx, userID)
-	ret0, _ := ret[0].([]repository.UserDevice)
+	ret0, _ := ret[0].([]repository.GetUserDevicesRow)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

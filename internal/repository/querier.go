@@ -106,7 +106,7 @@ type Querier interface {
 	GetSocialByExternalUserID(ctx context.Context, userID string) (Social, error)
 	// Retrieves all user devices that a user has ever used to access their accounts
 	// Results are orderd by the most recent device used to access the account
-	GetUserDevices(ctx context.Context, userID uuid.UUID) ([]UserDevice, error)
+	GetUserDevices(ctx context.Context, userID uuid.UUID) ([]GetUserDevicesRow, error)
 	// Returns all permission names that have been granted to a user
 	GetUserPermissionNames(ctx context.Context, userID uuid.UUID) ([]string, error)
 	// Returns all permissions associated to a user
@@ -126,7 +126,8 @@ type Querier interface {
 	// SELECT *
 	// FROM record_activity_completion(@account_id::uuid, @activity_id::uuid, @metadata::jsonb);
 	RecordActivityCompletion(ctx context.Context, arg RecordActivityCompletionParams) (RecordActivityCompletionRow, error)
-	// Records a new user device
+	// Inserts a new device. If the device is already registered (same user + push_token),
+	// only last_active_at, ip_address, and country are updated.
 	RecordUserDevice(ctx context.Context, arg RecordUserDeviceParams) (UserDevice, error)
 	RemoveAccountInstitution(ctx context.Context, arg RemoveAccountInstitutionParams) error
 	// Revokes a role from a user

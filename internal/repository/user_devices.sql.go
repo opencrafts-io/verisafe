@@ -7,6 +7,7 @@ package repository
 
 import (
 	"context"
+	"net/netip"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -18,7 +19,7 @@ SELECT
   user_id,
   device_name,
   platform,
-  push_token,
+  device_token,
   last_active_at,
   created_at
 FROM user_devices
@@ -26,23 +27,33 @@ WHERE user_id = $1
 ORDER BY created_at DESC
 `
 
+type GetUserDevicesRow struct {
+	ID           uuid.UUID        `json:"id"`
+	UserID       uuid.UUID        `json:"user_id"`
+	DeviceName   *string          `json:"device_name"`
+	Platform     *string          `json:"platform"`
+	DeviceToken  *string          `json:"device_token"`
+	LastActiveAt pgtype.Timestamp `json:"last_active_at"`
+	CreatedAt    pgtype.Timestamp `json:"created_at"`
+}
+
 // Retrieves all user devices that a user has ever used to access their accounts
 // Results are orderd by the most recent device used to access the account
-func (q *Queries) GetUserDevices(ctx context.Context, userID uuid.UUID) ([]UserDevice, error) {
+func (q *Queries) GetUserDevices(ctx context.Context, userID uuid.UUID) ([]GetUserDevicesRow, error) {
 	rows, err := q.db.Query(ctx, getUserDevices, userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []UserDevice{}
+	items := []GetUserDevicesRow{}
 	for rows.Next() {
-		var i UserDevice
+		var i GetUserDevicesRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
 			&i.DeviceName,
 			&i.Platform,
-			&i.PushToken,
+			&i.DeviceToken,
 			&i.LastActiveAt,
 			&i.CreatedAt,
 		); err != nil {
@@ -58,26 +69,36 @@ func (q *Queries) GetUserDevices(ctx context.Context, userID uuid.UUID) ([]UserD
 
 const recordUserDevice = `-- name: RecordUserDevice :one
 INSERT INTO user_devices (
-  user_id, device_name, platform, push_token, last_active_at
-) VALUES ( $1, $2, $3, $4, $5)
-RETURNING id, user_id, device_name, platform, push_token, last_active_at, created_at
+  user_id, device_name, platform, device_token, ip_address, country, last_active_at
+) VALUES ( $1, $2, $3, $4, $5, $6, $7)
+ON CONFLICT (user_id, device_token)
+DO UPDATE SET
+  last_active_at = EXCLUDED.last_active_at,
+  ip_address     = EXCLUDED.ip_address,
+  country        = EXCLUDED.country
+RETURNING id, user_id, device_name, platform, device_token, last_active_at, created_at, ip_address, country
 `
 
 type RecordUserDeviceParams struct {
 	UserID       uuid.UUID        `json:"user_id"`
 	DeviceName   *string          `json:"device_name"`
 	Platform     *string          `json:"platform"`
-	PushToken    *string          `json:"push_token"`
+	DeviceToken  *string          `json:"device_token"`
+	IpAddress    *netip.Addr      `json:"ip_address"`
+	Country      *string          `json:"country"`
 	LastActiveAt pgtype.Timestamp `json:"last_active_at"`
 }
 
-// Records a new user device
+// Inserts a new device. If the device is already registered (same user + push_token),
+// only last_active_at, ip_address, and country are updated.
 func (q *Queries) RecordUserDevice(ctx context.Context, arg RecordUserDeviceParams) (UserDevice, error) {
 	row := q.db.QueryRow(ctx, recordUserDevice,
 		arg.UserID,
 		arg.DeviceName,
 		arg.Platform,
-		arg.PushToken,
+		arg.DeviceToken,
+		arg.IpAddress,
+		arg.Country,
 		arg.LastActiveAt,
 	)
 	var i UserDevice
@@ -86,9 +107,11 @@ func (q *Queries) RecordUserDevice(ctx context.Context, arg RecordUserDevicePara
 		&i.UserID,
 		&i.DeviceName,
 		&i.Platform,
-		&i.PushToken,
+		&i.DeviceToken,
 		&i.LastActiveAt,
 		&i.CreatedAt,
+		&i.IpAddress,
+		&i.Country,
 	)
 	return i, err
 }
