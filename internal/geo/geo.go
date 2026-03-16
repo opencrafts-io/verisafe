@@ -92,8 +92,8 @@ type IPLocater interface {
 // GeoIPLocater resolves IP addresses using local MaxMind GeoLite2 database
 // files. It is safe for concurrent use.
 type GeoIPLocater struct {
-	cityDb *geoip2.Reader
-	asnDb  *geoip2.Reader
+	cityDB *geoip2.Reader
+	asnDB  *geoip2.Reader
 }
 
 // NewGeoIPLocater opens the GeoLite2-City and GeoLite2-ASN databases at the
@@ -101,19 +101,19 @@ type GeoIPLocater struct {
 //
 // Returns an error if either file is missing, unreadable, or not a valid
 // MaxMind database.
-func NewGeoIPLocater(cityDbPath, asnDbPath string) (*GeoIPLocater, error) {
-	cityDb, err := geoip2.Open(cityDbPath)
+func NewGeoIPLocater(cityDBPath, asnDBPath string) (*GeoIPLocater, error) {
+	cityDB, err := geoip2.Open(cityDBPath)
 	if err != nil {
 		return nil, err
 	}
 
-	asnDb, err := geoip2.Open(asnDbPath)
+	asnDB, err := geoip2.Open(asnDBPath)
 	if err != nil {
-		cityDb.Close() // clean up the already-opened db
+		cityDB.Close() // clean up the already-opened db
 		return nil, err
 	}
 
-	return &GeoIPLocater{cityDb: cityDb, asnDb: asnDb}, nil
+	return &GeoIPLocater{cityDB: cityDB, asnDB: asnDB}, nil
 }
 
 // Lookup resolves the given IP address to a LocationInfo containing country,
@@ -122,16 +122,22 @@ func NewGeoIPLocater(cityDbPath, asnDbPath string) (*GeoIPLocater, error) {
 // Returns ErrLocaterNotInitialized if either database was not opened.
 // Returns an error if the IP cannot be resolved in either database.
 func (gil *GeoIPLocater) Lookup(ip netip.Addr) (*LocationInfo, error) {
-	if gil.cityDb == nil || gil.asnDb == nil {
+	if gil.cityDB == nil || gil.asnDB == nil {
 		return nil, ErrLocaterNotInitialized
 	}
+	if !ip.IsValid() {
+		return nil, ErrInvalidIP
+	}
+	if ip.IsLoopback() || ip.IsPrivate() || ip.IsUnspecified() {
+		return nil, ErrNonRoutableIP
+	}
 
-	cityRecord, err := gil.cityDb.City(ip)
+	cityRecord, err := gil.cityDB.City(ip)
 	if err != nil {
 		return nil, err
 	}
 
-	asnRecord, err := gil.asnDb.ASN(ip)
+	asnRecord, err := gil.asnDB.ASN(ip)
 	if err != nil {
 		return nil, err
 	}
@@ -167,16 +173,20 @@ func (gil *GeoIPLocater) Lookup(ip netip.Addr) (*LocationInfo, error) {
 // Close releases the underlying database file handles.
 // Safe to call even if the databases were not successfully opened.
 func (gil *GeoIPLocater) Close() {
-	if gil.cityDb != nil {
-		gil.cityDb.Close()
+	if gil.cityDB != nil {
+		gil.cityDB.Close()
 	}
-	if gil.asnDb != nil {
-		gil.asnDb.Close()
+	if gil.asnDB != nil {
+		gil.asnDB.Close()
 	}
 }
 
-// ErrLocaterNotInitialized is returned when Lookup is called on a
-// GeoIPLocater whose databases have not been successfully opened.
-var ErrLocaterNotInitialized = errors.New(
-	"GeoIPLocater has not been initialized",
+var (
+	// ErrLocaterNotInitialized is returned when Lookup is called on a
+	// GeoIPLocater whose databases have not been successfully opened.
+	ErrLocaterNotInitialized = errors.New(
+		"GeoIPLocater has not been initialized",
+	)
+	ErrInvalidIP     = errors.New("invalid IP address")
+	ErrNonRoutableIP = errors.New("IP address is non-routable")
 )
