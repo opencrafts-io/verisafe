@@ -43,8 +43,9 @@ func (a *App) loadRoutes() http.Handler {
 	}
 
 	deviceHandler := handlers.DeviceHandler{
-		DB:     &core.PgxPoolAdapter{Pool: a.pool},
-		Logger: a.logger,
+		GeoLocator: a.geoIPLocator,
+		DB:         &core.PgxPoolAdapter{Pool: a.pool},
+		Logger:     a.logger,
 	}
 
 	// ping handler

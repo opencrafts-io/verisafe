@@ -11,14 +11,16 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/opencrafts-io/verisafe/internal/config"
 	"github.com/opencrafts-io/verisafe/internal/core"
+	"github.com/opencrafts-io/verisafe/internal/geo"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/repository"
 	"github.com/opencrafts-io/verisafe/internal/service"
 )
 
 type DeviceHandler struct {
-	DB     core.IDBProvider
-	Logger *slog.Logger
+	GeoLocator *geo.GeoIPLocater
+	DB         core.IDBProvider
+	Logger     *slog.Logger
 }
 
 func (dh *DeviceHandler) RegisterRoutes(
@@ -57,8 +59,18 @@ func (dh *DeviceHandler) RegisterUserDevice(
 
 	input.IpAddress = &ip
 
-	var device *service.DeviceOutput
+	lookupInfo, err := dh.GeoLocator.Lookup(ip)
+	if err != nil {
+		dh.Logger.Error(
+			"Failed to get lookupInfo from host ip address.",
+			slog.Any("error", err),
+			slog.String("ip", ip.String()),
+		)
+	} else {
+		input.Country = &lookupInfo.Country.ISOCode
+	}
 
+	var device *service.DeviceOutput
 	conn, err := dh.DB.Acquire(r.Context())
 	if err != nil {
 		dh.Logger.Error(
