@@ -8,6 +8,7 @@ import (
 	"net/netip"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/opencrafts-io/verisafe/internal/config"
 	"github.com/opencrafts-io/verisafe/internal/core"
@@ -15,6 +16,7 @@ import (
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/repository"
 	"github.com/opencrafts-io/verisafe/internal/service"
+	"github.com/opencrafts-io/verisafe/internal/utils"
 )
 
 type DeviceHandler struct {
@@ -30,7 +32,7 @@ func (dh *DeviceHandler) RegisterRoutes(
 	router.Handle(
 		"POST /devices/add",
 		middleware.CreateStack(
-		// middleware.IsAuthenticated(config, dh.Logger),
+			middleware.IsAuthenticated(config, dh.Logger),
 		)(
 			AppHandler(dh.RegisterUserDevice),
 		),
@@ -48,6 +50,13 @@ func (dh *DeviceHandler) RegisterUserDevice(
 			core.ErrInvalidInput,
 		)
 	}
+	claims := r.Context().Value(middleware.AuthUserClaims).(*utils.VerisafeClaims)
+	userID, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		dh.Logger.Error("Error while parsing user id", slog.Any("error", err))
+		return err
+	}
+	input.UserID = userID
 
 	ip, err := netip.ParseAddr(strings.Split(r.RemoteAddr, ":")[0])
 	if err != nil {
