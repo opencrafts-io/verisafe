@@ -15,39 +15,23 @@ import (
 
 const getUserDevices = `-- name: GetUserDevices :many
 SELECT 
-  id, 
-  user_id,
-  device_name,
-  platform,
-  device_token,
-  last_active_at,
-  created_at
+  id, user_id, device_name, platform, device_token, last_active_at, created_at, ip_address, country
 FROM user_devices
 WHERE user_id = $1
 ORDER BY created_at DESC
 `
 
-type GetUserDevicesRow struct {
-	ID           uuid.UUID        `json:"id"`
-	UserID       uuid.UUID        `json:"user_id"`
-	DeviceName   *string          `json:"device_name"`
-	Platform     *string          `json:"platform"`
-	DeviceToken  *string          `json:"device_token"`
-	LastActiveAt pgtype.Timestamp `json:"last_active_at"`
-	CreatedAt    pgtype.Timestamp `json:"created_at"`
-}
-
 // Retrieves all user devices that a user has ever used to access their accounts
 // Results are orderd by the most recent device used to access the account
-func (q *Queries) GetUserDevices(ctx context.Context, userID uuid.UUID) ([]GetUserDevicesRow, error) {
+func (q *Queries) GetUserDevices(ctx context.Context, userID uuid.UUID) ([]UserDevice, error) {
 	rows, err := q.db.Query(ctx, getUserDevices, userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []GetUserDevicesRow{}
+	items := []UserDevice{}
 	for rows.Next() {
-		var i GetUserDevicesRow
+		var i UserDevice
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
@@ -56,6 +40,8 @@ func (q *Queries) GetUserDevices(ctx context.Context, userID uuid.UUID) ([]GetUs
 			&i.DeviceToken,
 			&i.LastActiveAt,
 			&i.CreatedAt,
+			&i.IpAddress,
+			&i.Country,
 		); err != nil {
 			return nil, err
 		}

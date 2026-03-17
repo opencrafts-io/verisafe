@@ -106,7 +106,7 @@ type Querier interface {
 	GetSocialByExternalUserID(ctx context.Context, userID string) (Social, error)
 	// Retrieves all user devices that a user has ever used to access their accounts
 	// Results are orderd by the most recent device used to access the account
-	GetUserDevices(ctx context.Context, userID uuid.UUID) ([]GetUserDevicesRow, error)
+	GetUserDevices(ctx context.Context, userID uuid.UUID) ([]UserDevice, error)
 	// Returns all permission names that have been granted to a user
 	GetUserPermissionNames(ctx context.Context, userID uuid.UUID) ([]string, error)
 	// Returns all permissions associated to a user

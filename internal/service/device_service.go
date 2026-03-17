@@ -42,6 +42,11 @@ type DeviceService interface {
 		ctx context.Context,
 		input DeviceRegistrationInput,
 	) (*DeviceOutput, error)
+
+	RetrieveAllUserDevices(
+		ctx context.Context,
+		userID uuid.UUID,
+	) ([]DeviceOutput, error)
 }
 
 type deviceService struct {
@@ -50,6 +55,19 @@ type deviceService struct {
 
 func NewDeviceService(q repository.Querier) DeviceService {
 	return &deviceService{querier: q}
+}
+
+func (s *deviceService) RetrieveAllUserDevices(
+	ctx context.Context,
+	userID uuid.UUID,
+) ([]DeviceOutput, error) {
+	rows, err := s.querier.GetUserDevices(ctx, userID)
+
+	var outputRows []DeviceOutput
+	for _, row := range rows {
+		outputRows = append(outputRows, deviceRowToOutput(row))
+	}
+	return outputRows, err
 }
 
 func (s *deviceService) RegisterDevice(
