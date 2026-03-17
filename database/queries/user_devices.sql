@@ -16,13 +16,7 @@ RETURNING *;
 -- Retrieves all user devices that a user has ever used to access their accounts
 -- Results are orderd by the most recent device used to access the account
 SELECT 
-  id, 
-  user_id,
-  device_name,
-  platform,
-  device_token,
-  last_active_at,
-  created_at
+  *
 FROM user_devices
 WHERE user_id = $1
 ORDER BY created_at DESC;

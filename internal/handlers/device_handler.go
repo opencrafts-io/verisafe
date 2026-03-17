@@ -37,6 +37,15 @@ func (dh *DeviceHandler) RegisterRoutes(
 			AppHandler(dh.RegisterUserDevice),
 		),
 	)
+
+	router.Handle(
+		"GET /devices/mine",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(config, dh.Logger),
+		)(
+			AppHandler(dh.GetPersonalDevices),
+		),
+	)
 }
 
 func (dh *DeviceHandler) RegisterUserDevice(
@@ -104,5 +113,44 @@ func (dh *DeviceHandler) RegisterUserDevice(
 	}
 
 	writeJSON(w, http.StatusCreated, device)
+	return nil
+}
+
+func (dh *DeviceHandler) GetPersonalDevices(
+	w http.ResponseWriter,
+	r *http.Request,
+) error {
+	claims := r.Context().Value(middleware.AuthUserClaims).(*utils.VerisafeClaims)
+	userID, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		dh.Logger.Error("Error while parsing user id", slog.Any("error", err))
+		return err
+	}
+	conn, err := dh.DB.Acquire(r.Context())
+	if err != nil {
+		dh.Logger.Error(
+			"Failed to acquire db connection",
+			slog.Any("error", err),
+		)
+		return fmt.Errorf("%w: failed to acquire connection", core.ErrInternal)
+	}
+
+	var userDevices []service.DeviceOutput
+
+	err = core.WithTransaction(r.Context(), conn, func(tx pgx.Tx) error {
+		svc := service.NewDeviceService(repository.New(tx))
+		userDevices, err = svc.RetrieveAllUserDevices(r.Context(), userID)
+		return err
+	})
+	if err != nil {
+		dh.Logger.Error(
+			"Error occurred while fetching user devices.",
+			slog.String("user_id", userID.String()),
+			slog.Any("error", err),
+		)
+		return err
+	}
+
+	writeJSON(w, http.StatusOK, userDevices)
 	return nil
 }
