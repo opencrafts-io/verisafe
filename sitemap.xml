@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+         <loc>https://opencrafts-io.github.io/verisafe/</loc>
+         <lastmod>2026-03-18</lastmod>
+    </url>
+    <url>
+         <loc>https://opencrafts-io.github.io/verisafe/BOT_ACCOUNT_CREATION/</loc>
+         <lastmod>2026-03-18</lastmod>
+    </url>
+    <url>
+         <loc>https://opencrafts-io.github.io/verisafe/RABBITMQ_INTEGRATION/</loc>
+         <lastmod>2026-03-18</lastmod>
+    </url>
+    <url>
+         <loc>https://opencrafts-io.github.io/verisafe/SERVICE_TOKENS/</loc>
+         <lastmod>2026-03-18</lastmod>
+    </url>
+    <url>
+         <loc>https://opencrafts-io.github.io/verisafe/setup/</loc>
+         <lastmod>2026-03-18</lastmod>
+    </url>
+    <url>
+         <loc>https://opencrafts-io.github.io/verisafe/adrs/0001-verisafe-authentication-and-token-strategy/</loc>
+         <lastmod>2026-03-18</lastmod>
+    </url>
+    <url>
+         <loc>https://opencrafts-io.github.io/verisafe/adrs/0002-adopt-swagger-openapi-for-api-documentation/</loc>
+         <lastmod>2026-03-18</lastmod>
+    </url>
+    <url>
+         <loc>https://opencrafts-io.github.io/verisafe/adrs/adr_template/</loc>
+         <lastmod>2026-03-18</lastmod>
+    </url>
+</urlset>
