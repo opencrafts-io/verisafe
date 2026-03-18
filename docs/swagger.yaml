@@ -1,8 +1,55 @@
 basePath: /
+definitions:
+  core.APIError:
+    properties:
+      error:
+        example: the provided input is invalid or malformed
+        type: string
+    type: object
+  netip.Addr:
+    type: object
+  service.DeviceOutput:
+    properties:
+      country:
+        type: string
+      created_at:
+        type: string
+      device_name:
+        type: string
+      device_token:
+        type: string
+      id:
+        type: string
+      ip_address:
+        type: string
+      last_active_at:
+        type: string
+      platform:
+        type: string
+      user_id:
+        type: string
+    type: object
+  service.DeviceRegistrationInput:
+    properties:
+      country:
+        type: string
+      device_name:
+        type: string
+      device_token:
+        type: string
+      ip_address:
+        $ref: '#/definitions/netip.Addr'
+      last_active_at:
+        type: string
+      platform:
+        type: string
+      user_id:
+        type: string
+    type: object
 externalDocs:
   description: OpenAPI
   url: https://swagger.io/resources/open-api/
-host: https://verisafe.opencrafts.io
+host: qaverisafe.opencrafts.io
 info:
   contact:
     email: developers@opencrafts.io
@@ -15,8 +62,76 @@ info:
   termsOfService: http://swagger.io/terms/
   title: Verisafe API
   version: "2.0"
-paths: {}
+paths:
+  /devices/add:
+    post:
+      consumes:
+      - application/json
+      description: Registers a device for the authenticated user, capturing IP and
+        geolocation
+      parameters:
+      - description: Device registration payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.DeviceRegistrationInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/service.DeviceOutput'
+        "400":
+          description: Invalid input
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerAuth: []
+      summary: Register a new user device
+      tags:
+      - devices
+  /devices/mine:
+    get:
+      description: Returns all devices registered to the currently authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.DeviceOutput'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerAuth: []
+      summary: List authenticated user's devices
+      tags:
+      - devices
 securityDefinitions:
-  BasicAuth:
-    type: basic
+  ApiKey:
+    in: header
+    name: X-Api-Key
+    type: apiKey
+  BearerToken:
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

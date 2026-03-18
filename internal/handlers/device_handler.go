@@ -48,6 +48,20 @@ func (dh *DeviceHandler) RegisterRoutes(
 	)
 }
 
+// RegisterUserDevice godoc
+//
+// @Summary      Register a new user device
+// @Description  Registers a device for the authenticated user, capturing IP and geolocation
+// @Tags         devices
+// @Accept       json
+// @Produce      json
+// @Param        body  body      service.DeviceRegistrationInput  true  "Device registration payload"
+// @Success      201   {object}  service.DeviceOutput
+// @Failure      400   {object}  core.APIError  "Invalid input"
+// @Failure      401   {object}  core.APIError  "Unauthorized"
+// @Failure      500   {object}  core.APIError  "Internal server error"
+// @Security     BearerAuth
+// @Router       /devices/add [post]
 func (dh *DeviceHandler) RegisterUserDevice(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -116,6 +130,17 @@ func (dh *DeviceHandler) RegisterUserDevice(
 	return nil
 }
 
+// GetPersonalDevices godoc
+//
+// @Summary      List authenticated user's devices
+// @Description  Returns all devices registered to the currently authenticated user
+// @Tags         devices
+// @Produce      json
+// @Success      200  {array}   service.DeviceOutput
+// @Failure      401  {object}  core.APIError  "Unauthorized"
+// @Failure      500  {object}  core.APIError  "Internal server error"
+// @Security     BearerAuth
+// @Router       /devices/mine [get]
 func (dh *DeviceHandler) GetPersonalDevices(
 	w http.ResponseWriter,
 	r *http.Request,

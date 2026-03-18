@@ -22,10 +22,17 @@ import (
 // @license.name  Apache 2.0
 // @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
 
-// @host      https://verisafe.opencrafts.io
+// @host      qaverisafe.opencrafts.io
 // @BasePath  /
 
-// @securityDefinitions.basic  BasicAuth
+// @securityDefinitions.apikey BearerToken
+// @in header
+// @name Authorization
+// @securityDefinitions.apikey ApiKey
+// @in header
+// @name X-Api-Key
+// @security BearerToken
+// @security ApiKey
 
 // @externalDocs.description  OpenAPI
 // @externalDocs.url          https://swagger.io/resources/open-api/

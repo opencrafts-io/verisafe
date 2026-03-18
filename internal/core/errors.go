@@ -2,6 +2,11 @@ package core
 
 import "errors"
 
+// APIError is the standard error response body returned by the API.
+type APIError struct {
+	Error string `json:"error" example:"the provided input is invalid or malformed"`
+}
+
 var (
 	// ErrInternal indicates a failure in the system (DB down, disk full, etc.)
 	ErrInternal = errors.New("an internal system error occurred")
