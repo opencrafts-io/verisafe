@@ -1,0 +1,22 @@
+basePath: /
+externalDocs:
+  description: OpenAPI
+  url: https://swagger.io/resources/open-api/
+host: https://verisafe.opencrafts.io
+info:
+  contact:
+    email: developers@opencrafts.io
+    name: Open Crafts Interactive
+    url: https://opencrafts.io/about
+  description: Verisafe service API
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Verisafe API
+  version: "2.0"
+paths: {}
+securityDefinitions:
+  BasicAuth:
+    type: basic
+swagger: "2.0"

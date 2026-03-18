@@ -3,9 +3,11 @@ package app
 import (
 	"net/http"
 
+	_ "github.com/opencrafts-io/verisafe/docs"
 	"github.com/opencrafts-io/verisafe/internal/auth"
 	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/handlers"
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 func (a *App) loadRoutes() http.Handler {
@@ -50,6 +52,7 @@ func (a *App) loadRoutes() http.Handler {
 
 	// ping handler
 	router.HandleFunc("GET /ping", handlers.PingHandler)
+	router.Handle("GET /docs/", httpSwagger.WrapHandler)
 
 	// Auth handlers
 	auth.RegisterRoutes(router)
