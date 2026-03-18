@@ -126,6 +126,10 @@ type Querier interface {
 	// SELECT *
 	// FROM record_activity_completion(@account_id::uuid, @activity_id::uuid, @metadata::jsonb);
 	RecordActivityCompletion(ctx context.Context, arg RecordActivityCompletionParams) (RecordActivityCompletionRow, error)
+	// Persists an issued refresh token's information to the db
+	RecordIssuedRefreshToken(ctx context.Context, arg RecordIssuedRefreshTokenParams) (RefreshToken, error)
+	// Records an issued access token's information to the db
+	RecordIssuedToken(ctx context.Context, arg RecordIssuedTokenParams) (IssuedToken, error)
 	// Inserts a new device. If the device is already registered (same user + push_token),
 	// only last_active_at, ip_address, and country are updated.
 	RecordUserDevice(ctx context.Context, arg RecordUserDeviceParams) (UserDevice, error)

@@ -6,6 +6,7 @@ generate-mocks:
   @which mockgen > /dev/null || (echo 'mockgen not found: go install github.com/golang/mock/mockgen@latest' && exit 1)
   @echo 'Generating mocks for external packages'
   mockgen -package mockscore github.com/jackc/pgx/v5 Tx > internal/core/mocks/mock_tx.go
+  mockgen -package mockQuerier -destination internal/repository/mocks/mock_querier.go github.com/opencrafts-io/verisafe/internal/repository Querier
   @echo '[+] Generated mock for pgx.Tx'
   @echo 'Scanning all directories for go:generate directives'
   go generate ./...
