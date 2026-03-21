@@ -11,9 +11,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/opencrafts-io/verisafe/database"
 	"github.com/opencrafts-io/verisafe/internal/config"
+	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/eventbus"
 	"github.com/opencrafts-io/verisafe/internal/geo"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
+	"github.com/redis/go-redis/v9"
 )
 
 type App struct {
@@ -24,6 +26,7 @@ type App struct {
 	notificationEventBus *eventbus.NotificationEventBus
 	institutionEventBus  *eventbus.InstitutionEventBus
 	geoIPLocator         *geo.GeoIPLocater
+	cacher               core.Cacher
 }
 
 // Returns a new instance of the application
@@ -51,6 +54,14 @@ func New(logger *slog.Logger, config *config.Config) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	rdb := redis.NewClient(&redis.Options{
+		Addr:       config.RedisConfig.RedisAddress,
+		Password:   config.RedisConfig.RedisPassword,
+		DB:         config.RedisConfig.RedisDB,
+		ClientName: "io.opencrats.verisafe",
+	})
+	cache := core.NewRedisCacher(rdb)
 
 	userEventBus, err := eventbus.NewUserEventBus(config, logger)
 	if err != nil {
@@ -86,6 +97,7 @@ func New(logger *slog.Logger, config *config.Config) (*App, error) {
 		notificationEventBus: notificationEventBus,
 		institutionEventBus:  institutionEventBus,
 		geoIPLocator:         gil,
+		cacher:               cache,
 	}, nil
 }
 
