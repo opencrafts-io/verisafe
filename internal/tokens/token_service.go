@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"time"
 
@@ -99,13 +100,52 @@ func (ts tokenService) RotateRefreshToken(
 	ctx context.Context,
 	rawRefreshToken string,
 ) (*TokenPair, error) {
-	return nil, nil
+	tokenHash := hashToken(rawRefreshToken)
+
+	existing, err := ts.repo.GetRefreshTokenByHash(ctx, tokenHash)
+	if err != nil {
+		return nil, errors.New("invalid refresh token")
+	}
+
+	// Reuse detection — token was already used
+	if existing.UsedAt.Valid {
+		// Revoke entire family — someone is replaying tokens
+		_ = ts.RevokeFamily(ctx, existing.FamilyID)
+		return nil, errors.New("refresh token reuse detected: please re-login")
+	}
+
+	// Check expiry
+	if time.Now().After(existing.ExpiresAt.Time) {
+		return nil, errors.New("refresh token expired")
+	}
+
+	// Check explicitly revoked
+	if existing.RevokedAt.Valid {
+		return nil, errors.New("refresh token has been revoked")
+	}
+
+	// Mark current token as used
+	err = ts.repo.MarkRefreshTokenUsed(ctx, existing.ID)
+	if err != nil {
+		return nil, fmt.Errorf("mark token used: %w", err)
+	}
+
+	// Issue new pair — carry forward same device
+	return ts.IssueTokenPair(
+		ctx,
+		existing.UserID,
+		existing.DeviceID.Bytes,
+	)
 }
 
 func (ts tokenService) RevokeFamily(
 	ctx context.Context,
 	familyID uuid.UUID,
 ) error {
+	err := ts.repo.RevokeRefreshTokenFamily(ctx, familyID)
+	if err != nil {
+		return fmt.Errorf("revoke token family %s: %w", familyID, err)
+	}
 	return nil
 }
 
@@ -114,14 +154,24 @@ func (ts tokenService) RevokeAccessToken(
 	jti uuid.UUID,
 	remainingTTL time.Duration,
 ) error {
-	return nil
+	key := fmt.Sprintf("blocklist:%s", jti.String())
+	return ts.cacher.Set(ctx, key, "revoked", remainingTTL)
 }
 
 func (ts tokenService) IsAccessTokenRevoked(
 	ctx context.Context,
 	jti uuid.UUID,
 ) (bool, error) {
-	return false, nil
+	key := fmt.Sprintf("blocklist:%s", jti.String())
+	var val string
+	err := ts.cacher.Get(ctx, key, &val)
+	if errors.Is(err, core.ErrCacheMiss) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func (ts *tokenService) signJwt(
