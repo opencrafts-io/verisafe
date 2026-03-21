@@ -95,6 +95,8 @@ type Querier interface {
 	// Get top N users ranked by vibe points
 	GetLeaderboard(ctx context.Context, arg GetLeaderboardParams) ([]AccountVibepointRank, error)
 	GetPermissionByID(ctx context.Context, id uuid.UUID) ([]Permission, error)
+	// Retrieves an earlier issued refresh token given its hash
+	GetRefreshTokenByHash(ctx context.Context, tokenHash string) (RefreshToken, error)
 	// Retrieves a role specified by its id
 	GetRoleByID(ctx context.Context, id uuid.UUID) (Role, error)
 	GetRoleByName(ctx context.Context, name string) (Role, error)
@@ -122,6 +124,8 @@ type Querier interface {
 	MarkAccountForDeletion(ctx context.Context, id uuid.UUID) error
 	// Recovers an account from scheduled deletion
 	MarkAccountForRecovery(ctx context.Context, id uuid.UUID) error
+	// Marks and persists that a refresh token has been used
+	MarkRefreshTokenUsed(ctx context.Context, id uuid.UUID) error
 	MarkTokensForRotation(ctx context.Context) error
 	// SELECT *
 	// FROM record_activity_completion(@account_id::uuid, @activity_id::uuid, @metadata::jsonb);
@@ -134,6 +138,11 @@ type Querier interface {
 	// only last_active_at, ip_address, and country are updated.
 	RecordUserDevice(ctx context.Context, arg RecordUserDeviceParams) (UserDevice, error)
 	RemoveAccountInstitution(ctx context.Context, arg RemoveAccountInstitutionParams) error
+	// RevokeRefreshTokenFamily revokes all active refresh tokens belonging to a given family.
+	// This is triggered when a refresh token reuse attack is detected — i.e. a token that
+	// has already been used is presented again. Revoking the entire family forces the user
+	// to re-authenticate, invalidating any tokens the attacker may have obtained.
+	RevokeRefreshTokenFamily(ctx context.Context, familyID uuid.UUID) error
 	// Revokes a role from a user
 	RevokeRole(ctx context.Context, arg RevokeRoleParams) error
 	// Revokes a permission from a role

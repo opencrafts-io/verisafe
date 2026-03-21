@@ -712,6 +712,21 @@ func (mr *MockQuerierMockRecorder) GetPermissionByID(ctx, id any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPermissionByID", reflect.TypeOf((*MockQuerier)(nil).GetPermissionByID), ctx, id)
 }
 
+// GetRefreshTokenByHash mocks base method.
+func (m *MockQuerier) GetRefreshTokenByHash(ctx context.Context, tokenHash string) (repository.RefreshToken, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRefreshTokenByHash", ctx, tokenHash)
+	ret0, _ := ret[0].(repository.RefreshToken)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRefreshTokenByHash indicates an expected call of GetRefreshTokenByHash.
+func (mr *MockQuerierMockRecorder) GetRefreshTokenByHash(ctx, tokenHash any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRefreshTokenByHash", reflect.TypeOf((*MockQuerier)(nil).GetRefreshTokenByHash), ctx, tokenHash)
+}
+
 // GetRoleByID mocks base method.
 func (m *MockQuerier) GetRoleByID(ctx context.Context, id uuid.UUID) (repository.Role, error) {
 	m.ctrl.T.Helper()
@@ -995,6 +1010,20 @@ func (mr *MockQuerierMockRecorder) MarkAccountForRecovery(ctx, id any) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkAccountForRecovery", reflect.TypeOf((*MockQuerier)(nil).MarkAccountForRecovery), ctx, id)
 }
 
+// MarkRefreshTokenUsed mocks base method.
+func (m *MockQuerier) MarkRefreshTokenUsed(ctx context.Context, id uuid.UUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MarkRefreshTokenUsed", ctx, id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// MarkRefreshTokenUsed indicates an expected call of MarkRefreshTokenUsed.
+func (mr *MockQuerierMockRecorder) MarkRefreshTokenUsed(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkRefreshTokenUsed", reflect.TypeOf((*MockQuerier)(nil).MarkRefreshTokenUsed), ctx, id)
+}
+
 // MarkTokensForRotation mocks base method.
 func (m *MockQuerier) MarkTokensForRotation(ctx context.Context) error {
 	m.ctrl.T.Helper()
@@ -1081,6 +1110,20 @@ func (m *MockQuerier) RemoveAccountInstitution(ctx context.Context, arg reposito
 func (mr *MockQuerierMockRecorder) RemoveAccountInstitution(ctx, arg any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveAccountInstitution", reflect.TypeOf((*MockQuerier)(nil).RemoveAccountInstitution), ctx, arg)
+}
+
+// RevokeRefreshTokenFamily mocks base method.
+func (m *MockQuerier) RevokeRefreshTokenFamily(ctx context.Context, familyID uuid.UUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RevokeRefreshTokenFamily", ctx, familyID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RevokeRefreshTokenFamily indicates an expected call of RevokeRefreshTokenFamily.
+func (mr *MockQuerierMockRecorder) RevokeRefreshTokenFamily(ctx, familyID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RevokeRefreshTokenFamily", reflect.TypeOf((*MockQuerier)(nil).RevokeRefreshTokenFamily), ctx, familyID)
 }
 
 // RevokeRole mocks base method.
