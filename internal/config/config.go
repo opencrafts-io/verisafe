@@ -9,7 +9,6 @@ import (
 )
 
 type Config struct {
-
 	// JWT token configuration
 	JWTConfig struct {
 		ApiSecret          string `envconfig:"API_SECRET"`
@@ -62,19 +61,25 @@ type Config struct {
 		RabbitMQPort    int    `envconfig:"RABBITMQ_PORT"`
 		Exchange        string `envconfig:"RABBITMQ_EXCHANGE"`
 	}
+
+	RedisConfig struct {
+		RedisAddress  string `envconfig:"REDIS_ADDRESS"`
+		RedisDB       int    `envconfig:"REDIS_DB"`
+		RedisPassword string `envconfig:"REDIS_PASSWORD"`
+	}
 }
 
-// The LoadConfig function loads the env file specified and returns
+// LoadConfig loads the env file specified and returns
 // a valid configuration object ready for use
 func LoadConfig() (*Config, error) {
 	cfg := Config{}
 
 	// load the configs
 	if err := godotenv.Load(".env"); err != nil {
-		return nil, fmt.Errorf("Failed to load environment variables: %v", err)
+		return nil, fmt.Errorf("failed to load environment variables: %v", err)
 	}
 	if err := envconfig.Process("", &cfg); err != nil {
-		return nil, fmt.Errorf("Failed to load environment variables: %v", err)
+		return nil, fmt.Errorf("failed to load environment variables: %v", err)
 	}
 
 	if cfg.AuthenticationConfig.ApplePrivateKeyBase64 != "" {
