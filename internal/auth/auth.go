@@ -19,46 +19,99 @@ import (
 	"github.com/markbates/goth/providers/spotify"
 	"github.com/opencrafts-io/verisafe/internal/config"
 	"github.com/opencrafts-io/verisafe/internal/eventbus"
+	"github.com/opencrafts-io/verisafe/internal/tokens"
 )
 
-type Auth struct {
-	config   *config.Config
-	logger   *slog.Logger
-	eventBus *eventbus.UserEventBus
+// spotifyScopes defines all Spotify OAuth2 permission scopes Verisafe requests.
+// These cover playback control, library access, and user profile reading.
+var spotifyScopes = []string{
+	"user-read-playback-state",
+	"user-modify-playback-state",
+	"user-read-currently-playing",
+	"user-read-recently-played",
+	"user-top-read",
+	"app-remote-control",
+	"playlist-read-private",
+	"playlist-modify-private",
+	"playlist-modify-public",
+	"user-follow-modify",
+	"user-follow-read",
+	"user-read-email",
+	"user-read-private",
 }
 
+// googleScopes defines the Google OAuth2 permission scopes Verisafe requests.
+// Includes profile, calendar, and tasks access.
+var googleScopes = []string{
+	"email",
+	"profile",
+	"https://www.googleapis.com/auth/calendar",
+	"https://www.googleapis.com/auth/tasks",
+}
+
+// AppleSecretGenerator is a function that generates an Apple client secret JWT.
+// It is defined as a type so it can be swapped out in tests with a stub,
+// avoiding the need for real Apple credentials during testing.
+type AppleSecretGenerator func(teamID, keyID, clientID, privateKey string) (string, error)
+
+// Auth holds the dependencies for all authentication-related HTTP handlers.
+type Auth struct {
+	config       *config.Config
+	logger       *slog.Logger
+	eventBus     *eventbus.UserEventBus
+	tokenService tokens.TokenService
+}
+
+// NewAuthenticator initialises the Auth handler, sets up the session store,
+// and registers all OAuth2 providers (Google, Spotify, Apple).
+//
+// appleSecretGen is injected so it can be replaced in tests. Pass
+// GenerateAppleClientSecret for production use.
 func NewAuthenticator(
 	cfg *config.Config,
 	userEventBus *eventbus.UserEventBus,
+	tokenService tokens.TokenService,
 	logger *slog.Logger,
+	appleSecretGen AppleSecretGenerator,
 ) (*Auth, error) {
-	sessionSecret := cfg.AuthenticationConfig.SessionSecret
-
-	if sessionSecret == "" {
-		logger.Error("Session secret is empty")
-		return nil, fmt.Errorf("session secret is empty")
+	if err := setupSessionStore(cfg, logger); err != nil {
+		return nil, err
 	}
 
-	store := sessions.NewCookieStore([]byte(sessionSecret))
-	store.MaxAge(
-		86400 * cfg.AuthenticationConfig.MaxAge,
-	) // Session expires in 30 days
-	// store.Options.Path = "/"
-	// store.Options.HttpOnly = true
-	//
-	// if cfg.AuthenticationConfig.Environment == "production" {
-	// 	store.Options.Secure = true
-	// 	store.Options.SameSite = http.SameSiteNoneMode
-	// } else {
-	// 	store.Options.Secure = false
-	// 	store.Options.SameSite = http.SameSiteLaxMode
-	// }
+	if err := setupOAuthProviders(cfg, appleSecretGen); err != nil {
+		return nil, err
+	}
 
+	logger.Info("OAuth2 providers initialised successfully")
+
+	return &Auth{
+		config:       cfg,
+		logger:       logger,
+		eventBus:     userEventBus,
+		tokenService: tokenService,
+	}, nil
+}
+
+// setupSessionStore configures the gorilla session store used by gothic
+// to persist OAuth2 state between the login redirect and the callback.
+func setupSessionStore(cfg *config.Config, logger *slog.Logger) error {
+	secret := cfg.AuthenticationConfig.SessionSecret
+	if secret == "" {
+		logger.Error("session secret is empty")
+		return fmt.Errorf("session secret must not be empty")
+	}
+
+	store := sessions.NewCookieStore([]byte(secret))
+	store.MaxAge(86400 * cfg.AuthenticationConfig.MaxAge)
 	store.Options.Path = "/"
 	store.Options.HttpOnly = true
 
-	if cfg.AuthenticationConfig.Environment == "production" ||
-		cfg.AuthenticationConfig.Environment == "staging" {
+	// Relax security settings in non-production environments so that
+	// local development works without HTTPS.
+	isProduction := cfg.AuthenticationConfig.Environment == "production" ||
+		cfg.AuthenticationConfig.Environment == "staging"
+
+	if isProduction {
 		store.Options.Secure = true
 		store.Options.SameSite = http.SameSiteNoneMode
 	} else {
@@ -67,142 +120,130 @@ func NewAuthenticator(
 	}
 
 	gothic.Store = store
+	return nil
+}
 
-	address := ""
+// setupOAuthProviders registers all OAuth2 providers with goth.
+// Each provider's callback URL is derived from the configured AuthAddress.
+func setupOAuthProviders(
+	cfg *config.Config,
+	appleSecretGen AppleSecretGenerator,
+) error {
+	callbackBase := fmt.Sprintf(
+		"%s/auth/{provider}/callback",
+		cfg.AuthenticationConfig.AuthAddress,
+	)
 
-	if cfg.AuthenticationConfig.Environment == "development" {
-		address = fmt.Sprintf("%s/auth/{oauth}/callback",
-			cfg.AuthenticationConfig.AuthAddress,
-		)
-	} else {
-		address = fmt.Sprintf("%s/auth/{oauth}/callback",
-			cfg.AuthenticationConfig.AuthAddress,
-		)
-
+	// Helper to build the per-provider callback URL.
+	callbackFor := func(provider string) string {
+		return strings.Replace(callbackBase, "{provider}", provider, 1)
 	}
 
 	googleProvider := google.New(
 		cfg.AuthenticationConfig.GoogleClientID,
 		cfg.AuthenticationConfig.GoogleClientSecret,
-		strings.Replace(address, "{oauth}", "google", 1),
-		"email", "profile",
-		"https://www.googleapis.com/auth/calendar",
-		"https://www.googleapis.com/auth/tasks",
+		callbackFor("google"),
+		googleScopes...,
 	)
-
+	// offline access ensures Google returns a refresh token.
 	googleProvider.SetAccessType("offline")
 
 	spotifyProvider := spotify.New(
 		cfg.AuthenticationConfig.SpotifyClientID,
 		cfg.AuthenticationConfig.SpotifyClientSecret,
-		strings.Replace(address, "{oauth}", "spotify", 1),
-		"user-read-playback-state",
-		"user-modify-playback-state",
-		"user-read-currently-playing",
-		"user-read-recently-played",
-		"user-top-read",
-		"app-remote-control",
-		"playlist-read-private",
-		"playlist-modify-private",
-		"playlist-modify-public",
-		"user-follow-modify",
-		"user-follow-read",
-		"user-read-email",
-		"user-read-private",
+		callbackFor("spotify"),
+		spotifyScopes...,
 	)
 
-	appleSecret, err := generateAppleClientSecret(
+	appleSecret, err := appleSecretGen(
 		cfg.AuthenticationConfig.AppleTeamID,
 		cfg.AuthenticationConfig.AppleKeyID,
 		cfg.AuthenticationConfig.AppleClientID,
 		cfg.AuthenticationConfig.ApplePrivateKey,
 	)
 	if err != nil {
-		logger.Error("Failed to generate Apple client secret", "error", err)
-		return nil, fmt.Errorf(
-			"failed to generate Apple client secret: %w",
-			err,
-		)
+		return fmt.Errorf("generate Apple client secret: %w", err)
 	}
 
 	appleProvider := apple.New(
 		cfg.AuthenticationConfig.AppleClientID,
 		appleSecret,
-		strings.Replace(address, "{oauth}", "apple", 1),
-		nil, // HTTP client (nil uses default)
+		callbackFor("apple"),
+		nil, // nil uses the default HTTP client
 		apple.ScopeName,
 		apple.ScopeEmail,
 	)
 
-	goth.UseProviders(
-		googleProvider,
-		spotifyProvider,
-		appleProvider,
-	)
-
-	logger.Info("Goth Oauth2 providers initialized successfully")
-	return &Auth{
-		config:   cfg,
-		logger:   logger,
-		eventBus: userEventBus,
-	}, nil
+	goth.UseProviders(googleProvider, spotifyProvider, appleProvider)
+	return nil
 }
 
-func generateAppleClientSecret(
+// Ready reports whether all expected OAuth2 providers are registered and
+// reachable. Useful as a health or readiness check.
+func (a *Auth) Ready() bool {
+	for _, name := range []string{"google", "spotify", "apple"} {
+		if _, err := goth.GetProvider(name); err != nil {
+			a.logger.Warn(
+				"OAuth2 provider not ready",
+				slog.String("provider", name),
+			)
+			return false
+		}
+	}
+	return true
+}
+
+// GetProviderName extracts the OAuth2 provider name from the URL path.
+// Expects the provider to be registered as a path parameter e.g. /auth/{provider}.
+func GetProviderName(r *http.Request) (string, error) {
+	provider := r.PathValue("provider")
+	if provider == "" {
+		return "", fmt.Errorf("provider name not found in request path")
+	}
+	return provider, nil
+}
+
+// GenerateAppleClientSecret creates a short-lived ES256-signed JWT that Apple
+// requires as the client_secret during OAuth2 token exchange.
+//
+// The token is valid for 6 months. Apple will reject requests signed with a
+// key older than that, so this should be called fresh on each server start.
+func GenerateAppleClientSecret(
 	teamID, keyID, clientID, privateKeyContent string,
 ) (string, error) {
-	// Decode the PEM-encoded private key
 	block, _ := pem.Decode([]byte(privateKeyContent))
 	if block == nil {
-		return "", fmt.Errorf("failed to decode PEM block from private key")
+		return "", fmt.Errorf(
+			"failed to decode PEM block from Apple private key",
+		)
 	}
 
-	// Parse the PKCS8 private key
 	privateKey, err := x509.ParsePKCS8PrivateKey(block.Bytes)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse private key: %w", err)
+		return "", fmt.Errorf("parse Apple private key: %w", err)
 	}
 
-	// Type assert to ECDSA private key
 	ecdsaKey, ok := privateKey.(*ecdsa.PrivateKey)
 	if !ok {
-		return "", fmt.Errorf("private key is not an ECDSA key")
+		return "", fmt.Errorf("Apple private key is not an ECDSA key")
 	}
 
-	// Create JWT claims
 	now := time.Now()
 	claims := jwt.MapClaims{
 		"iss": teamID,
 		"iat": now.Unix(),
-		"exp": now.Add(180 * 24 * time.Hour).Unix(), // Valid for 6 months
+		"exp": now.Add(180 * 24 * time.Hour).Unix(),
 		"aud": "https://appleid.apple.com",
 		"sub": clientID,
 	}
 
-	// Create token with ES256 algorithm
 	token := jwt.NewWithClaims(jwt.SigningMethodES256, claims)
 	token.Header["kid"] = keyID
 
-	// Sign and return the token
-	signedToken, err := token.SignedString(ecdsaKey)
+	signed, err := token.SignedString(ecdsaKey)
 	if err != nil {
-		return "", fmt.Errorf("failed to sign token: %w", err)
+		return "", fmt.Errorf("sign Apple client secret: %w", err)
 	}
 
-	return signedToken, nil
-}
-
-// GetProviderName extracts the OAuth provider name from the request context.
-// Goth's handlers expect the 'provider' name to be available in the URL query
-// parameter (e.g., ?provider=google) or set in the request context.
-// For mux/router, you typically extract it from a URL path parameter.
-func GetProviderName(r *http.Request) (string, error) {
-	// Try to get from URL query first (e.g., /login?provider=google)
-	provider := r.PathValue("provider")
-	if provider != "" {
-		return provider, nil
-	}
-
-	// Fallback if provider name is not found in query or path.
-	return "", fmt.Errorf("Provider name not found in request")
+	return signed, nil
 }
