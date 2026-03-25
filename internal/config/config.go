@@ -11,10 +11,11 @@ import (
 type Config struct {
 	// JWT token configuration
 	JWTConfig struct {
-		ApiSecret          string `envconfig:"API_SECRET"`
-		ExpireDelta        int    `envconfig:"EXPIRE_DELTA"`
-		RefreshExpireDelta int    `envconfig:"REFRESH_EXPIRE_DELTA"`
-		ServiceExpireDelta int    `envconfig:"SERVICE_EXPIRE_DELTA"`
+		ApiSecret           string   `envconfig:"API_SECRET"`
+		ExpireDelta         int      `envconfig:"EXPIRE_DELTA"`
+		RefreshExpireDelta  int      `envconfig:"REFRESH_EXPIRE_DELTA"`
+		ServiceExpireDelta  int      `envconfig:"SERVICE_EXPIRE_DELTA"`
+		AllowedRedirectURIs []string `envconfig:"ALLOWED_REDIRECT_URIS"`
 	}
 
 	// Authentication configuration

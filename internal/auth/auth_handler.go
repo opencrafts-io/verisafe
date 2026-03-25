@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"context"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -29,11 +31,14 @@ import (
 const (
 	authPlatformWebValue    = "auth.platform.value.web"
 	authPlatformMobileValue = "auth.platform.value.mobile"
+	authCodeTTL             = 60 * time.Second
+	authCodePrefix          = "auth_code:"
 )
 
 type StateData struct {
 	Platform    string
 	RedirectURI string
+	DeepLink    string
 	DeviceName  string
 	DeviceToken string
 }
@@ -92,6 +97,10 @@ func (h *AuthHandler) RegisterHandlers(router *http.ServeMux) {
 	router.HandleFunc("GET /auth/{provider}", h.LoginHandler)
 	router.HandleFunc("/auth/{provider}/callback", h.CallbackHandler)
 	router.Handle(
+		"POST /auth/token/exchange",
+		handlers.AppHandler(h.ExchangeAuthCodeHandler),
+	)
+	router.Handle(
 		"POST /auth/token/refresh",
 		handlers.AppHandler(h.RefreshTokenHandler),
 	)
@@ -107,6 +116,38 @@ func (h *AuthHandler) RegisterHandlers(router *http.ServeMux) {
 			middleware.IsAuthenticated(h.auth.config, h.db, h.cacher, h.logger),
 		)(http.HandlerFunc(h.LogoutHandler)),
 	)
+}
+
+// isRedirectAllowed checks the redirectURI against a server-side allowlist.
+// Never trust caller-supplied redirect URIs without this check.
+func isRedirectAllowed(redirectURI string, allowed []string) bool {
+	for _, a := range allowed {
+		if strings.EqualFold(a, redirectURI) {
+			return true
+		}
+	}
+	return false
+}
+
+type authCodeExchangeRequest struct {
+	Code string `json:"code"`
+}
+
+func (h *AuthHandler) storeAuthCode(
+	ctx context.Context,
+	code string,
+	pair *tokens.TokenPair,
+) error {
+	val, err := json.Marshal(tokenResponse{
+		AccessToken:      pair.AccessToken,
+		RefreshToken:     pair.RawRefreshToken,
+		AccessExpiresAt:  pair.AccessExpiresAt,
+		RefreshExpiresAt: pair.RefreshExpiresAt,
+	})
+	if err != nil {
+		return err
+	}
+	return h.cacher.Set(ctx, authCodePrefix+code, string(val), authCodeTTL)
 }
 
 func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
@@ -131,11 +172,20 @@ func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 			)
 			return
 		}
+
+		if !isRedirectAllowed(
+			redirectURI,
+			h.auth.config.JWTConfig.AllowedRedirectURIs,
+		) {
+			http.Error(w, "redirect_uri not allowed", http.StatusBadRequest)
+			return
+		}
 	}
 
 	state := encodeState(StateData{
 		Platform:    platform,
 		RedirectURI: redirectURI,
+		DeepLink:    r.URL.Query().Get("deep_link"),
 		DeviceName:  r.URL.Query().Get("device_name"),
 		DeviceToken: r.URL.Query().Get("device_token"),
 	})
@@ -276,13 +326,11 @@ func (h *AuthHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.redirectWithTokens(
-		w,
-		r,
-		pair.AccessToken,
-		pair.RawRefreshToken,
-		stateData,
-	)
+	if stateData.Platform == authPlatformMobileValue {
+		h.handleMobileCallback(w, r, pair, stateData)
+	} else {
+		h.redirectWithTokens(w, r, pair, stateData)
+	}
 }
 
 func (h *AuthHandler) RefreshTokenHandler(
@@ -410,6 +458,43 @@ func (h *AuthHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 }
 
+func (h *AuthHandler) ExchangeAuthCodeHandler(
+	w http.ResponseWriter,
+	r *http.Request,
+) error {
+	var req authCodeExchangeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil ||
+		req.Code == "" {
+		return fmt.Errorf("%w: missing or malformed code", core.ErrInvalidInput)
+	}
+
+	key := authCodePrefix + req.Code
+	var resp tokenResponse
+
+	if err := h.cacher.Get(r.Context(), key, &resp); err != nil {
+		if errors.Is(err, core.ErrCacheMiss) {
+			return fmt.Errorf(
+				"%w: invalid or expired code",
+				core.ErrUnauthorized,
+			)
+		}
+		return fmt.Errorf("%w: failed to retrieve auth code", core.ErrInternal)
+	}
+
+	// One-time use — delete immediately after retrieval
+	if err := h.cacher.Delete(r.Context(), key); err != nil {
+		h.logger.Warn(
+			"failed to delete auth code after exchange",
+			slog.Any("error", err),
+		)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(resp)
+	return nil
+}
+
 // --- helpers ---
 
 func (h *AuthHandler) upsertAccount(
@@ -517,24 +602,69 @@ func (h *AuthHandler) upsertSocialConnection(
 	return nil
 }
 
-func (h *AuthHandler) redirectWithTokens(
+func (h *AuthHandler) handleMobileCallback(
 	w http.ResponseWriter,
 	r *http.Request,
-	accessToken, refreshToken string,
-	state *StateData,
+	pair *tokens.TokenPair,
+	stateData *StateData,
 ) {
-	if state.Platform == authPlatformWebValue {
-		http.Redirect(w, r, fmt.Sprintf(
-			"%s?access_token=%s&refresh_token=%s",
-			state.RedirectURI, accessToken, refreshToken,
-		), http.StatusFound)
+	code, err := generateOpaqueCode()
+	if err != nil {
+		h.logger.Error("failed to generate auth code", slog.Any("error", err))
+		http.Error(w, "authentication failed", http.StatusInternalServerError)
 		return
 	}
 
-	http.Redirect(w, r, fmt.Sprintf(
-		"academia://callback?access_token=%s&refresh_token=%s",
-		accessToken, refreshToken,
-	), http.StatusFound)
+	if err := h.storeAuthCode(r.Context(), code, pair); err != nil {
+		h.logger.Error("failed to store auth code", slog.Any("error", err))
+		http.Error(w, "authentication failed", http.StatusInternalServerError)
+		return
+	}
+
+	// Redirect to deep link — tokens never touch the URL
+	// e.g. myapp://auth/callback?code=abc123
+	deepLink := fmt.Sprintf("%s?code=%s", stateData.DeepLink, code)
+	http.Redirect(w, r, deepLink, http.StatusFound)
+}
+
+func generateOpaqueCode() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
+}
+
+func (h *AuthHandler) redirectWithTokens(
+	w http.ResponseWriter,
+	r *http.Request,
+	pair *tokens.TokenPair,
+	stateData *StateData,
+) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "access_token",
+		Value:    pair.AccessToken,
+		Path:     "/",
+		Expires:  pair.AccessExpiresAt,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
+	})
+	http.SetCookie(w, &http.Cookie{
+		Name:     "refresh_token",
+		Value:    pair.RawRefreshToken,
+		Path:     "/",
+		Expires:  pair.RefreshExpiresAt,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
+	})
+
+	target := stateData.RedirectURI
+	if target == "" {
+		target = "/"
+	}
+	http.Redirect(w, r, target, http.StatusFound)
 }
 
 func (h *AuthHandler) publishEvent(
@@ -571,9 +701,10 @@ func patchAppleUserName(r *http.Request, user goth.User) goth.User {
 
 func encodeState(s StateData) string {
 	raw := fmt.Sprintf(
-		"%s|%s|%s|%s",
+		"%s|%s|%s|%s|%s",
 		s.Platform,
 		s.RedirectURI,
+		s.DeepLink,
 		s.DeviceName,
 		s.DeviceToken,
 	)
@@ -591,15 +722,16 @@ func decodeState(r *http.Request) (*StateData, error) {
 		return nil, errors.New("invalid state encoding")
 	}
 
-	parts := strings.SplitN(string(b), "|", 4)
-	if len(parts) != 4 {
+	parts := strings.SplitN(string(b), "|", 5)
+	if len(parts) != 5 {
 		return nil, errors.New("malformed state parameter")
 	}
 
 	return &StateData{
 		Platform:    parts[0],
 		RedirectURI: parts[1],
-		DeviceName:  parts[2],
-		DeviceToken: parts[3],
+		DeepLink:    parts[2],
+		DeviceName:  parts[3],
+		DeviceToken: parts[4],
 	}, nil
 }
