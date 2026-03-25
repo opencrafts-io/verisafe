@@ -6,8 +6,6 @@ definitions:
         example: the provided input is invalid or malformed
         type: string
     type: object
-  netip.Addr:
-    type: object
   service.DeviceOutput:
     properties:
       country:
@@ -22,23 +20,6 @@ definitions:
         type: string
       ip_address:
         type: string
-      last_active_at:
-        type: string
-      platform:
-        type: string
-      user_id:
-        type: string
-    type: object
-  service.DeviceRegistrationInput:
-    properties:
-      country:
-        type: string
-      device_name:
-        type: string
-      device_token:
-        type: string
-      ip_address:
-        $ref: '#/definitions/netip.Addr'
       last_active_at:
         type: string
       platform:
@@ -63,43 +44,6 @@ info:
   title: Verisafe API
   version: "2.0"
 paths:
-  /devices/add:
-    post:
-      consumes:
-      - application/json
-      description: Registers a device for the authenticated user, capturing IP and
-        geolocation
-      parameters:
-      - description: Device registration payload
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/service.DeviceRegistrationInput'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/service.DeviceOutput'
-        "400":
-          description: Invalid input
-          schema:
-            $ref: '#/definitions/core.APIError'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/core.APIError'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/core.APIError'
-      security:
-      - BearerAuth: []
-      summary: Register a new user device
-      tags:
-      - devices
   /devices/mine:
     get:
       description: Returns all devices registered to the currently authenticated user

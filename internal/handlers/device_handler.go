@@ -31,15 +31,6 @@ func (dh *DeviceHandler) RegisterHandlers(
 	router *http.ServeMux,
 ) {
 	router.Handle(
-		"POST /devices/add",
-		middleware.CreateStack(
-			middleware.IsAuthenticated(dh.Cfg, dh.DB, dh.Cacher, dh.Logger),
-		)(
-			AppHandler(dh.RegisterUserDevice),
-		),
-	)
-
-	router.Handle(
 		"GET /devices/mine",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(dh.Cfg, dh.DB, dh.Cacher, dh.Logger),
@@ -47,88 +38,6 @@ func (dh *DeviceHandler) RegisterHandlers(
 			AppHandler(dh.GetPersonalDevices),
 		),
 	)
-}
-
-// RegisterUserDevice godoc
-//
-// @Summary      Register a new user device
-// @Description  Registers a device for the authenticated user, capturing IP and geolocation
-// @Tags         devices
-// @Accept       json
-// @Produce      json
-// @Param        body  body      service.DeviceRegistrationInput  true  "Device registration payload"
-// @Success      201   {object}  service.DeviceOutput
-// @Failure      400   {object}  core.APIError  "Invalid input"
-// @Failure      401   {object}  core.APIError  "Unauthorized"
-// @Failure      500   {object}  core.APIError  "Internal server error"
-// @Security     BearerAuth
-// @Router       /devices/add [post]
-func (dh *DeviceHandler) RegisterUserDevice(
-	w http.ResponseWriter,
-	r *http.Request,
-) error {
-	var input service.DeviceRegistrationInput
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		return fmt.Errorf(
-			"%w: please check your request body",
-			core.ErrInvalidInput,
-		)
-	}
-	claims := r.Context().Value(middleware.AuthUserClaims).(*tokens.VerisafeClaims)
-	userID, err := uuid.Parse(claims.Subject)
-	if err != nil {
-		dh.Logger.Error("Error while parsing user id", slog.Any("error", err))
-		return err
-	}
-	input.UserID = userID
-
-	ip, err := netip.ParseAddr(strings.Split(r.RemoteAddr, ":")[0])
-	if err != nil {
-		return fmt.Errorf(
-			"remote ip addr %w: please check your request body",
-			core.ErrInvalidInput,
-		)
-	}
-
-	input.IpAddress = &ip
-
-	lookupInfo, err := dh.GeoLocator.Lookup(ip)
-	if err != nil {
-		dh.Logger.Error(
-			"Failed to get lookupInfo from host ip address.",
-			slog.Any("error", err),
-			slog.String("ip", ip.String()),
-		)
-	} else {
-		input.Country = &lookupInfo.Country.ISOCode
-	}
-
-	var device *service.DeviceOutput
-	conn, err := dh.DB.Acquire(r.Context())
-	if err != nil {
-		dh.Logger.Error(
-			"Failed to acquire db connection",
-			slog.Any("error", err),
-		)
-		return fmt.Errorf("%w: failed to acquire connection", core.ErrInternal)
-	}
-
-	err = core.WithTransaction(r.Context(), conn, func(tx pgx.Tx) error {
-		svc := service.NewDeviceService(repository.New(tx))
-		var err error
-		device, err = svc.RegisterDevice(r.Context(), input)
-		return err
-	})
-	if err != nil {
-		dh.Logger.Error(
-			"Failed to create new user device",
-			slog.Any("error", err),
-		)
-		return err
-	}
-
-	writeJSON(w, http.StatusCreated, device)
-	return nil
 }
 
 // GetPersonalDevices godoc
