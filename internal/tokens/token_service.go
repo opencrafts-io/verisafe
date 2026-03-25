@@ -40,6 +40,7 @@ func NewTokenService(
 func (ts tokenService) IssueTokenPair(
 	ctx context.Context,
 	userID, deviceID uuid.UUID,
+	familyID uuid.UUID,
 ) (*TokenPair, error) {
 	jti, err := uuid.NewV6()
 	if err != nil {
@@ -61,7 +62,7 @@ func (ts tokenService) IssueTokenPair(
 	tokenParams := repository.RecordIssuedTokenParams{
 		Jti:      jti,
 		UserID:   userID,
-		DeviceID: pgtype.UUID{Bytes: deviceID, Valid: false},
+		DeviceID: pgtype.UUID{Bytes: deviceID, Valid: true},
 		ExpiresAt: pgtype.Timestamp{
 			Time: accessExpiry, Valid: true,
 		},
@@ -78,7 +79,6 @@ func (ts tokenService) IssueTokenPair(
 	}
 
 	tokenHash := hashToken(rawRefreshToken)
-	familyID := uuid.New()
 
 	_, err = ts.repo.RecordIssuedRefreshToken(
 		ctx,
@@ -125,7 +125,12 @@ func (ts tokenService) RotateRefreshToken(
 		return nil, errors.New("invalid or expired refresh token")
 	}
 
-	return ts.IssueTokenPair(ctx, existing.UserID, existing.DeviceID.Bytes)
+	return ts.IssueTokenPair(
+		ctx,
+		existing.UserID,
+		existing.DeviceID.Bytes,
+		existing.FamilyID,
+	)
 }
 
 func (ts tokenService) RevokeFamily(

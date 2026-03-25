@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/markbates/goth"
@@ -255,7 +256,14 @@ func (h *AuthHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 			return fmt.Errorf("register device: %w", err)
 		}
 
-		pair, err = tokenSvc.IssueTokenPair(r.Context(), account.ID, device.ID)
+		tokenFamily := uuid.New()
+
+		pair, err = tokenSvc.IssueTokenPair(
+			r.Context(),
+			account.ID,
+			device.ID,
+			tokenFamily,
+		)
 		if err != nil {
 			return fmt.Errorf("issue token pair: %w", err)
 		}

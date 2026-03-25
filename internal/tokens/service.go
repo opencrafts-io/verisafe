@@ -74,6 +74,7 @@ type TokenService interface {
 	IssueTokenPair(
 		ctx context.Context,
 		userID, deviceID uuid.UUID,
+		familyID uuid.UUID,
 	) (*TokenPair, error)
 
 	// RotateRefreshToken validates the incoming raw refresh token, marks it as used,
