@@ -11,8 +11,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/opencrafts-io/verisafe/database"
 	"github.com/opencrafts-io/verisafe/internal/config"
+	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/eventbus"
+	"github.com/opencrafts-io/verisafe/internal/geo"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
+	"github.com/redis/go-redis/v9"
 )
 
 type App struct {
@@ -22,12 +25,13 @@ type App struct {
 	userEventBus         *eventbus.UserEventBus
 	notificationEventBus *eventbus.NotificationEventBus
 	institutionEventBus  *eventbus.InstitutionEventBus
+	geoIPLocator         *geo.GeoIPLocater
+	cacher               core.Cacher
 }
 
 // Returns a new instance of the application
 // with a connection instance to the database pool
 func New(logger *slog.Logger, config *config.Config) (*App, error) {
-
 	dbConfig, err := pgxpool.ParseConfig(fmt.Sprintf(
 		"postgresql://%s:%s@%s:%d/%s?sslmode=disable",
 		config.DatabaseConfig.DatabaseUser,
@@ -42,12 +46,22 @@ func New(logger *slog.Logger, config *config.Config) (*App, error) {
 
 	dbConfig.MaxConns = config.DatabaseConfig.DatabasePoolMaxConnections
 	dbConfig.MinConns = config.DatabaseConfig.DatabasePoolMinConnections
-	dbConfig.MaxConnLifetime = time.Hour * time.Duration(config.DatabaseConfig.DatabasePoolMaxConnectionLifetime)
+	dbConfig.MaxConnLifetime = time.Hour * time.Duration(
+		config.DatabaseConfig.DatabasePoolMaxConnectionLifetime,
+	)
 
 	connPool, err := pgxpool.NewWithConfig(context.Background(), dbConfig)
 	if err != nil {
 		return nil, err
 	}
+
+	rdb := redis.NewClient(&redis.Options{
+		Addr:       config.RedisConfig.RedisAddress,
+		Password:   config.RedisConfig.RedisPassword,
+		DB:         config.RedisConfig.RedisDB,
+		ClientName: "io.opencrats.verisafe",
+	})
+	cache := core.NewRedisCacher(rdb)
 
 	userEventBus, err := eventbus.NewUserEventBus(config, logger)
 	if err != nil {
@@ -59,7 +73,18 @@ func New(logger *slog.Logger, config *config.Config) (*App, error) {
 		return nil, err
 	}
 
-	notificationEventBus, err := eventbus.NewNotificationEventBus(config, logger)
+	notificationEventBus, err := eventbus.NewNotificationEventBus(
+		config,
+		logger,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	gil, err := geo.NewGeoIPLocater(
+		"./database/mmdb/GeoLite2-City.mmdb",
+		"./database/mmdb/GeoLite2-ASN.mmdb",
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -71,12 +96,13 @@ func New(logger *slog.Logger, config *config.Config) (*App, error) {
 		userEventBus:         userEventBus,
 		notificationEventBus: notificationEventBus,
 		institutionEventBus:  institutionEventBus,
+		geoIPLocator:         gil,
+		cacher:               cache,
 	}, nil
 }
 
 // Starts the application server
 func (a *App) Start(ctx context.Context) error {
-
 	database.RunGooseMigrations(a.logger, a.pool)
 
 	allowedOrigins := []string{
@@ -92,7 +118,11 @@ func (a *App) Start(ctx context.Context) error {
 	router := a.loadRoutes()
 
 	srv := &http.Server{
-		Addr:    fmt.Sprintf("%s:%d", a.config.AppConfig.Address, a.config.AppConfig.Port),
+		Addr: fmt.Sprintf(
+			"%s:%d",
+			a.config.AppConfig.Address,
+			a.config.AppConfig.Port,
+		),
 		Handler: middlewares(router),
 	}
 
@@ -123,7 +153,8 @@ func (a *App) Start(ctx context.Context) error {
 	sCtx, cancel := context.WithTimeout(context.Background(), time.Second*15)
 	defer cancel()
 
-	srv.Shutdown(sCtx)	
+	srv.Shutdown(sCtx)
+	a.geoIPLocator.Close()
 	a.userEventBus.Close()
 	a.institutionEventBus.Close()
 	a.notificationEventBus.Close()

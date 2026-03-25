@@ -15,7 +15,10 @@ type NotificationEventBus struct {
 }
 
 // NewUserEventBus creates a new UserEventBus instance.
-func NewNotificationEventBus(cfg *config.Config, logger *slog.Logger) (*NotificationEventBus, error) {
+func NewNotificationEventBus(
+	cfg *config.Config,
+	logger *slog.Logger,
+) (*NotificationEventBus, error) {
 	rabbitMQConnString := fmt.Sprintf("amqp://%s:%s@%s:%d/",
 		cfg.RabbitMQConfig.RabbitMQUser,
 		cfg.RabbitMQConfig.RabbitMQPass,
@@ -32,7 +35,10 @@ func NewNotificationEventBus(cfg *config.Config, logger *slog.Logger) (*Notifica
 
 	if err != nil {
 		logger.Error("Failed to initialize RabbitMQ event bus", "error", err)
-		return nil, fmt.Errorf("failed to initialize RabbitMQ event bus: %w", err)
+		return nil, fmt.Errorf(
+			"failed to initialize RabbitMQ event bus: %w",
+			err,
+		)
 	}
 
 	return &NotificationEventBus{

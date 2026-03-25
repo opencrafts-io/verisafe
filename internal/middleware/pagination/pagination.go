@@ -31,7 +31,8 @@ func ParsePageParams(r *http.Request) PageParams {
 	}
 
 	if ps := r.URL.Query().Get("page_size"); ps != "" {
-		if parsed, err := strconv.Atoi(ps); err == nil && parsed > 0 && parsed <= 100 {
+		if parsed, err := strconv.Atoi(ps); err == nil && parsed > 0 &&
+			parsed <= 100 {
 			pageSize = parsed
 		}
 	}
@@ -44,14 +45,21 @@ func ParsePageParams(r *http.Request) PageParams {
 }
 
 // BuildPaginatedResponse creates DRF-style response
-func BuildPaginatedResponse(r *http.Request, totalCount int64, results any, params PageParams) PaginatedResponse {
+func BuildPaginatedResponse(
+	r *http.Request,
+	totalCount int64,
+	results any,
+	params PageParams,
+) PaginatedResponse {
 	scheme := "http"
 	if r.TLS != nil {
 		scheme = "https"
 	}
 	baseURL := fmt.Sprintf("%s://%s%s", scheme, r.Host, r.URL.Path)
 
-	totalPages := int((totalCount + int64(params.PageSize) - 1) / int64(params.PageSize))
+	totalPages := int(
+		(totalCount + int64(params.PageSize) - 1) / int64(params.PageSize),
+	)
 
 	var next *string
 	var previous *string

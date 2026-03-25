@@ -10,12 +10,40 @@ import (
 	"github.com/opencrafts-io/verisafe/internal/config"
 )
 
-func main() {
+// @title           Verisafe API
+// @version         2.0
+// @description     Verisafe service API
+// @termsOfService  http://swagger.io/terms/
 
+// @contact.name   Open Crafts Interactive
+// @contact.url    https://opencrafts.io/about
+// @contact.email  developers@opencrafts.io
+
+// @license.name  Apache 2.0
+// @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host      qaverisafe.opencrafts.io
+// @BasePath  /
+
+// @securityDefinitions.apikey BearerToken
+// @in header
+// @name Authorization
+// @securityDefinitions.apikey ApiKey
+// @in header
+// @name X-Api-Key
+// @security BearerToken
+// @security ApiKey
+
+// @externalDocs.description  OpenAPI
+// @externalDocs.url          https://swagger.io/resources/open-api/
+func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		logger.Error("Failed to load configuration file", slog.Any("error", err))
+		logger.Error(
+			"Failed to load configuration file",
+			slog.Any("error", err),
+		)
 		return
 	}
 
@@ -30,5 +58,4 @@ func main() {
 	if err := app.Start(ctx); err != nil {
 		logger.Error("Failed to start app.", slog.Any("error", err))
 	}
-
 }
