@@ -23,12 +23,17 @@
 package geo
 
 import (
+	"embed"
 	"errors"
 	"fmt"
 	"net/netip"
+	"os"
 
 	"github.com/oschwald/geoip2-golang/v2"
 )
+
+//go:embed mmdb/*.mmdb
+var mmdbFS embed.FS
 
 // CountryInfo holds country-level details for a given IP address.
 type CountryInfo struct {
@@ -97,24 +102,86 @@ type GeoIPLocater struct {
 	asnDB  *geoip2.Reader
 }
 
+func writeTempFile(data []byte, pattern string) (string, error) {
+	tmpFile, err := os.CreateTemp("", pattern)
+	if err != nil {
+		return "", err
+	}
+
+	if _, err := tmpFile.Write(data); err != nil {
+		tmpFile.Close()
+		return "", err
+	}
+
+	tmpFile.Close()
+	return tmpFile.Name(), nil
+}
+
 // NewGeoIPLocater opens the GeoLite2-City and GeoLite2-ASN databases at the
 // given paths. The caller must call Close when done to release file handles.
 //
 // Returns an error if either file is missing, unreadable, or not a valid
 // MaxMind database.
 func NewGeoIPLocater(cityDBPath, asnDBPath string) (*GeoIPLocater, error) {
-	cityDB, err := geoip2.Open(cityDBPath)
+	var cityDB *geoip2.Reader
+	var asnDB *geoip2.Reader
+	var err error
+
+	//  If paths are provided  use filesystem
+	if cityDBPath != "" && asnDBPath != "" {
+		cityDB, err = geoip2.Open(cityDBPath)
+		if err != nil {
+			return nil, err
+		}
+
+		asnDB, err = geoip2.Open(asnDBPath)
+		if err != nil {
+			cityDB.Close()
+			return nil, err
+		}
+
+		return &GeoIPLocater{
+			cityDB: cityDB,
+			asnDB:  asnDB,
+		}, nil
+	}
+
+	//  Otherwise  fallback to embedded files
+	cityData, err := mmdbFS.ReadFile("mmdb/GeoLite2-City.mmdb")
 	if err != nil {
 		return nil, err
 	}
 
-	asnDB, err := geoip2.Open(asnDBPath)
+	asnData, err := mmdbFS.ReadFile("mmdb/GeoLite2-ASN.mmdb")
 	if err != nil {
-		cityDB.Close() // clean up the already-opened db
 		return nil, err
 	}
 
-	return &GeoIPLocater{cityDB: cityDB, asnDB: asnDB}, nil
+	cityPath, err := writeTempFile(cityData, "city-*.mmdb")
+	if err != nil {
+		return nil, err
+	}
+
+	asnPath, err := writeTempFile(asnData, "asn-*.mmdb")
+	if err != nil {
+		return nil, err
+	}
+
+	cityDB, err = geoip2.Open(cityPath)
+	if err != nil {
+		return nil, err
+	}
+
+	asnDB, err = geoip2.Open(asnPath)
+	if err != nil {
+		cityDB.Close()
+		return nil, err
+	}
+
+	return &GeoIPLocater{
+		cityDB: cityDB,
+		asnDB:  asnDB,
+	}, nil
 }
 
 // Lookup resolves the given IP address to a LocationInfo containing country,
