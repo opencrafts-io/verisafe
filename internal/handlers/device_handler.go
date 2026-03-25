@@ -1,12 +1,9 @@
 package handlers
 
 import (
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
-	"net/netip"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"

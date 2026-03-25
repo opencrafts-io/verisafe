@@ -15,6 +15,10 @@ type IDBProvider interface {
 	Acquire(ctx context.Context) (IDBConnection, error)
 }
 
+// IDBConnection wraps a single acquired database connection.
+// Release must always be called when the connection is no longer needed
+// to return it to the pool.
 type IDBConnection interface {
 	Begin(ctx context.Context) (pgx.Tx, error)
+	Release()
 }
