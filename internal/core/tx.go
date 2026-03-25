@@ -23,7 +23,7 @@ func WithTransaction(
 	ctx context.Context,
 	db IDBConnection,
 	fn func(tx pgx.Tx) error,
-) error {
+) (err error) {
 	tx, err := db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("%w: failed to begin transaction", ErrInternal)
@@ -39,11 +39,11 @@ func WithTransaction(
 		}
 	}()
 
-	if err := fn(tx); err != nil {
+	if err = fn(tx); err != nil {
 		return err
 	}
 
-	if err := tx.Commit(ctx); err != nil {
+	if err = tx.Commit(ctx); err != nil {
 		return fmt.Errorf("%w: failed to commit tx", ErrInternal)
 	}
 
