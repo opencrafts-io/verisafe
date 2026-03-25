@@ -87,6 +87,21 @@ func (mr *MockQuerierMockRecorder) AssignRolePermission(ctx, arg any) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignRolePermission", reflect.TypeOf((*MockQuerier)(nil).AssignRolePermission), ctx, arg)
 }
 
+// ClaimRefreshToken mocks base method.
+func (m *MockQuerier) ClaimRefreshToken(ctx context.Context, tokenHash string) (repository.RefreshToken, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ClaimRefreshToken", ctx, tokenHash)
+	ret0, _ := ret[0].(repository.RefreshToken)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ClaimRefreshToken indicates an expected call of ClaimRefreshToken.
+func (mr *MockQuerierMockRecorder) ClaimRefreshToken(ctx, tokenHash any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClaimRefreshToken", reflect.TypeOf((*MockQuerier)(nil).ClaimRefreshToken), ctx, tokenHash)
+}
+
 // CleanupExpiredServiceTokens mocks base method.
 func (m *MockQuerier) CleanupExpiredServiceTokens(ctx context.Context) error {
 	m.ctrl.T.Helper()
