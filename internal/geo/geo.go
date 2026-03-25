@@ -24,6 +24,7 @@ package geo
 
 import (
 	"errors"
+	"fmt"
 	"net/netip"
 
 	"github.com/oschwald/geoip2-golang/v2"
@@ -137,9 +138,16 @@ func (gil *GeoIPLocater) Lookup(ip netip.Addr) (*LocationInfo, error) {
 		return nil, err
 	}
 
+	if !cityRecord.HasData() {
+		return nil, fmt.Errorf("city record has no data for IP %s", ip)
+	}
+
 	asnRecord, err := gil.asnDB.ASN(ip)
 	if err != nil {
 		return nil, err
+	}
+	if !asnRecord.HasData() {
+		return nil, fmt.Errorf("ASN record has no data for IP %s", ip)
 	}
 
 	subdivision := ""
