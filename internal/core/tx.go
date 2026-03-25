@@ -16,15 +16,18 @@ import (
 //  3. Guards against failures: if 'fn' or 'Commit' returns an error,
 //     the transaction is automatically rolled back.
 //  4. Commits the transaction if the closure finishes without error.
+//  5. Automatically closes the provided connection
 //
 // Note: We use a named return parameter 'err' to ensure the deferred
 // rollback block can inspect the final error state of the function.
 func WithTransaction(
 	ctx context.Context,
-	db IDBConnection,
+	conn IDBConnection,
 	fn func(tx pgx.Tx) error,
 ) (err error) {
-	tx, err := db.Begin(ctx)
+	defer conn.Release()
+
+	tx, err := conn.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("%w: failed to begin transaction", ErrInternal)
 	}
