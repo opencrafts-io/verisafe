@@ -82,8 +82,8 @@ func New(logger *slog.Logger, config *config.Config) (*App, error) {
 	}
 
 	gil, err := geo.NewGeoIPLocater(
-		"./database/mmdb/GeoLite2-City.mmdb",
-		"./database/mmdb/GeoLite2-ASN.mmdb",
+		"",
+		"",
 	)
 	if err != nil {
 		return nil, err
