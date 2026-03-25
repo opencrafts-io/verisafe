@@ -9,29 +9,32 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/opencrafts-io/verisafe/internal/config"
+	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/repository"
 )
 
 type PermissionHandler struct {
+	Cacher core.Cacher
+	DB     core.IDBProvider
+	Cfg    *config.Config
 	Logger *slog.Logger
 }
 
 // Registers all the necessary routes associated with this handler group
-func (ph *PermissionHandler) RegisterRoutes(
-	cfg *config.Config,
+func (ph *PermissionHandler) RegisterHandlers(
 	router *http.ServeMux,
 ) {
 	router.Handle("POST /permissions/create",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg, ph.Logger),
+			middleware.IsAuthenticated(ph.Cfg, ph.DB, ph.Cacher, ph.Logger),
 			middleware.HasPermission([]string{"create:permission"}),
 		)(http.HandlerFunc(ph.CreatePermission)),
 	)
 
 	router.Handle("GET /permissions",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg, ph.Logger),
+			middleware.IsAuthenticated(ph.Cfg, ph.DB, ph.Cacher, ph.Logger),
 			middleware.HasPermission([]string{"read:permission:any"}),
 			middleware.PaginationMiddleware(10, 100),
 		)(http.HandlerFunc(ph.GetAllPermissions)),
@@ -39,35 +42,35 @@ func (ph *PermissionHandler) RegisterRoutes(
 
 	router.Handle("GET /permissions/{id}",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg, ph.Logger),
+			middleware.IsAuthenticated(ph.Cfg, ph.DB, ph.Cacher, ph.Logger),
 			middleware.HasPermission([]string{"read:permission:any"}),
 		)(http.HandlerFunc(ph.GetPermissionByID)),
 	)
 
 	router.Handle("GET /permissions/user/{id}",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg, ph.Logger),
+			middleware.IsAuthenticated(ph.Cfg, ph.DB, ph.Cacher, ph.Logger),
 			middleware.HasPermission([]string{"read:permission:user"}),
 		)(http.HandlerFunc(ph.GetAllUserPermissions)),
 	)
 
 	router.Handle("PATCH /permissions/{id}",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg, ph.Logger),
+			middleware.IsAuthenticated(ph.Cfg, ph.DB, ph.Cacher, ph.Logger),
 			middleware.HasPermission([]string{"update:permission:any"}),
 		)(http.HandlerFunc(ph.UpdatePermission)),
 	)
 
 	router.Handle("GET /permissions/assign/{perm_id}/{role_id}",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg, ph.Logger),
+			middleware.IsAuthenticated(ph.Cfg, ph.DB, ph.Cacher, ph.Logger),
 			middleware.HasPermission([]string{"assign:permission:role"}),
 		)(http.HandlerFunc(ph.AssignRolePermission)),
 	)
 
 	router.Handle("DELETE /permissions/revoke/{perm_id}/{role_id}",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg, ph.Logger),
+			middleware.IsAuthenticated(ph.Cfg, ph.DB, ph.Cacher, ph.Logger),
 			middleware.HasPermission([]string{"revoke:permission:role"}),
 		)(http.HandlerFunc(ph.RevokeRolePermission)),
 	)
@@ -191,7 +194,6 @@ func (ph *PermissionHandler) GetPermissionByID(
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(role)
-
 }
 
 // Retrieves all permissions in the system
@@ -199,7 +201,6 @@ func (ph *PermissionHandler) GetAllPermissions(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
-
 	pagination := middleware.GetPagination(r.Context())
 
 	w.Header().Set("Content-Type", "application/json")
@@ -241,7 +242,6 @@ func (ph *PermissionHandler) GetAllPermissions(
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(roles)
-
 }
 
 // Retrieves all permissions associated
@@ -293,7 +293,6 @@ func (ph *PermissionHandler) GetAllUserPermissions(
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(roles)
-
 }
 
 // Updates a permission
@@ -440,7 +439,6 @@ func (ph *PermissionHandler) AssignRolePermission(
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).
 		Encode(map[string]any{"message": "Permission successfully assigned"})
-
 }
 
 func (ph *PermissionHandler) RevokeRolePermission(
@@ -522,5 +520,4 @@ func (ph *PermissionHandler) RevokeRolePermission(
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).
 		Encode(map[string]any{"message": "Permission successfully revoked from role"})
-
 }

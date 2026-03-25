@@ -16,23 +16,24 @@ import (
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/repository"
 	"github.com/opencrafts-io/verisafe/internal/service"
-	"github.com/opencrafts-io/verisafe/internal/utils"
+	"github.com/opencrafts-io/verisafe/internal/tokens"
 )
 
 type DeviceHandler struct {
 	GeoLocator *geo.GeoIPLocater
 	DB         core.IDBProvider
+	Cacher     core.Cacher
 	Logger     *slog.Logger
+	Cfg        *config.Config
 }
 
-func (dh *DeviceHandler) RegisterRoutes(
-	config *config.Config,
+func (dh *DeviceHandler) RegisterHandlers(
 	router *http.ServeMux,
 ) {
 	router.Handle(
 		"POST /devices/add",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(config, dh.Logger),
+			middleware.IsAuthenticated(dh.Cfg, dh.DB, dh.Cacher, dh.Logger),
 		)(
 			AppHandler(dh.RegisterUserDevice),
 		),
@@ -41,7 +42,7 @@ func (dh *DeviceHandler) RegisterRoutes(
 	router.Handle(
 		"GET /devices/mine",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(config, dh.Logger),
+			middleware.IsAuthenticated(dh.Cfg, dh.DB, dh.Cacher, dh.Logger),
 		)(
 			AppHandler(dh.GetPersonalDevices),
 		),
@@ -73,7 +74,7 @@ func (dh *DeviceHandler) RegisterUserDevice(
 			core.ErrInvalidInput,
 		)
 	}
-	claims := r.Context().Value(middleware.AuthUserClaims).(*utils.VerisafeClaims)
+	claims := r.Context().Value(middleware.AuthUserClaims).(*tokens.VerisafeClaims)
 	userID, err := uuid.Parse(claims.Subject)
 	if err != nil {
 		dh.Logger.Error("Error while parsing user id", slog.Any("error", err))
@@ -145,7 +146,7 @@ func (dh *DeviceHandler) GetPersonalDevices(
 	w http.ResponseWriter,
 	r *http.Request,
 ) error {
-	claims := r.Context().Value(middleware.AuthUserClaims).(*utils.VerisafeClaims)
+	claims := r.Context().Value(middleware.AuthUserClaims).(*tokens.VerisafeClaims)
 	userID, err := uuid.Parse(claims.Subject)
 	if err != nil {
 		dh.Logger.Error("Error while parsing user id", slog.Any("error", err))

@@ -52,9 +52,9 @@ func (q *Queries) MarkRefreshTokenUsed(ctx context.Context, id uuid.UUID) error 
 
 const recordIssuedRefreshToken = `-- name: RecordIssuedRefreshToken :one
 INSERT INTO refresh_tokens (
-  token_hash, user_id, device_id, jwt_jti, issued_at, family_id
+  token_hash, user_id, device_id, jwt_jti, issued_at, expires_at, family_id
 )
-VALUES($1, $2, $3, $4, $5, $6)
+VALUES($1, $2, $3, $4, $5, $6, $7)
 RETURNING id, token_hash, user_id, device_id, jwt_jti, issued_at, expires_at, used_at, revoked_at, replaced_by, family_id
 `
 
@@ -64,6 +64,7 @@ type RecordIssuedRefreshTokenParams struct {
 	DeviceID  pgtype.UUID      `json:"device_id"`
 	JwtJti    pgtype.UUID      `json:"jwt_jti"`
 	IssuedAt  pgtype.Timestamp `json:"issued_at"`
+	ExpiresAt pgtype.Timestamp `json:"expires_at"`
 	FamilyID  uuid.UUID        `json:"family_id"`
 }
 
@@ -75,6 +76,7 @@ func (q *Queries) RecordIssuedRefreshToken(ctx context.Context, arg RecordIssued
 		arg.DeviceID,
 		arg.JwtJti,
 		arg.IssuedAt,
+		arg.ExpiresAt,
 		arg.FamilyID,
 	)
 	var i RefreshToken

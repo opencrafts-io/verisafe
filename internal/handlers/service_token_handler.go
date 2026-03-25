@@ -14,14 +14,17 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/opencrafts-io/verisafe/internal/config"
+	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/repository"
-	"github.com/opencrafts-io/verisafe/internal/utils"
+	"github.com/opencrafts-io/verisafe/internal/tokens"
 )
 
 type ServiceTokenHandler struct {
-	Logger *slog.Logger
+	Cacher core.Cacher
+	DB     core.IDBProvider
 	Cfg    *config.Config
+	Logger *slog.Logger
 }
 
 // ServiceTokenRequest represents the request to create a service token
@@ -79,56 +82,56 @@ func (sth *ServiceTokenHandler) RegisterHandlers(router *http.ServeMux) {
 	// Service token management routes
 	router.Handle("POST /api/v1/service-tokens",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(sth.Cfg, sth.Logger),
+			middleware.IsAuthenticated(sth.Cfg, sth.DB, sth.Cacher, sth.Logger),
 			middleware.HasPermission([]string{"create:service_token:own"}),
 		)(http.HandlerFunc(sth.CreateServiceToken)))
 
 	router.Handle("GET /api/v1/service-tokens",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(sth.Cfg, sth.Logger),
+			middleware.IsAuthenticated(sth.Cfg, sth.DB, sth.Cacher, sth.Logger),
 			middleware.HasPermission([]string{"list:service_token:own"}),
 		)(http.HandlerFunc(sth.ListServiceTokens)))
 
 	router.Handle("GET /api/v1/service-tokens/{id}",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(sth.Cfg, sth.Logger),
+			middleware.IsAuthenticated(sth.Cfg, sth.DB, sth.Cacher, sth.Logger),
 			middleware.HasPermission([]string{"read:service_token:own"}),
 		)(http.HandlerFunc(sth.GetServiceToken)))
 
 	router.Handle("PUT /api/v1/service-tokens/{id}",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(sth.Cfg, sth.Logger),
+			middleware.IsAuthenticated(sth.Cfg, sth.DB, sth.Cacher, sth.Logger),
 			middleware.HasPermission([]string{"update:service_token:own"}),
 		)(http.HandlerFunc(sth.UpdateServiceToken)))
 
 	router.Handle("POST /api/v1/service-tokens/{id}/rotate",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(sth.Cfg, sth.Logger),
+			middleware.IsAuthenticated(sth.Cfg, sth.DB, sth.Cacher, sth.Logger),
 			middleware.HasPermission([]string{"rotate:service_token:own"}),
 		)(http.HandlerFunc(sth.RotateServiceToken)))
 
 	router.Handle("DELETE /api/v1/service-tokens/{id}",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(sth.Cfg, sth.Logger),
+			middleware.IsAuthenticated(sth.Cfg, sth.DB, sth.Cacher, sth.Logger),
 			middleware.HasPermission([]string{"revoke:service_token:own"}),
 		)(http.HandlerFunc(sth.RevokeServiceToken)))
 
 	router.Handle("GET /api/v1/service-tokens/stats",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(sth.Cfg, sth.Logger),
+			middleware.IsAuthenticated(sth.Cfg, sth.DB, sth.Cacher, sth.Logger),
 			middleware.HasPermission([]string{"read:service_token:own"}),
 		)(http.HandlerFunc(sth.GetServiceTokenStats)))
 
 	// Admin routes for managing any service tokens
 	router.Handle("GET /api/v1/admin/service-tokens",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(sth.Cfg, sth.Logger),
+			middleware.IsAuthenticated(sth.Cfg, sth.DB, sth.Cacher, sth.Logger),
 			middleware.HasPermission([]string{"list:service_token:any"}),
 		)(http.HandlerFunc(sth.ListAllServiceTokens)))
 
 	router.Handle("POST /api/v1/admin/service-tokens/cleanup",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(sth.Cfg, sth.Logger),
+			middleware.IsAuthenticated(sth.Cfg, sth.DB, sth.Cacher, sth.Logger),
 			middleware.HasPermission([]string{"update:service_token:any"}),
 		)(http.HandlerFunc(sth.CleanupExpiredTokens)))
 }
@@ -138,7 +141,7 @@ func (sth *ServiceTokenHandler) CreateServiceToken(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
-	claims := r.Context().Value(middleware.AuthUserClaims).(*utils.VerisafeClaims)
+	claims := r.Context().Value(middleware.AuthUserClaims).(*tokens.VerisafeClaims)
 	accountID, err := uuid.Parse(claims.Subject)
 	if err != nil {
 		sth.Logger.Error(
@@ -267,7 +270,7 @@ func (sth *ServiceTokenHandler) CreateServiceToken(
 			AccountID:   accountID,
 			Name:        req.Name,
 			Description: req.Description,
-			TokenHash:   utils.HashToken(token),
+			TokenHash:   tokens.HashToken(token),
 			ExpiresAt:   expiresAt,
 			Scopes:      req.Scopes,
 			MaxUses: func() *int32 {
@@ -346,7 +349,7 @@ func (sth *ServiceTokenHandler) ListServiceTokens(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
-	claims := r.Context().Value(middleware.AuthUserClaims).(*utils.VerisafeClaims)
+	claims := r.Context().Value(middleware.AuthUserClaims).(*tokens.VerisafeClaims)
 	accountID, err := uuid.Parse(claims.Subject)
 	if err != nil {
 		sth.Logger.Error(
@@ -409,7 +412,7 @@ func (sth *ServiceTokenHandler) GetServiceToken(
 		return
 	}
 
-	claims := r.Context().Value(middleware.AuthUserClaims).(*utils.VerisafeClaims)
+	claims := r.Context().Value(middleware.AuthUserClaims).(*tokens.VerisafeClaims)
 	accountID, err := uuid.Parse(claims.Subject)
 	if err != nil {
 		sth.Logger.Error(
@@ -475,7 +478,7 @@ func (sth *ServiceTokenHandler) UpdateServiceToken(
 		return
 	}
 
-	claims := r.Context().Value(middleware.AuthUserClaims).(*utils.VerisafeClaims)
+	claims := r.Context().Value(middleware.AuthUserClaims).(*tokens.VerisafeClaims)
 	accountID, err := uuid.Parse(claims.Subject)
 	if err != nil {
 		sth.Logger.Error(
@@ -650,7 +653,7 @@ func (sth *ServiceTokenHandler) RotateServiceToken(
 		return
 	}
 
-	claims := r.Context().Value(middleware.AuthUserClaims).(*utils.VerisafeClaims)
+	claims := r.Context().Value(middleware.AuthUserClaims).(*tokens.VerisafeClaims)
 	accountID, err := uuid.Parse(claims.Subject)
 	if err != nil {
 		sth.Logger.Error(
@@ -726,7 +729,7 @@ func (sth *ServiceTokenHandler) RotateServiceToken(
 		r.Context(),
 		repository.RotateServiceTokenParams{
 			ID:        tokenID,
-			TokenHash: utils.HashToken(newToken),
+			TokenHash: tokens.HashToken(newToken),
 			ExpiresAt: token.ExpiresAt,
 		},
 	)
@@ -795,7 +798,7 @@ func (sth *ServiceTokenHandler) RevokeServiceToken(
 		return
 	}
 
-	claims := r.Context().Value(middleware.AuthUserClaims).(*utils.VerisafeClaims)
+	claims := r.Context().Value(middleware.AuthUserClaims).(*tokens.VerisafeClaims)
 	accountID, err := uuid.Parse(claims.Subject)
 	if err != nil {
 		sth.Logger.Error(
@@ -887,7 +890,7 @@ func (sth *ServiceTokenHandler) GetServiceTokenStats(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
-	claims := r.Context().Value(middleware.AuthUserClaims).(*utils.VerisafeClaims)
+	claims := r.Context().Value(middleware.AuthUserClaims).(*tokens.VerisafeClaims)
 	accountID, err := uuid.Parse(claims.Subject)
 	if err != nil {
 		sth.Logger.Error(

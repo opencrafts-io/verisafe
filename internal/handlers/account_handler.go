@@ -16,13 +16,16 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/opencrafts-io/verisafe/internal/config"
+	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/eventbus"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/repository"
-	"github.com/opencrafts-io/verisafe/internal/utils"
+	"github.com/opencrafts-io/verisafe/internal/tokens"
 )
 
 type AccountHandler struct {
+	Cacher       core.Cacher
+	DB           core.IDBProvider
 	Logger       *slog.Logger
 	Cfg          *config.Config
 	UserEventBus *eventbus.UserEventBus
@@ -31,62 +34,62 @@ type AccountHandler struct {
 func (ah *AccountHandler) RegisterHandlers(router *http.ServeMux) {
 	router.Handle("POST /accounts/bot/create",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(ah.Cfg, ah.Logger),
+			middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 			middleware.HasPermission([]string{"create:account:any"}),
 		)(http.HandlerFunc(ah.CreateBotAccount)),
 	)
 
 	router.Handle("GET /accounts/fanout",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(ah.Cfg, ah.Logger),
+			middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 			middleware.HasPermission([]string{"create:account:any"}),
 		)(http.HandlerFunc(ah.FanoutAccouts)),
 	)
 
 	router.Handle("GET /accounts/me",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(ah.Cfg, ah.Logger),
+			middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 			middleware.HasPermission([]string{"read:account:own"}),
 		)(http.HandlerFunc(ah.GetPersonalAccount)),
 	)
 
 	router.Handle("GET /accounts/all",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(ah.Cfg, ah.Logger),
+			middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 			middleware.HasPermission([]string{"read:account:any"}),
 		)(http.HandlerFunc(ah.GetAllUserAccounts)),
 	)
 
 	router.Handle("PATCH /accounts/me",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(ah.Cfg, ah.Logger),
+			middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 			middleware.HasPermission([]string{"update:account:own"}),
 		)(http.HandlerFunc(ah.UpdatePersonalAccount)),
 	)
 
 	router.Handle("POST /accounts/deletion-request",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(ah.Cfg, ah.Logger),
+			middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 			middleware.HasPermission([]string{"update:account:own"}),
 		)(http.HandlerFunc(ah.MarkAccountForDeletion)),
 	)
 	router.Handle("POST /accounts/recovery",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(ah.Cfg, ah.Logger),
+			middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 			middleware.HasPermission([]string{"update:account:own"}),
 		)(http.HandlerFunc(ah.RecoverAccountFromDeletion)),
 	)
 
 	router.Handle("PATCH /accounts/me/phone",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(ah.Cfg, ah.Logger),
+			middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 			middleware.HasPermission([]string{"update:account:own"}),
 		)(http.HandlerFunc(ah.VerifyPhone)),
 	)
 
 	router.Handle("GET /accounts/search/email",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(ah.Cfg, ah.Logger),
+			middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 			middleware.HasPermission([]string{"read:account:any"}),
 			middleware.PaginationMiddleware(10, 100),
 		)(http.HandlerFunc(ah.SearchAccountsByEmail)),
@@ -94,7 +97,7 @@ func (ah *AccountHandler) RegisterHandlers(router *http.ServeMux) {
 
 	router.Handle("GET /accounts/search/name",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(ah.Cfg, ah.Logger),
+			middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 			middleware.HasPermission([]string{"read:account:any"}),
 			middleware.PaginationMiddleware(10, 100),
 		)(http.HandlerFunc(ah.SearchAccountsByName)),
@@ -102,7 +105,7 @@ func (ah *AccountHandler) RegisterHandlers(router *http.ServeMux) {
 
 	router.Handle("GET /accounts/search/username",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(ah.Cfg, ah.Logger),
+			middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 			middleware.HasPermission([]string{"read:account:any"}),
 			middleware.PaginationMiddleware(10, 100),
 		)(http.HandlerFunc(ah.SearchAccountsByUsername)),
@@ -340,7 +343,7 @@ func (ah *AccountHandler) CreateBotAccount(
 			AccountID:   created.ID,
 			Name:        req.ServiceToken.Name,
 			Description: req.ServiceToken.Description,
-			TokenHash:   utils.HashToken(token),
+			TokenHash:   token,
 			ExpiresAt:   expiresAt,
 			Scopes:      req.ServiceToken.Scopes,
 			MaxUses: func() *int32 {
@@ -541,7 +544,7 @@ func (ah *AccountHandler) GetPersonalAccount(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
-	claims := r.Context().Value(middleware.AuthUserClaims).(*utils.VerisafeClaims)
+	claims := r.Context().Value(middleware.AuthUserClaims).(*tokens.VerisafeClaims)
 	w.Header().Set("Content-Type", "application/json")
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
@@ -612,7 +615,7 @@ func (ah *AccountHandler) UpdatePersonalAccount(
 		})
 		return
 	}
-	claims := r.Context().Value(middleware.AuthUserClaims).(*utils.VerisafeClaims)
+	claims := r.Context().Value(middleware.AuthUserClaims).(*tokens.VerisafeClaims)
 
 	// Check if the user is indeed the owner of the account
 	if accData.ID.String() != claims.Subject {
@@ -692,7 +695,6 @@ func (ah *AccountHandler) UpdatePersonalAccount(
 				slog.Any("error", err),
 			)
 		}
-
 	}()
 
 	w.WriteHeader(http.StatusOK)
@@ -712,7 +714,7 @@ func (ah *AccountHandler) VerifyPhone(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	claims := r.Context().Value(middleware.AuthUserClaims).(*utils.VerisafeClaims)
+	claims := r.Context().Value(middleware.AuthUserClaims).(*tokens.VerisafeClaims)
 
 	// Check if the user is indeed the owner of the account
 	if accData.ID.String() != claims.Subject {
@@ -1173,7 +1175,7 @@ func (ah *AccountHandler) MarkAccountForDeletion(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
-	claims := r.Context().Value(middleware.AuthUserClaims).(*utils.VerisafeClaims)
+	claims := r.Context().Value(middleware.AuthUserClaims).(*tokens.VerisafeClaims)
 	w.Header().Set("Content-Type", "application/json")
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
@@ -1254,7 +1256,7 @@ func (ah *AccountHandler) RecoverAccountFromDeletion(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
-	claims := r.Context().Value(middleware.AuthUserClaims).(*utils.VerisafeClaims)
+	claims := r.Context().Value(middleware.AuthUserClaims).(*tokens.VerisafeClaims)
 	w.Header().Set("Content-Type", "application/json")
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {

@@ -83,7 +83,8 @@ func (ts tokenService) IssueTokenPair(
 			UserID:    userID,
 			DeviceID:  pgtype.UUID{Bytes: deviceID, Valid: true},
 			JwtJti:    pgtype.UUID{Bytes: jti, Valid: true},
-			IssuedAt:  pgtype.Timestamp{Time: refreshExpiry, Valid: true},
+			IssuedAt:  pgtype.Timestamp{Time: time.Now(), Valid: true},
+			ExpiresAt: pgtype.Timestamp{Time: refreshExpiry, Valid: true},
 			FamilyID:  familyID,
 		},
 	)
@@ -174,18 +175,57 @@ func (ts tokenService) IsAccessTokenRevoked(
 	return true, nil
 }
 
+func (ts tokenService) RevokeByRawToken(
+	ctx context.Context,
+	rawToken string,
+) error {
+	tokenHash := hashToken(rawToken)
+
+	existing, err := ts.repo.GetRefreshTokenByHash(ctx, tokenHash)
+	if err != nil {
+		return fmt.Errorf("lookup refresh token: %w", err)
+	}
+
+	return ts.RevokeFamily(ctx, existing.FamilyID)
+}
+
+func (ts tokenService) ValidateAccessToken(
+	ctx context.Context,
+	rawToken string,
+) (*VerisafeClaims, error) {
+	claims, err := ValidateJWT(rawToken, ts.config.JWTConfig.ApiSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	jti, err := claims.JTI()
+	if err != nil {
+		return nil, fmt.Errorf("invalid jti: %w", err)
+	}
+
+	revoked, err := ts.IsAccessTokenRevoked(ctx, jti)
+	if err != nil {
+		return nil, fmt.Errorf("blocklist check failed: %w", err)
+	}
+	if revoked {
+		return nil, fmt.Errorf("token has been revoked")
+	}
+
+	return claims, nil
+}
+
 func (ts *tokenService) signJwt(
 	jti uuid.UUID,
 	userID uuid.UUID,
 	expiry time.Time,
 ) (string, error) {
-	claims := jwt.MapClaims{
-		"jti": jti.String(),
-		"sub": userID.String(),
-		"iss": "https://verisafe.opencrafts.io/",
-		"aud": []string{"https://academia.opencrafts.io/"},
-		"iat": time.Now().Unix(),
-		"exp": expiry.Unix(),
+	claims := jwt.RegisteredClaims{
+		ID:        jti.String(),
+		Subject:   userID.String(),
+		Issuer:    "https://verisafe.opencrafts.io/",
+		Audience:  []string{"https://academia.opencrafts.io/"},
+		IssuedAt:  jwt.NewNumericDate(time.Now()),
+		ExpiresAt: jwt.NewNumericDate(expiry),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(ts.config.JWTConfig.ApiSecret))

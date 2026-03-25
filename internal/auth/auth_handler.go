@@ -7,29 +7,34 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"strings"
+	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
+	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/eventbus"
+	"github.com/opencrafts-io/verisafe/internal/geo"
+	"github.com/opencrafts-io/verisafe/internal/handlers"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/repository"
-	"github.com/opencrafts-io/verisafe/internal/utils"
+	"github.com/opencrafts-io/verisafe/internal/service"
+	"github.com/opencrafts-io/verisafe/internal/tokens"
 )
 
-const authPlatformKey = "auth.platform.key"
-const authPlatformWebValue = "auth.platform.value.web"
-const authPlatformMobileValue = "auth.platform.value.mobile"
-const authRedirectKey = "auth.redirect.key"
+const (
+	authPlatformWebValue    = "auth.platform.value.web"
+	authPlatformMobileValue = "auth.platform.value.mobile"
+)
 
-// StateData represents the encoded state information passed during OAuth flow
 type StateData struct {
 	Platform    string
 	RedirectURI string
+	DeviceName  string
+	DeviceToken string
 }
 
 type appleUserJSON struct {
@@ -40,30 +45,73 @@ type appleUserJSON struct {
 	Email string `json:"email"`
 }
 
-func (a *Auth) RegisterRoutes(router *http.ServeMux) {
-	router.HandleFunc("GET /auth/{provider}", a.LoginHandler)
-	router.HandleFunc("/auth/{provider}/callback", a.CallbackHandler)
-	router.HandleFunc("GET /auth/{provider}/logout", a.LogoutHandler)
-	router.HandleFunc("POST /auth/token/refresh", a.RefreshTokenHandler)
-
-	// Secret management
-	// router.Handle("GET /auth/generate/token",
-	// 	middleware.CreateStack(
-	// 		middleware.IsAuthenticated(a.config, a.logger),
-	// 		middleware.HasPermission([]string{"create:service_token:own"}),
-	// 	)(http.HandlerFunc(a.CreateServiceToken)),
-	// )
-
+type refreshTokenRequest struct {
+	RefreshToken string `json:"refresh_token"`
 }
 
-// LoginHandler initiates the OAuth2 authentication flow.
-// It redirects the user to the selected OAuth provider's login page.
-// This handler should be mapped to a route like `/auth/{provider}` or `/login`
-// where the provider is passed as a query parameter (e.g., `/login?provider=google`).
-func (a *Auth) LoginHandler(w http.ResponseWriter, r *http.Request) {
+type revokeTokenRequest struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
+type tokenResponse struct {
+	AccessToken      string    `json:"access_token"`
+	RefreshToken     string    `json:"refresh_token"`
+	AccessExpiresAt  time.Time `json:"access_expires_at"`
+	RefreshExpiresAt time.Time `json:"refresh_expires_at"`
+}
+
+type AuthHandler struct {
+	geoLocator *geo.GeoIPLocater
+	auth       *Auth
+	db         core.IDBProvider
+	cacher     core.Cacher
+	eventBus   *eventbus.UserEventBus
+	logger     *slog.Logger
+}
+
+func NewAuthHandler(
+	auth *Auth,
+	db core.IDBProvider,
+	cacher core.Cacher,
+	eventBus *eventbus.UserEventBus,
+	logger *slog.Logger,
+	geoLocator *geo.GeoIPLocater,
+) *AuthHandler {
+	return &AuthHandler{
+		auth:       auth,
+		db:         db,
+		cacher:     cacher,
+		eventBus:   eventBus,
+		logger:     logger,
+		geoLocator: geoLocator,
+	}
+}
+
+func (h *AuthHandler) RegisterHandlers(router *http.ServeMux) {
+	router.HandleFunc("GET /auth/{provider}", h.LoginHandler)
+	router.HandleFunc("/auth/{provider}/callback", h.CallbackHandler)
+	router.Handle(
+		"POST /auth/token/refresh",
+		handlers.AppHandler(h.RefreshTokenHandler),
+	)
+	router.Handle(
+		"POST /auth/token/revoke",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(h.auth.config, h.db, h.cacher, h.logger),
+		)(handlers.AppHandler(h.RevokeTokenHandler)),
+	)
+	router.Handle(
+		"GET /auth/{provider}/logout",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(h.auth.config, h.db, h.cacher, h.logger),
+		)(http.HandlerFunc(h.LogoutHandler)),
+	)
+}
+
+func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	provider, err := GetProviderName(r)
 	if err != nil {
-		a.logger.Warn("Failed to get provider name for login", "error", err)
+		h.logger.Warn("missing provider in login request", "error", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -73,531 +121,477 @@ func (a *Auth) LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	if r.URL.Query().Get("platform") == "web" {
 		platform = authPlatformWebValue
-
 		redirectURI = r.URL.Query().Get("redirect_uri")
 		if redirectURI == "" {
 			http.Error(
 				w,
-				"Programming error: missing redirect_uri",
+				"missing redirect_uri for web platform",
 				http.StatusBadRequest,
 			)
 			return
 		}
 	}
 
-	// encode platform + redirect_uri into state
-	stateData := fmt.Sprintf("%s|%s", platform, redirectURI)
-	state := base64.URLEncoding.EncodeToString([]byte(stateData))
+	state := encodeState(StateData{
+		Platform:    platform,
+		RedirectURI: redirectURI,
+		DeviceName:  r.URL.Query().Get("device_name"),
+		DeviceToken: r.URL.Query().Get("device_token"),
+	})
 
-	a.logger.Info("Initiating OAuth login",
-		"provider", provider,
-		"platform", platform,
-		"redirect_uri", redirectURI,
+	h.logger.Info("initiating OAuth login",
+		slog.String("provider", provider),
+		slog.String("platform", platform),
 	)
 
-	// Clone request and inject state query param (gothic looks for it here)
 	q := r.URL.Query()
 	q.Set("state", state)
 	r.URL.RawQuery = q.Encode()
 
-	// Get provider auth URL
 	url, err := gothic.GetAuthURL(w, r)
 	if err != nil {
-		a.logger.Error("Failed to get auth URL", "error", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		h.logger.Error("failed to get auth URL from provider", "error", err)
+		http.Error(
+			w,
+			"failed to initiate login",
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
-	// Redirect user to provider login page
 	http.Redirect(w, r, url, http.StatusFound)
 }
 
-// CallbackHandler processes the OAuth2 callback from the provider.
-// After the user authenticates with the provider, they are redirected back to this handler.
-// This handler should be mapped to the `callback` URL configured with the OAuth provider,
-// e.g., `/auth/{provider}/callback`.
-func (a *Auth) CallbackHandler(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		if err := r.ParseForm(); err != nil {
-			a.logger.Error("Failed to parse callback form", "error", err)
-			http.Error(w, "Invalid request", http.StatusBadRequest)
+			h.logger.Error("failed to parse Apple callback form", "error", err)
+			http.Error(w, "invalid request", http.StatusBadRequest)
 			return
 		}
 	}
 
 	provider, err := GetProviderName(r)
 	if err != nil {
-		a.logger.Warn("Failed to get provider name for callback", "error", err)
-		http.Error(
-			w,
-			"Failed to get provider name for callback",
-			http.StatusBadRequest,
-		)
+		h.logger.Warn("missing provider in callback", "error", err)
+		http.Error(w, "missing provider", http.StatusBadRequest)
 		return
 	}
 
-	var appleData appleUserJSON
-	if provider == "apple" && r.FormValue("user") != "" {
-		if err := json.Unmarshal([]byte(r.FormValue("user")), &appleData); err != nil {
-			a.logger.Warn("Failed to unmarshal apple user form", "error", err)
-		}
-	}
-
-	// Parse state data
-	stateData, err := a.parseStateData(r)
+	stateData, err := decodeState(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	// Complete OAuth authentication
-	user, err := a.completeOAuthAuth(w, r)
+	gothUser, err := gothic.CompleteUserAuth(w, r)
 	if err != nil {
-		a.logger.Error("OAuth authentication failed", slog.Any("error", err))
-		http.Error(
-			w,
-			"Authentication flow failed",
-			http.StatusInternalServerError,
-		)
+		h.logger.Error("OAuth flow failed", slog.Any("error", err))
+		http.Error(w, "authentication failed", http.StatusInternalServerError)
 		return
 	}
 
 	if provider == "apple" {
-		if user.FirstName == "" &&
-			(appleData.Name.FirstName != "" || appleData.Name.LastName != "") {
-			user.FirstName = appleData.Name.FirstName
-			user.LastName = appleData.Name.LastName
-			user.Name = strings.TrimSpace(user.FirstName + " " + user.LastName)
+		gothUser = patchAppleUserName(r, gothUser)
+	}
+
+	conn, err := h.db.Acquire(r.Context())
+	if err != nil {
+		h.logger.Error(
+			"failed to acquire DB connection",
+			slog.Any("error", err),
+		)
+		http.Error(w, "database error", http.StatusInternalServerError)
+		return
+	}
+
+	var pair *tokens.TokenPair
+
+	err = core.WithTransaction(r.Context(), conn, func(tx pgx.Tx) error {
+		repo := repository.New(tx)
+		deviceSvc := service.NewDeviceService(repo)
+		tokenSvc := tokens.NewTokenService(repo, h.cacher, h.auth.config)
+
+		account, err := h.upsertAccount(r, repo, gothUser)
+		if err != nil {
+			return err
 		}
-	}
 
-	// Get database connection and start transaction
-	_, tx, repo, err := a.getDBConnectionAndRepo(r)
+		if err := h.upsertSocialConnection(r, repo, gothUser, account, provider); err != nil {
+			return err
+		}
+
+		// Parse IP from request
+		ip, err := netip.ParseAddr(strings.Split(r.RemoteAddr, ":")[0])
+		if err != nil {
+			return fmt.Errorf("parse remote addr: %w", err)
+		}
+
+		input := service.DeviceRegistrationInput{
+			UserID:      account.ID,
+			DeviceName:  stateData.DeviceName,
+			Platform:    stateData.Platform,
+			DeviceToken: stateData.DeviceToken,
+			IpAddress:   &ip,
+		}
+
+		if h.geoLocator != nil {
+			if info, err := h.geoLocator.Lookup(ip); err != nil {
+				h.logger.Warn(
+					"geo lookup failed",
+					slog.String("ip", ip.String()),
+					slog.Any("error", err),
+				)
+			} else {
+				input.Country = &info.Country.ISOCode
+			}
+		}
+
+		device, err := deviceSvc.RegisterDevice(
+			r.Context(),
+			input,
+		)
+		if err != nil {
+			return fmt.Errorf("register device: %w", err)
+		}
+
+		pair, err = tokenSvc.IssueTokenPair(r.Context(), account.ID, device.ID)
+		if err != nil {
+			return fmt.Errorf("issue token pair: %w", err)
+		}
+
+		return nil
+	})
 	if err != nil {
-		a.logger.Error("Database connection failed", slog.Any("error", err))
-		http.Error(
-			w,
-			"Failed to establish database connection",
-			http.StatusInternalServerError,
-		)
-		return
-	}
-	defer tx.Rollback(r.Context())
-
-	// Handle account creation or retrieval
-	account, err := a.handleAccountManagement(r, repo, user)
-	if err != nil {
-		a.logger.Error("Account management failed", slog.Any("error", err))
-		http.Error(
-			w,
-			"Failed to manage account",
-			http.StatusInternalServerError,
-		)
+		h.logger.Error("callback transaction failed", slog.Any("error", err))
+		http.Error(w, "authentication failed", http.StatusInternalServerError)
 		return
 	}
 
-	// Handle social account management
-	err = a.handleSocialAccountManagement(r, repo, user, account, provider)
-	if err != nil {
-		a.logger.Error(
-			"Social account management failed",
-			slog.Any("error", err),
-		)
-		http.Error(
-			w,
-			"Failed to manage social account",
-			http.StatusInternalServerError,
-		)
-		return
-	}
-
-	// Commit transaction
-	if err = tx.Commit(r.Context()); err != nil {
-		a.logger.Error("Transaction commit failed", slog.Any("error", err))
-		http.Error(
-			w,
-			"Error while committing transaction",
-			http.StatusInternalServerError,
-		)
-		return
-	}
-
-	// Generate tokens and redirect
-	err = a.generateTokensAndRedirect(w, r, account, stateData)
-	if err != nil {
-		a.logger.Error(
-			"Token generation and redirect failed",
-			slog.Any("error", err),
-		)
-		http.Error(
-			w,
-			"Failed to generate tokens",
-			http.StatusInternalServerError,
-		)
-		return
-	}
+	h.redirectWithTokens(
+		w,
+		r,
+		pair.AccessToken,
+		pair.RawRefreshToken,
+		stateData,
+	)
 }
 
-// parseStateData extracts and validates the state parameter from the request
-func (a *Auth) parseStateData(r *http.Request) (*StateData, error) {
-	state := r.FormValue("state")
-	if state == "" {
-		return nil, errors.New("missing state")
-	}
-
-	stateBytes, err := base64.URLEncoding.DecodeString(state)
-	if err != nil {
-		return nil, errors.New("invalid state")
-	}
-
-	parts := strings.SplitN(string(stateBytes), "|", 2)
-	if len(parts) != 2 {
-		return nil, errors.New("malformed state")
-	}
-
-	return &StateData{
-		Platform:    parts[0],
-		RedirectURI: parts[1],
-	}, nil
-}
-
-// completeOAuthAuth completes the OAuth authentication flow using Goth
-func (a *Auth) completeOAuthAuth(
+func (h *AuthHandler) RefreshTokenHandler(
 	w http.ResponseWriter,
 	r *http.Request,
-) (goth.User, error) {
-	user, err := gothic.CompleteUserAuth(w, r)
-	if err != nil {
-		return goth.User{}, fmt.Errorf("failed to complete OAuth auth: %w", err)
+) error {
+	var req refreshTokenRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil ||
+		req.RefreshToken == "" {
+		return fmt.Errorf(
+			"%w: missing or malformed refresh_token",
+			core.ErrInvalidInput,
+		)
 	}
-	return user, nil
+
+	conn, err := h.db.Acquire(r.Context())
+	if err != nil {
+		return fmt.Errorf("%w: failed to acquire connection", core.ErrInternal)
+	}
+
+	var pair *tokens.TokenPair
+
+	err = core.WithTransaction(r.Context(), conn, func(tx pgx.Tx) error {
+		tokenSvc := tokens.NewTokenService(
+			repository.New(tx),
+			h.cacher,
+			h.auth.config,
+		)
+		var err error
+		pair, err = tokenSvc.RotateRefreshToken(r.Context(), req.RefreshToken)
+		return err
+	})
+	if err != nil {
+		h.logger.Warn("refresh token rotation failed", slog.Any("error", err))
+		return fmt.Errorf("%w: %s", core.ErrUnauthorized, err.Error())
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(tokenResponse{
+		AccessToken:      pair.AccessToken,
+		RefreshToken:     pair.RawRefreshToken,
+		AccessExpiresAt:  pair.AccessExpiresAt,
+		RefreshExpiresAt: pair.RefreshExpiresAt,
+	})
+	return nil
 }
 
-// getDBConnectionAndRepo establishes database connection and creates repository
-func (a *Auth) getDBConnectionAndRepo(
+func (h *AuthHandler) RevokeTokenHandler(
+	w http.ResponseWriter,
 	r *http.Request,
-) (*pgxpool.Conn, pgx.Tx, *repository.Queries, error) {
-	conn, err := middleware.GetDBConnFromContext(r.Context())
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to get DB connection: %w", err)
+) error {
+	claims, ok := r.Context().Value(middleware.AuthUserClaims).(*tokens.VerisafeClaims)
+	if !ok || claims == nil {
+		return fmt.Errorf("%w: missing claims", core.ErrUnauthorized)
 	}
 
-	tx, err := conn.Begin(r.Context())
+	jti, err := claims.JTI()
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to begin transaction: %w", err)
+		return fmt.Errorf("%w: invalid jti in token", core.ErrUnauthorized)
 	}
 
-	repo := repository.New(tx)
-	return conn, tx, repo, nil
+	var req revokeTokenRequest
+	json.NewDecoder(r.Body).Decode(&req)
+
+	conn, err := h.db.Acquire(r.Context())
+	if err != nil {
+		return fmt.Errorf("%w: failed to acquire connection", core.ErrInternal)
+	}
+
+	remaining := time.Until(claims.RegisteredClaims.ExpiresAt.Time)
+
+	err = core.WithTransaction(r.Context(), conn, func(tx pgx.Tx) error {
+		tokenSvc := tokens.NewTokenService(
+			repository.New(tx),
+			h.cacher,
+			h.auth.config,
+		)
+
+		if remaining > 0 {
+			if err := tokenSvc.RevokeAccessToken(r.Context(), jti, remaining); err != nil {
+				return fmt.Errorf("blocklist access token: %w", err)
+			}
+		}
+
+		if req.RefreshToken != "" {
+			if err := tokenSvc.RevokeByRawToken(r.Context(), req.RefreshToken); err != nil {
+				// Non-fatal — access token is already blocklisted.
+				h.logger.Warn(
+					"failed to revoke refresh token family",
+					slog.Any("error", err),
+				)
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		h.logger.Error("failed to revoke token", slog.Any("error", err))
+		return fmt.Errorf("%w: could not revoke access token", core.ErrInternal)
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+	return nil
 }
 
-// handleAccountManagement creates or retrieves the user account
-func (a *Auth) handleAccountManagement(
+func (h *AuthHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
+	provider, err := GetProviderName(r)
+	if err != nil {
+		h.logger.Warn("missing provider in logout request", "error", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := gothic.Logout(w, r); err != nil {
+		h.logger.Error("failed to logout from provider",
+			slog.String("provider", provider),
+			slog.Any("error", err),
+		)
+		http.Error(w, "logout failed", http.StatusInternalServerError)
+		return
+	}
+
+	h.logger.Info("user logged out", slog.String("provider", provider))
+	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+}
+
+// --- helpers ---
+
+func (h *AuthHandler) upsertAccount(
 	r *http.Request,
 	repo *repository.Queries,
 	user goth.User,
 ) (repository.Account, error) {
 	account, err := repo.GetAccountByEmail(r.Context(), user.Email)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return repository.Account{}, fmt.Errorf(
-			"failed to check user existence: %w",
-			err,
-		)
+		return repository.Account{}, fmt.Errorf("lookup account: %w", err)
 	}
 
-	// Create user if they don't exist
 	if errors.Is(err, pgx.ErrNoRows) {
-		userParams := repository.CreateAccountParams{
-			Email: user.Email,
-			Name: strings.Join(
-				[]string{user.FirstName, user.LastName},
-				" ",
-			),
-			Type:      repository.AccountTypeHuman,
-			AvatarUrl: &user.AvatarURL,
-		}
-
-		account, err = repo.CreateAccount(r.Context(), userParams)
+		account, err = repo.CreateAccount(
+			r.Context(),
+			repository.CreateAccountParams{
+				Email: user.Email,
+				Name: strings.TrimSpace(
+					user.FirstName + " " + user.LastName,
+				),
+				Type:      repository.AccountTypeHuman,
+				AvatarUrl: &user.AvatarURL,
+			},
+		)
 		if err != nil {
-			return repository.Account{}, fmt.Errorf(
-				"failed to create account: %w",
-				err,
-			)
+			return repository.Account{}, fmt.Errorf("create account: %w", err)
 		}
 
-		// Publish user created event
-		if a.eventBus != nil {
-			requestID := eventbus.GenerateRequestID()
-			if err := a.eventBus.PublishUserCreated(r.Context(), account, requestID); err != nil {
-				a.logger.Error("Failed to publish user created event",
-					slog.String("error", err.Error()),
-					slog.String("user_id", account.ID.String()),
-					slog.String("request_id", requestID),
-				)
-				// Don't fail the entire operation if event publishing fails
-			}
-		}
+		h.publishEvent(r, func() error {
+			return h.eventBus.PublishUserCreated(
+				r.Context(),
+				account,
+				eventbus.GenerateRequestID(),
+			)
+		}, "publish user created event")
 	}
 
 	return account, nil
 }
 
-// handleSocialAccountManagement creates or updates the social account connection
-func (a *Auth) handleSocialAccountManagement(
+func (h *AuthHandler) upsertSocialConnection(
 	r *http.Request,
 	repo *repository.Queries,
 	user goth.User,
 	account repository.Account,
 	provider string,
 ) error {
-	socialAccount, err := repo.GetSocialByExternalUserID(
-		r.Context(),
-		user.UserID,
-	)
+	_, err := repo.GetSocialByExternalUserID(r.Context(), user.UserID)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return fmt.Errorf("failed to fetch social connection: %w", err)
+		return fmt.Errorf("lookup social connection: %w", err)
 	}
 
-	// If the social account does not exist yet create it
 	if errors.Is(err, pgx.ErrNoRows) {
-		socialAccount, err = repo.CreateSocial(
-			r.Context(),
-			repository.CreateSocialParams{
-				UserID:            user.UserID,
-				AccountID:         account.ID,
-				Provider:          provider,
-				Email:             &user.Email,
-				Name:              &user.Name,
-				FirstName:         &user.FirstName,
-				LastName:          &user.LastName,
-				NickName:          &user.NickName,
-				Description:       &user.Description,
-				AvatarUrl:         &user.AvatarURL,
-				Location:          &user.Location,
-				AccessToken:       &user.AccessToken,
-				AccessTokenSecret: &user.AccessTokenSecret,
-				RefreshToken:      &user.RefreshToken,
-				ExpiresAt:         pgtype.Timestamp{Time: user.ExpiresAt},
-			},
-		)
-
+		_, err = repo.CreateSocial(r.Context(), repository.CreateSocialParams{
+			UserID:            user.UserID,
+			AccountID:         account.ID,
+			Provider:          provider,
+			Email:             &user.Email,
+			Name:              &user.Name,
+			FirstName:         &user.FirstName,
+			LastName:          &user.LastName,
+			NickName:          &user.NickName,
+			Description:       &user.Description,
+			AvatarUrl:         &user.AvatarURL,
+			Location:          &user.Location,
+			AccessToken:       &user.AccessToken,
+			AccessTokenSecret: &user.AccessTokenSecret,
+			RefreshToken:      &user.RefreshToken,
+			ExpiresAt:         pgtype.Timestamp{Time: user.ExpiresAt},
+		})
 		if err != nil {
-			return fmt.Errorf("failed to create social connection: %w", err)
+			return fmt.Errorf("create social connection: %w", err)
 		}
-		a.logger.Info(
-			"New social connection created for user",
-			slog.Any(
-				"created_user",
-				account,
-			),
-			slog.Any("social_account", socialAccount),
-		)
-	} else {
-		// Update the social account
-		_, err := repo.UpdateSocial(r.Context(),
-			repository.UpdateSocialParams{
-				UserID:            user.UserID,
-				Provider:          provider,
-				Email:             user.Email,
-				Name:              user.Name,
-				FirstName:         user.FirstName,
-				LastName:          user.LastName,
-				NickName:          user.NickName,
-				Description:       user.Description,
-				AvatarUrl:         user.AvatarURL,
-				Location:          user.Location,
-				AccessToken:       user.AccessToken,
-				AccessTokenSecret: user.AccessTokenSecret,
-				RefreshToken:      user.RefreshToken,
-				ExpiresAt:         pgtype.Timestamp{Time: user.ExpiresAt},
-			},
-		)
-		if err != nil {
-			return fmt.Errorf("failed to update social connection: %w", err)
-		}
-
-		// Publish user updated event for existing users
-		if a.eventBus != nil {
-			requestID := eventbus.GenerateRequestID()
-			if err := a.eventBus.PublishUserUpdated(r.Context(), account, requestID); err != nil {
-				a.logger.Error("Failed to publish user updated event",
-					slog.String("error", err.Error()),
-					slog.String("user_id", account.ID.String()),
-					slog.String("request_id", requestID),
-				)
-				// Don't fail the entire operation if event publishing fails
-			}
-		}
+		return nil
 	}
+
+	_, err = repo.UpdateSocial(r.Context(), repository.UpdateSocialParams{
+		UserID:            user.UserID,
+		Provider:          provider,
+		Email:             user.Email,
+		Name:              user.Name,
+		FirstName:         user.FirstName,
+		LastName:          user.LastName,
+		NickName:          user.NickName,
+		Description:       user.Description,
+		AvatarUrl:         user.AvatarURL,
+		Location:          user.Location,
+		AccessToken:       user.AccessToken,
+		AccessTokenSecret: user.AccessTokenSecret,
+		RefreshToken:      user.RefreshToken,
+		ExpiresAt:         pgtype.Timestamp{Time: user.ExpiresAt},
+	})
+	if err != nil {
+		return fmt.Errorf("update social connection: %w", err)
+	}
+
+	h.publishEvent(r, func() error {
+		return h.eventBus.PublishUserUpdated(
+			r.Context(),
+			account,
+			eventbus.GenerateRequestID(),
+		)
+	}, "publish user updated event")
 
 	return nil
 }
 
-// generateTokensAndRedirect generates JWT tokens and redirects based on platform
-func (a *Auth) generateTokensAndRedirect(
+func (h *AuthHandler) redirectWithTokens(
 	w http.ResponseWriter,
 	r *http.Request,
-	account repository.Account,
-	stateData *StateData,
-) error {
-	token, err := utils.GenerateJWT(account.ID, *a.config)
-	if err != nil {
-		return fmt.Errorf("failed to generate JWT token: %w", err)
+	accessToken, refreshToken string,
+	state *StateData,
+) {
+	if state.Platform == authPlatformWebValue {
+		http.Redirect(w, r, fmt.Sprintf(
+			"%s?access_token=%s&refresh_token=%s",
+			state.RedirectURI, accessToken, refreshToken,
+		), http.StatusFound)
+		return
 	}
 
-	refreshToken, err := utils.GenerateJWT(
-		account.ID,
-		*a.config,
-		utils.UserRefreshToken,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to generate refresh token: %w", err)
-	}
-
-	// Redirect based on platform
-	if stateData.Platform == authPlatformWebValue {
-		// Web: redirect back to client
-		finalURL := fmt.Sprintf(
-			"%s?token=%s&refresh_token=%s",
-			stateData.RedirectURI,
-			token,
-			refreshToken,
-		)
-		http.Redirect(w, r, finalURL, http.StatusFound)
-		return nil
-	}
-
-	if stateData.Platform == authPlatformMobileValue {
-		// Mobile: use deep link
-		finalURL := fmt.Sprintf(
-			"academia://callback?token=%s&refresh_token=%s",
-			token,
-			refreshToken,
-		)
-		http.Redirect(w, r, finalURL, http.StatusFound)
-		return nil
-	}
-
-	return errors.New("unknown platform")
+	http.Redirect(w, r, fmt.Sprintf(
+		"academia://callback?access_token=%s&refresh_token=%s",
+		accessToken, refreshToken,
+	), http.StatusFound)
 }
 
-// LogoutHandler logs the user out from the OAuth provider and clears Goth's session data.
-// It assumes the provider name is passed as a query parameter (e.g., `/logout?provider=google`).
-// You would also typically clear your application's session/JWT here.
-func (a *Auth) LogoutHandler(w http.ResponseWriter, r *http.Request) {
-	provider, err := GetProviderName(r)
-	if err != nil {
-		a.logger.Warn("Failed to get provider name for logout", "error", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+func (h *AuthHandler) publishEvent(
+	r *http.Request,
+	fn func() error,
+	label string,
+) {
+	if h.eventBus == nil {
 		return
 	}
-
-	if err := gothic.Logout(w, r); err != nil {
-		a.logger.Error(
-			"Error logging out from OAuth provider",
-			"provider",
-			provider,
-			"error",
-			err,
-		)
-		http.Error(
-			w,
-			fmt.Sprintf("Error logging out from %s: %v", provider, err),
-			http.StatusInternalServerError,
-		)
-		return
+	if err := fn(); err != nil {
+		h.logger.Error(label, slog.Any("error", err))
 	}
-
-	// Optionally, clear your application's session/JWT here as well
-	// e.g., if using gorilla/sessions: sessions.Default(r).Clear() or sessions.Default(r).Options.MaxAge = -1
-
-	a.logger.Info("Successfully logged out", "provider", provider)
-	http.Redirect(
-		w,
-		r,
-		"/",
-		http.StatusTemporaryRedirect,
-	) // Redirectto to homepage
 }
 
-// RefreshTokenHandler  refreshes the user token and provides a new set of tokens to be used
-func (a *Auth) RefreshTokenHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
-	// The refresh_token request payload
-	type RefreshTokenRequestData struct {
-		RefreshToken string `json:"refresh_token"`
+func patchAppleUserName(r *http.Request, user goth.User) goth.User {
+	if r.FormValue("user") == "" || user.FirstName != "" {
+		return user
 	}
 
-	var refreshTokenData RefreshTokenRequestData
-
-	if err := json.NewDecoder(r.Body).Decode(&refreshTokenData); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]any{
-			"error": "Please check your request body and try again",
-		})
-		return
+	var appleData appleUserJSON
+	if err := json.Unmarshal([]byte(r.FormValue("user")), &appleData); err != nil {
+		return user
 	}
 
-	// Validate the token
-	claims, err := utils.ValidateRefreshToken(
-		refreshTokenData.RefreshToken,
-		a.config.JWTConfig.ApiSecret,
+	if appleData.Name.FirstName != "" || appleData.Name.LastName != "" {
+		user.FirstName = appleData.Name.FirstName
+		user.LastName = appleData.Name.LastName
+		user.Name = strings.TrimSpace(user.FirstName + " " + user.LastName)
+	}
+
+	return user
+}
+
+func encodeState(s StateData) string {
+	raw := fmt.Sprintf(
+		"%s|%s|%s|%s",
+		s.Platform,
+		s.RedirectURI,
+		s.DeviceName,
+		s.DeviceToken,
 	)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		a.logger.Error(
-			"Failed to validate refresh token",
-			slog.Any("token", refreshTokenData.RefreshToken),
-		)
-		json.NewEncoder(w).
-			Encode(map[string]any{"error": "We couldn't validate your refresh token at the moment"})
-		return
+	return base64.URLEncoding.EncodeToString([]byte(raw))
+}
+
+func decodeState(r *http.Request) (*StateData, error) {
+	state := r.FormValue("state")
+	if state == "" {
+		return nil, errors.New("missing state parameter")
 	}
 
-	userID, err := uuid.Parse(claims.Subject)
+	b, err := base64.URLEncoding.DecodeString(state)
 	if err != nil {
-		a.logger.Error("Failed to parse user id from refresh token",
-			slog.Any("raw", claims.ID),
-		)
-		json.NewEncoder(w).Encode(map[string]any{
-			"error": "We failed to parse user id from access token",
-		})
-		return
-
+		return nil, errors.New("invalid state encoding")
 	}
 
-	// Generate jwt and refresh token
-	token, err := utils.GenerateJWT(userID, *a.config)
-	if err != nil {
-		a.logger.Error("Failed to generate user access token",
-			slog.Any("raw", userID.String()),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]any{
-			"error": "We ran into an issue generating a new acces refresh token pair.",
-		})
-		return
+	parts := strings.SplitN(string(b), "|", 4)
+	if len(parts) != 4 {
+		return nil, errors.New("malformed state parameter")
 	}
 
-	refreshToken, err := utils.GenerateJWT(
-		userID,
-		*a.config,
-		utils.UserRefreshToken,
-	)
-	if err != nil {
-		a.logger.Error("Failed to generate user refresh token",
-			slog.Any("raw", userID.String()),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]any{
-			"error": "We ran into an issue generating a new acces refresh token pair.",
-		})
-		return
-	}
-
-	json.NewEncoder(w).Encode(map[string]any{
-		"access_token":  token,
-		"refresh_token": refreshToken,
-	})
+	return &StateData{
+		Platform:    parts[0],
+		RedirectURI: parts[1],
+		DeviceName:  parts[2],
+		DeviceToken: parts[3],
+	}, nil
 }

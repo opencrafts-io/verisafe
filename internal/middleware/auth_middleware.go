@@ -13,278 +13,266 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/opencrafts-io/verisafe/internal/config"
+	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/repository"
-	"github.com/opencrafts-io/verisafe/internal/utils"
+	"github.com/opencrafts-io/verisafe/internal/tokens"
 )
 
-const AuthUserClaims = "middleware.auth.claims"
-const AuthUserPerms = "middleware.auth.perms"
-const AuthUserRoles = "middleware.auth.roles"
-const AuthUserIsPendingDeletion = "middleware.auth.pending_deletion"
+const (
+	AuthUserClaims            = "middleware.auth.claims"
+	AuthUserPerms             = "middleware.auth.perms"
+	AuthUserRoles             = "middleware.auth.roles"
+	AuthUserIsPendingDeletion = "middleware.auth.pending_deletion"
+)
 
-func IsAuthenticated(cfg *config.Config, logger *slog.Logger) Middleware {
+// errAbort is returned inside the transaction closure when the HTTP response
+// has already been written. The outer handler checks for non-nil and stops.
+var errAbort = fmt.Errorf("abort")
+
+// IsAuthenticated validates the incoming request using either a Bearer JWT
+// or an X-API-Key header. On success it injects claims, roles, and permissions
+// into the request context for downstream handlers.
+func IsAuthenticated(
+	cfg *config.Config,
+	db core.IDBProvider,
+	cacher core.Cacher,
+	logger *slog.Logger,
+) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ctx := r.Context()
 			w.Header().Add("Content-Type", "application/json")
 
 			authHeader := r.Header.Get("Authorization")
 			apiKey := r.Header.Get("X-API-Key")
 
-			var claims *utils.VerisafeClaims
-
-			conn, err := GetDBConnFromContext(r.Context())
+			conn, err := db.Acquire(r.Context())
 			if err != nil {
 				logger.Error(
-					"failed to get db conn",
-					slog.String("err", err.Error()),
-				)
-				w.WriteHeader(http.StatusInternalServerError)
-				json.NewEncoder(w).
-					Encode(map[string]any{"error": "Internal server error"})
-				return
-			}
-
-			tx, err := conn.Begin(r.Context())
-			if err != nil {
-				logger.Error(
-					"failed to begin tx",
-					slog.String("err", err.Error()),
-				)
-				w.WriteHeader(http.StatusInternalServerError)
-				json.NewEncoder(w).
-					Encode(map[string]any{"error": "Internal server error"})
-				return
-			}
-			defer func() {
-				if err != nil {
-					tx.Rollback(r.Context())
-				}
-			}()
-
-			repo := repository.New(tx)
-
-			switch {
-			// --- Bearer Token
-			case strings.HasPrefix(authHeader, "Bearer "):
-				token := strings.TrimPrefix(authHeader, "Bearer ")
-				parsedClaims, err := utils.ValidateJWT(
-					token,
-					cfg.JWTConfig.ApiSecret,
-				)
-				if err != nil {
-					w.WriteHeader(http.StatusUnauthorized)
-					json.NewEncoder(w).
-						Encode(map[string]any{"error": err.Error()})
-					return
-				}
-				claims = parsedClaims
-
-			// --- X-API-Key
-			case apiKey != "":
-
-				hashed := utils.HashToken(apiKey)
-				serviceToken, err := repo.GetServiceTokenByHash(
-					r.Context(),
-					hashed,
-				)
-				if err != nil {
-					w.WriteHeader(http.StatusUnauthorized)
-					json.NewEncoder(w).
-						Encode(map[string]any{"error": "Invalid or expired API key"})
-					return
-				}
-
-				// Enhanced validation for service tokens
-				if err := validateServiceToken(serviceToken, r); err != nil {
-					w.WriteHeader(http.StatusUnauthorized)
-					json.NewEncoder(w).
-						Encode(map[string]any{"error": err.Error()})
-					return
-				}
-
-				// Update last used timestamp
-				if err := repo.UpdateServiceTokenLastUsed(r.Context(), serviceToken.ID); err != nil {
-					logger.Error(
-						"Failed to update service token last used",
-						slog.String("error", err.Error()),
-					)
-					// Don't fail the request for this, just log it
-				}
-
-				// Get account and perms
-				account, err := repo.GetAccountByID(
-					r.Context(),
-					serviceToken.AccountID,
-				)
-				if err != nil {
-					logger.Error(
-						"Failed to load account from API key",
-						slog.Any("error", err),
-					)
-					w.WriteHeader(http.StatusUnauthorized)
-					json.NewEncoder(w).
-						Encode(map[string]any{"error": "Unauthorized"})
-					return
-				}
-
-				if account.DeletedAt != nil {
-					if time.Now().
-						After(account.DeletedAt.Add(14 * 24 * time.Hour)) {
-						w.WriteHeader(http.StatusUnauthorized)
-						json.NewEncoder(w).
-							Encode(map[string]any{"error": "Account was permanently deleted"})
-						return
-					}
-					// Add a flag to context so downstream handlers know this user is in "Ghost Mode"
-					ctx = context.WithValue(
-						ctx,
-						AuthUserIsPendingDeletion,
-						true,
-					)
-				}
-
-				// Verify account is a bot account
-				if account.Type != repository.AccountTypeBot {
-					logger.Error(
-						"Service token used by non-bot account",
-						slog.String("account_id", account.ID.String()),
-						slog.String("account_type", string(account.Type)),
-					)
-					w.WriteHeader(http.StatusUnauthorized)
-					json.NewEncoder(w).
-						Encode(map[string]any{"error": "Service tokens can only be used by bot accounts"})
-					return
-				}
-
-				perms, _ := repo.GetUserPermissions(r.Context(), account.ID)
-
-				var permissionStrings []string
-				for _, p := range perms {
-					permissionStrings = append(permissionStrings, p.Permission)
-				}
-
-				claims = &utils.VerisafeClaims{
-					RegisteredClaims: jwt.RegisteredClaims{
-						Subject: account.ID.String(),
-					},
-				}
-
-			default:
-				w.WriteHeader(http.StatusUnauthorized)
-				json.NewEncoder(w).
-					Encode(map[string]any{"error": "Missing Authorization or X-API-Key header"})
-				return
-			}
-
-			// Inject the unified claims, perms and roles into context
-			// Retrieve the roles & perms
-			subID, err := uuid.Parse(claims.Subject)
-			if err != nil {
-				logger.Error(
-					"Failed to retrieve id from token",
+					"failed to acquire db connection",
 					slog.Any("error", err),
 				)
-				w.WriteHeader(http.StatusUnauthorized)
-				json.NewEncoder(w).
-					Encode(map[string]any{"error": "We couldn't decode your token please relogin"})
+				writeUnauthorized(w, "internal server error")
 				return
 			}
 
-			roles, err := repo.GetAllUserRoleNames(r.Context(), subID)
-			if err != nil {
-				logger.Error("Failed to retrieve user roles",
-					slog.Any("error", err),
-					slog.Any("account_id", subID),
-				)
-				w.WriteHeader(http.StatusUnauthorized)
-				json.NewEncoder(w).
-					Encode(map[string]any{"error": "We couldn't retrieve your roles"})
-				return
-			}
-
-			perms, err := repo.GetUserPermissionNames(r.Context(), subID)
-			if err != nil {
-				logger.Error("Failed to retrieve user permissions",
-					slog.Any("error", err),
-					slog.Any("account_id", subID),
-				)
-				w.WriteHeader(http.StatusUnauthorized)
-				json.NewEncoder(w).
-					Encode(map[string]any{"error": "We couldn't retrieve your roles"})
-				return
-			}
-
-			authContext := context.WithValue(ctx, AuthUserClaims, claims)
-			rolesContext := context.WithValue(authContext, AuthUserRoles, roles)
-			permsContext := context.WithValue(
-				rolesContext,
-				AuthUserPerms,
-				perms,
+			var (
+				claims *tokens.VerisafeClaims
+				ctx    = r.Context()
 			)
 
-			next.ServeHTTP(w, r.WithContext(permsContext))
+			err = core.WithTransaction(
+				r.Context(),
+				conn,
+				func(tx pgx.Tx) error {
+					repo := repository.New(tx)
+					tokenSvc := tokens.NewTokenService(repo, cacher, cfg)
+
+					switch {
+					case strings.HasPrefix(authHeader, "Bearer "):
+						rawToken := strings.TrimPrefix(authHeader, "Bearer ")
+
+						parsedClaims, err := tokenSvc.ValidateAccessToken(
+							r.Context(),
+							rawToken,
+						)
+						if err != nil {
+							writeUnauthorized(w, err.Error())
+							return errAbort
+						}
+						claims = parsedClaims
+
+					case apiKey != "":
+						serviceToken, err := repo.GetServiceTokenByHash(
+							r.Context(),
+							tokens.HashToken(apiKey),
+						)
+						if err != nil {
+							writeUnauthorized(w, "invalid or expired API key")
+							return errAbort
+						}
+
+						if err := validateServiceToken(serviceToken, r); err != nil {
+							writeUnauthorized(w, err.Error())
+							return errAbort
+						}
+
+						if err := repo.UpdateServiceTokenLastUsed(r.Context(), serviceToken.ID); err != nil {
+							logger.Error(
+								"failed to update service token last used",
+								slog.Any("error", err),
+							)
+						}
+
+						account, err := repo.GetAccountByID(
+							r.Context(),
+							serviceToken.AccountID,
+						)
+						if err != nil {
+							logger.Error(
+								"failed to load account from API key",
+								slog.Any("error", err),
+							)
+							writeUnauthorized(w, "unauthorized")
+							return errAbort
+						}
+
+						if account.DeletedAt != nil {
+							if time.Now().
+								After(account.DeletedAt.Add(14 * 24 * time.Hour)) {
+								writeUnauthorized(
+									w,
+									"account was permanently deleted",
+								)
+								return errAbort
+							}
+							ctx = context.WithValue(
+								ctx,
+								AuthUserIsPendingDeletion,
+								true,
+							)
+						}
+
+						if account.Type != repository.AccountTypeBot {
+							logger.Error(
+								"service token used by non-bot account",
+								slog.String("account_id", account.ID.String()),
+								slog.String(
+									"account_type",
+									string(account.Type),
+								),
+							)
+							writeUnauthorized(
+								w,
+								"service tokens can only be used by bot accounts",
+							)
+							return errAbort
+						}
+
+						claims = &tokens.VerisafeClaims{
+							RegisteredClaims: jwt.RegisteredClaims{
+								Subject: account.ID.String(),
+							},
+						}
+
+					default:
+						writeUnauthorized(
+							w,
+							"missing Authorization or X-API-Key header",
+						)
+						return errAbort
+					}
+
+					subID, err := uuid.Parse(claims.Subject)
+					if err != nil {
+						logger.Error(
+							"failed to parse subject from token",
+							slog.Any("error", err),
+						)
+						writeUnauthorized(
+							w,
+							"could not decode token, please re-login",
+						)
+						return errAbort
+					}
+
+					roles, err := repo.GetAllUserRoleNames(r.Context(), subID)
+					if err != nil {
+						logger.Error(
+							"failed to retrieve user roles",
+							slog.Any("error", err),
+						)
+						writeUnauthorized(w, "could not retrieve your roles")
+						return errAbort
+					}
+
+					perms, err := repo.GetUserPermissionNames(
+						r.Context(),
+						subID,
+					)
+					if err != nil {
+						logger.Error(
+							"failed to retrieve user permissions",
+							slog.Any("error", err),
+						)
+						writeUnauthorized(
+							w,
+							"could not retrieve your permissions",
+						)
+						return errAbort
+					}
+
+					ctx = context.WithValue(ctx, AuthUserClaims, claims)
+					ctx = context.WithValue(ctx, AuthUserRoles, roles)
+					ctx = context.WithValue(ctx, AuthUserPerms, perms)
+
+					return nil
+				},
+			)
+			if err != nil {
+				return
+			}
+
+			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }
 
-// Checks whether the request bearer token has the necessary permission to continue
-// IsAuthenticated must be called before invoking this middleware so that the context
-// is populated with the claims from the decoded jwt
+// HasPermission checks that the authenticated user has all required permissions.
+// IsAuthenticated must run before this middleware to populate the context.
 func HasPermission(permissions []string) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-			// Extract user permissions from the context
 			var perms []string
-			if permsVal := r.Context().Value(AuthUserPerms); permsVal != nil {
-				perms = permsVal.([]string)
+			if v := r.Context().Value(AuthUserPerms); v != nil {
+				perms = v.([]string)
 			}
 
-			// Check if the user has the required permissions
-			for _, requiredPermission := range permissions {
-				if !slices.Contains(perms, requiredPermission) {
+			for _, required := range permissions {
+				if !slices.Contains(perms, required) {
 					w.WriteHeader(http.StatusForbidden)
 					json.NewEncoder(w).Encode(map[string]any{
-						"error": "You do not have the necessary permissions to perform this action",
+						"error": "you do not have the necessary permissions to perform this action",
 					})
 					return
 				}
 			}
-			// Proceed to the next handler
+
 			next.ServeHTTP(w, r)
 		})
 	}
 }
 
-// validateServiceToken performs comprehensive validation of a service token
+// --- helpers ---
+
+func writeUnauthorized(w http.ResponseWriter, message string) {
+	w.WriteHeader(http.StatusUnauthorized)
+	json.NewEncoder(w).Encode(map[string]any{"error": message})
+}
+
 func validateServiceToken(
 	token repository.ServiceToken,
 	r *http.Request,
 ) error {
-	// Check if token is revoked
 	if token.RevokedAt != nil {
 		return fmt.Errorf("token has been revoked")
 	}
 
-	// Check if token is expired
 	if token.ExpiresAt != nil && token.ExpiresAt.Before(time.Now()) {
 		return fmt.Errorf("token has expired")
 	}
 
-	// Check usage limits
 	if token.MaxUses != nil && token.UseCount != nil &&
 		*token.UseCount >= *token.MaxUses {
 		return fmt.Errorf("token usage limit exceeded")
 	}
 
-	// Check IP whitelist if configured
 	if len(token.IpWhitelist) > 0 {
 		clientIP := getClientIP(r)
 		allowed := false
-		for _, allowedIP := range token.IpWhitelist {
-			if clientIP == allowedIP {
+		for _, ip := range token.IpWhitelist {
+			if clientIP == ip {
 				allowed = true
 				break
 			}
@@ -294,10 +282,11 @@ func validateServiceToken(
 		}
 	}
 
-	// Check user agent pattern if configured
 	if token.UserAgentPattern != nil && *token.UserAgentPattern != "" {
-		userAgent := r.Header.Get("User-Agent")
-		matched, err := regexp.MatchString(*token.UserAgentPattern, userAgent)
+		matched, err := regexp.MatchString(
+			*token.UserAgentPattern,
+			r.Header.Get("User-Agent"),
+		)
 		if err != nil {
 			return fmt.Errorf("invalid user agent pattern configuration")
 		}
@@ -309,33 +298,24 @@ func validateServiceToken(
 	return nil
 }
 
-// getClientIP extracts the client IP address from the request
 func getClientIP(r *http.Request) string {
-	// Check for forwarded headers first
 	if ip := r.Header.Get("X-Forwarded-For"); ip != "" {
-		// X-Forwarded-For can contain multiple IPs, take the first one
-		if commaIndex := strings.Index(ip, ","); commaIndex != -1 {
-			return strings.TrimSpace(ip[:commaIndex])
+		if i := strings.Index(ip, ","); i != -1 {
+			return strings.TrimSpace(ip[:i])
 		}
 		return strings.TrimSpace(ip)
 	}
-
 	if ip := r.Header.Get("X-Real-IP"); ip != "" {
 		return strings.TrimSpace(ip)
 	}
-
 	if ip := r.Header.Get("X-Client-IP"); ip != "" {
 		return strings.TrimSpace(ip)
 	}
-
-	// Fall back to remote address
 	if r.RemoteAddr != "" {
-		// Remove port if present
-		if colonIndex := strings.LastIndex(r.RemoteAddr, ":"); colonIndex != -1 {
-			return r.RemoteAddr[:colonIndex]
+		if i := strings.LastIndex(r.RemoteAddr, ":"); i != -1 {
+			return r.RemoteAddr[:i]
 		}
 		return r.RemoteAddr
 	}
-
 	return ""
 }
