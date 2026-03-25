@@ -16,6 +16,7 @@ type Querier interface {
 	AssignRole(ctx context.Context, arg AssignRoleParams) (UserRole, error)
 	// Assigns a permission to a role
 	AssignRolePermission(ctx context.Context, arg AssignRolePermissionParams) (RolePermission, error)
+	ClaimRefreshToken(ctx context.Context, tokenHash string) (RefreshToken, error)
 	CleanupExpiredServiceTokens(ctx context.Context) error
 	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
 	// Creates an activity.

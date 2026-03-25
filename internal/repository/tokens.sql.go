@@ -12,6 +12,35 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const claimRefreshToken = `-- name: ClaimRefreshToken :one
+UPDATE refresh_tokens
+SET used_at = NOW()
+WHERE token_hash = $1
+  AND used_at    IS NULL
+  AND revoked_at IS NULL
+  AND expires_at > NOW()
+RETURNING id, token_hash, user_id, device_id, jwt_jti, issued_at, expires_at, used_at, revoked_at, replaced_by, family_id
+`
+
+func (q *Queries) ClaimRefreshToken(ctx context.Context, tokenHash string) (RefreshToken, error) {
+	row := q.db.QueryRow(ctx, claimRefreshToken, tokenHash)
+	var i RefreshToken
+	err := row.Scan(
+		&i.ID,
+		&i.TokenHash,
+		&i.UserID,
+		&i.DeviceID,
+		&i.JwtJti,
+		&i.IssuedAt,
+		&i.ExpiresAt,
+		&i.UsedAt,
+		&i.RevokedAt,
+		&i.ReplacedBy,
+		&i.FamilyID,
+	)
+	return i, err
+}
+
 const getRefreshTokenByHash = `-- name: GetRefreshTokenByHash :one
 SELECT id, token_hash, user_id, device_id, jwt_jti, issued_at, expires_at, used_at, revoked_at, replaced_by, family_id FROM refresh_tokens WHERE token_hash = $1 LIMIT 1
 `

@@ -12,6 +12,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/opencrafts-io/verisafe/internal/config"
 	"github.com/opencrafts-io/verisafe/internal/core"
@@ -53,6 +54,9 @@ func (ts tokenService) IssueTokenPair(
 	)
 
 	accessToken, err := ts.signJwt(jti, userID, accessExpiry)
+	if err != nil {
+		return nil, fmt.Errorf("sign access token: %w", err)
+	}
 
 	tokenParams := repository.RecordIssuedTokenParams{
 		Jti:      jti,
@@ -88,6 +92,9 @@ func (ts tokenService) IssueTokenPair(
 			FamilyID:  familyID,
 		},
 	)
+	if err != nil {
+		return nil, fmt.Errorf("record issued refresh token: %w", err)
+	}
 
 	return &TokenPair{
 		AccessToken:      accessToken,
@@ -103,40 +110,22 @@ func (ts tokenService) RotateRefreshToken(
 ) (*TokenPair, error) {
 	tokenHash := hashToken(rawRefreshToken)
 
-	existing, err := ts.repo.GetRefreshTokenByHash(ctx, tokenHash)
+	existing, err := ts.repo.ClaimRefreshToken(ctx, tokenHash)
 	if err != nil {
-		return nil, errors.New("invalid refresh token")
+		if errors.Is(err, pgx.ErrNoRows) {
+			// Could be expired, revoked, or a replay — fetch to check family
+			token, err := ts.repo.GetRefreshTokenByHash(ctx, tokenHash)
+			if err == nil {
+				_ = ts.RevokeFamily(ctx, token.FamilyID)
+			}
+			return nil, errors.New(
+				"refresh token reuse detected: please re-login",
+			)
+		}
+		return nil, errors.New("invalid or expired refresh token")
 	}
 
-	// Reuse detection — token was already used
-	if existing.UsedAt.Valid {
-		// Revoke entire family — someone is replaying tokens
-		_ = ts.RevokeFamily(ctx, existing.FamilyID)
-		return nil, errors.New("refresh token reuse detected: please re-login")
-	}
-
-	// Check expiry
-	if time.Now().After(existing.ExpiresAt.Time) {
-		return nil, errors.New("refresh token expired")
-	}
-
-	// Check explicitly revoked
-	if existing.RevokedAt.Valid {
-		return nil, errors.New("refresh token has been revoked")
-	}
-
-	// Mark current token as used
-	err = ts.repo.MarkRefreshTokenUsed(ctx, existing.ID)
-	if err != nil {
-		return nil, fmt.Errorf("mark token used: %w", err)
-	}
-
-	// Issue new pair — carry forward same device
-	return ts.IssueTokenPair(
-		ctx,
-		existing.UserID,
-		existing.DeviceID.Bytes,
-	)
+	return ts.IssueTokenPair(ctx, existing.UserID, existing.DeviceID.Bytes)
 }
 
 func (ts tokenService) RevokeFamily(

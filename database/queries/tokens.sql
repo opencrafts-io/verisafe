@@ -37,4 +37,11 @@ WHERE family_id = @family_id
   AND revoked_at IS NULL;
 
 
-
+-- name: ClaimRefreshToken :one
+UPDATE refresh_tokens
+SET used_at = NOW()
+WHERE token_hash = $1
+  AND used_at    IS NULL
+  AND revoked_at IS NULL
+  AND expires_at > NOW()
+RETURNING *;
