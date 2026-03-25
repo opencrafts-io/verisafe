@@ -13,57 +13,60 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/opencrafts-io/verisafe/internal/config"
+	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/eventbus"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/repository"
 )
 
 type InstitutionHandler struct {
+	Cacher              core.Cacher
+	DB                  core.IDBProvider
 	Logger              *slog.Logger
+	Cfg                 *config.Config
 	InstitutionEventBus *eventbus.InstitutionEventBus
 }
 
-func (ih *InstitutionHandler) RegisterInstitutionHadlers(
-	cfg *config.Config,
+func (ih *InstitutionHandler) RegisterHandlers(
 	router *http.ServeMux,
 ) {
 	// Register endpoints using the new pattern
 	router.Handle("POST /institutions/register", middleware.CreateStack(
-		middleware.IsAuthenticated(cfg, ih.Logger),
+		middleware.IsAuthenticated(ih.Cfg, ih.DB, ih.Cacher, ih.Logger),
 		middleware.HasPermission([]string{"create:institutions:any"}),
 	)(http.HandlerFunc(ih.RegisterInstitution)))
 
 	router.Handle("GET /institutions/fanout",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg, ih.Logger),
+			middleware.IsAuthenticated(ih.Cfg, ih.DB, ih.Cacher, ih.Logger),
 			middleware.HasPermission([]string{"create:institutions:any"}),
 		)(http.HandlerFunc(ih.FanoutInstitutions)))
 
 	router.Handle("PATCH /institutions/update/{id}",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg, ih.Logger),
+			middleware.IsAuthenticated(ih.Cfg, ih.DB, ih.Cacher, ih.Logger),
 			middleware.HasPermission([]string{"update:institutions:any"}),
 		)(http.HandlerFunc(ih.UpdateInstitutionDetails)))
 
 	router.Handle("GET /institutions/find/{id}",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg, ih.Logger),
+			middleware.IsAuthenticated(ih.Cfg, ih.DB, ih.Cacher, ih.Logger),
 		)(http.HandlerFunc(ih.GetInstitutionByID)))
 
 	router.Handle("GET /institutions/all",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg, ih.Logger),
+			middleware.IsAuthenticated(ih.Cfg, ih.DB, ih.Cacher, ih.Logger),
 			middleware.HasPermission([]string{"list:institutions:any"}),
 		)(http.HandlerFunc(ih.GetAllInstitutions)))
 
 	router.Handle("GET /institutions/search",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg, ih.Logger),
+			middleware.IsAuthenticated(ih.Cfg, ih.DB, ih.Cacher, ih.Logger),
 		)(http.HandlerFunc(ih.SearchInstitutions)))
 
 	router.Handle("DELETE /institutions/delete/{id}",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg, ih.Logger),
+			middleware.IsAuthenticated(ih.Cfg, ih.DB, ih.Cacher, ih.Logger),
 			middleware.HasPermission([]string{"delete:institutions:any"}),
 		)(http.HandlerFunc(ih.DeleteInstitution)))
 
@@ -71,22 +74,22 @@ func (ih *InstitutionHandler) RegisterInstitutionHadlers(
 	// TODO: (erick) Add fine permissions for both admin and the user in question
 	router.Handle("POST /institutions/account",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg, ih.Logger),
+			middleware.IsAuthenticated(ih.Cfg, ih.DB, ih.Cacher, ih.Logger),
 		)(http.HandlerFunc(ih.AddAcountInstitution)))
 
 	router.Handle("DELETE /institutions/account",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg, ih.Logger),
+			middleware.IsAuthenticated(ih.Cfg, ih.DB, ih.Cacher, ih.Logger),
 		)(http.HandlerFunc(ih.RemoveAccountInstitution)))
 
 	router.Handle("GET /institutions/for-account",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg, ih.Logger),
+			middleware.IsAuthenticated(ih.Cfg, ih.DB, ih.Cacher, ih.Logger),
 		)(http.HandlerFunc((ih.ListInstitutionForAccount))))
 
 	router.Handle("GET /institutions/accounts",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg, ih.Logger),
+			middleware.IsAuthenticated(ih.Cfg, ih.DB, ih.Cacher, ih.Logger),
 		)(http.HandlerFunc(ih.ListAccountsForInstitution)))
 }
 
@@ -302,7 +305,6 @@ func (ih *InstitutionHandler) GetAllInstitutions(
 			Offset: int32(p.Offset),
 		},
 	)
-
 	if err != nil {
 		ih.Logger.Error("Failed to list institutions", slog.Any("error", err))
 		http.Error(
@@ -552,7 +554,6 @@ func (ih *InstitutionHandler) ListInstitutionForAccount(
 			Offset:    int32(p.Offset),
 		},
 	)
-
 	if err != nil {
 		ih.Logger.Error("Failed to list institutions", slog.Any("error", err))
 		http.Error(
@@ -618,7 +619,6 @@ func (ih *InstitutionHandler) ListAccountsForInstitution(
 			Offset:        int32(p.Offset),
 		},
 	)
-
 	if err != nil {
 		ih.Logger.Error("Failed to list institutions", slog.Any("error", err))
 		http.Error(

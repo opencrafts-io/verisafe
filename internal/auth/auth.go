@@ -18,8 +18,6 @@ import (
 	"github.com/markbates/goth/providers/google"
 	"github.com/markbates/goth/providers/spotify"
 	"github.com/opencrafts-io/verisafe/internal/config"
-	"github.com/opencrafts-io/verisafe/internal/eventbus"
-	"github.com/opencrafts-io/verisafe/internal/tokens"
 )
 
 // spotifyScopes defines all Spotify OAuth2 permission scopes Verisafe requests.
@@ -54,23 +52,34 @@ var googleScopes = []string{
 // avoiding the need for real Apple credentials during testing.
 type AppleSecretGenerator func(teamID, keyID, clientID, privateKey string) (string, error)
 
-// Auth holds the dependencies for all authentication-related HTTP handlers.
+// Auth is responsible solely for OAuth2 provider setup and session store
+// configuration. It has no knowledge of application services or business logic.
+//
+// Use NewAuthenticator to create an instance, then pass it to NewAuthHandler
+// to wire in the services needed for request handling.
 type Auth struct {
-	config       *config.Config
-	logger       *slog.Logger
-	eventBus     *eventbus.UserEventBus
-	tokenService tokens.TokenService
+	config *config.Config
+	logger *slog.Logger
 }
 
-// NewAuthenticator initialises the Auth handler, sets up the session store,
-// and registers all OAuth2 providers (Google, Spotify, Apple).
+// AuthHandler handles all authentication-related HTTP requests.
+// It depends on Auth for OAuth setup, and holds the services it needs
+// to complete the auth flow — token issuance and event publishing.
+// type AuthHandler struct {
+// 	auth         *Auth
+// 	tokenService tokens.TokenService
+// 	eventBus     *eventbus.UserEventBus
+// 	logger       *slog.Logger
+// }
+
+// NewAuthenticator initialises OAuth2 providers and the session store.
+// It does not require any application services — it is pure configuration.
 //
-// appleSecretGen is injected so it can be replaced in tests. Pass
-// GenerateAppleClientSecret for production use.
+// Pass GenerateAppleClientSecret as appleSecretGen in production.
+// In tests, pass a stub that returns a dummy string to avoid needing
+// real Apple credentials.
 func NewAuthenticator(
 	cfg *config.Config,
-	userEventBus *eventbus.UserEventBus,
-	tokenService tokens.TokenService,
 	logger *slog.Logger,
 	appleSecretGen AppleSecretGenerator,
 ) (*Auth, error) {
@@ -85,11 +94,50 @@ func NewAuthenticator(
 	logger.Info("OAuth2 providers initialised successfully")
 
 	return &Auth{
-		config:       cfg,
-		logger:       logger,
-		eventBus:     userEventBus,
-		tokenService: tokenService,
+		config: cfg,
+		logger: logger,
 	}, nil
+}
+
+// NewAuthHandler creates an AuthHandler that wires the given services into
+// the auth flow. Call this after NewAuthenticator.
+// func NewAuthHandler(
+// 	auth *Auth,
+// 	tokenService tokens.TokenService,
+// 	eventBus *eventbus.UserEventBus,
+// 	logger *slog.Logger,
+// ) *AuthHandler {
+// 	return &AuthHandler{
+// 		auth:         auth,
+// 		tokenService: tokenService,
+// 		eventBus:     eventBus,
+// 		logger:       logger,
+// 	}
+// }
+
+// Ready reports whether all expected OAuth2 providers are registered.
+// Useful as a health or readiness check.
+func (a *Auth) Ready() bool {
+	for _, name := range []string{"google", "spotify", "apple"} {
+		if _, err := goth.GetProvider(name); err != nil {
+			a.logger.Warn(
+				"OAuth2 provider not ready",
+				slog.String("provider", name),
+			)
+			return false
+		}
+	}
+	return true
+}
+
+// GetProviderName extracts the OAuth2 provider name from the URL path.
+// Expects the provider to be registered as a path parameter e.g. /auth/{provider}.
+func GetProviderName(r *http.Request) (string, error) {
+	provider := r.PathValue("provider")
+	if provider == "" {
+		return "", fmt.Errorf("provider name not found in request path")
+	}
+	return provider, nil
 }
 
 // setupSessionStore configures the gorilla session store used by gothic
@@ -134,7 +182,7 @@ func setupOAuthProviders(
 		cfg.AuthenticationConfig.AuthAddress,
 	)
 
-	// Helper to build the per-provider callback URL.
+	// callbackFor builds the per-provider callback URL.
 	callbackFor := func(provider string) string {
 		return strings.Replace(callbackBase, "{provider}", provider, 1)
 	}
@@ -176,31 +224,6 @@ func setupOAuthProviders(
 
 	goth.UseProviders(googleProvider, spotifyProvider, appleProvider)
 	return nil
-}
-
-// Ready reports whether all expected OAuth2 providers are registered and
-// reachable. Useful as a health or readiness check.
-func (a *Auth) Ready() bool {
-	for _, name := range []string{"google", "spotify", "apple"} {
-		if _, err := goth.GetProvider(name); err != nil {
-			a.logger.Warn(
-				"OAuth2 provider not ready",
-				slog.String("provider", name),
-			)
-			return false
-		}
-	}
-	return true
-}
-
-// GetProviderName extracts the OAuth2 provider name from the URL path.
-// Expects the provider to be registered as a path parameter e.g. /auth/{provider}.
-func GetProviderName(r *http.Request) (string, error) {
-	provider := r.PathValue("provider")
-	if provider == "" {
-		return "", fmt.Errorf("provider name not found in request path")
-	}
-	return provider, nil
 }
 
 // GenerateAppleClientSecret creates a short-lived ES256-signed JWT that Apple

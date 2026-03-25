@@ -110,4 +110,16 @@ type TokenService interface {
 	//
 	// Call this in the authentication middleware on every request.
 	IsAccessTokenRevoked(ctx context.Context, jti uuid.UUID) (bool, error)
+
+	// RevokeByRawToken hashes the raw refresh token, looks it up, and revokes
+	// its entire family. Used during logout when the client provides its refresh token.
+	RevokeByRawToken(ctx context.Context, rawToken string) error
+
+	// ValidateAccessToken validates the JWT signature and checks the Redis
+	// blocklist in one call. Use this in middleware instead of calling
+	// ValidateJWT and IsAccessTokenRevoked separately.
+	ValidateAccessToken(
+		ctx context.Context,
+		rawToken string,
+	) (*VerisafeClaims, error)
 }

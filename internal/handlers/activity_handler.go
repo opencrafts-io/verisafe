@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/opencrafts-io/verisafe/internal/config"
+	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/middleware/pagination"
 	"github.com/opencrafts-io/verisafe/internal/repository"
@@ -14,39 +15,40 @@ import (
 
 type ActivityHandler struct {
 	Logger *slog.Logger
+	Cacher core.Cacher
+	DB     core.IDBProvider
+	Cfg    *config.Config
 }
 
-func (ah *ActivityHandler) RegisterHadlers(
-	cfg *config.Config,
+func (ah *ActivityHandler) RegisterHandlers(
 	router *http.ServeMux,
 ) {
 	router.Handle("POST /activity/add", middleware.CreateStack(
-		middleware.IsAuthenticated(cfg, ah.Logger),
+		middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 	)(http.HandlerFunc(ah.CreateActivity)))
 	router.Handle("GET /activity/all", middleware.CreateStack(
-		middleware.IsAuthenticated(cfg, ah.Logger),
+		middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 	)(http.HandlerFunc(ah.GetAllActivities)))
 	router.Handle("GET /activity/active", middleware.CreateStack(
-		middleware.IsAuthenticated(cfg, ah.Logger),
+		middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 	)(http.HandlerFunc(ah.GetAllActiveActivities)))
 	router.Handle("GET /activity/inactive", middleware.CreateStack(
-		middleware.IsAuthenticated(cfg, ah.Logger),
+		middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 	)(http.HandlerFunc(ah.GetAllInactiveActivities)))
 	router.Handle("PATCH /activity/{id}", middleware.CreateStack(
-		middleware.IsAuthenticated(cfg, ah.Logger),
+		middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 	)(http.HandlerFunc(ah.UpdateActivity)))
 	router.Handle("DELETE /activity/{id}", middleware.CreateStack(
-		middleware.IsAuthenticated(cfg, ah.Logger),
+		middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 	)(http.HandlerFunc(ah.DeleteActivity)))
 
 	// Activity completions
 	router.Handle(
 		"GET /users/activity/completions/for-user/{id}",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg, ah.Logger),
+			middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 		)(http.HandlerFunc(ah.GetAllUserActivityCompletions)),
 	)
-
 }
 
 func (ah *ActivityHandler) GetAllUserActivityCompletions(
@@ -118,7 +120,6 @@ func (ah *ActivityHandler) GetAllUserActivityCompletions(
 			AccountID: id,
 		},
 	)
-
 	if err != nil {
 		ah.Logger.Error("Failed to retrieve completed activities for user",
 			slog.Any("error", err),
@@ -370,7 +371,6 @@ func (ah *ActivityHandler) GetAllInactiveActivities(
 			Offset: int32(pageParams.Offset),
 		},
 	)
-
 	if err != nil {
 		ah.Logger.Error(
 			"Failed to retrieve inactive activities",
@@ -453,7 +453,6 @@ func (ah *ActivityHandler) GetAllActiveActivities(
 			Offset: int32(pageParams.Offset),
 		},
 	)
-
 	if err != nil {
 		ah.Logger.Error(
 			"Failed to retrieve active activities",
@@ -536,7 +535,6 @@ func (ah *ActivityHandler) GetAllActivities(
 			Offset: int32(pageParams.Offset),
 		},
 	)
-
 	if err != nil {
 		ah.Logger.Error(
 			"Failed to retrieve all activities",

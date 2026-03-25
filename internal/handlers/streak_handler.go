@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/opencrafts-io/verisafe/internal/config"
+	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/eventbus"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/middleware/pagination"
@@ -17,27 +18,28 @@ import (
 )
 
 type StreakHandler struct {
+	Cacher               core.Cacher
+	DB                   core.IDBProvider
+	Cfg                  *config.Config
 	Logger               *slog.Logger
 	NotificationEventBus *eventbus.NotificationEventBus
 }
 
-func (sh *StreakHandler) RegisterRoutes(
-	cfg *config.Config,
+func (sh *StreakHandler) RegisterHandlers(
 	router *http.ServeMux,
 ) {
 	router.Handle("POST /users/activity/complete", middleware.CreateStack(
-		middleware.IsAuthenticated(cfg, sh.Logger),
+		middleware.IsAuthenticated(sh.Cfg, sh.DB, sh.Cacher, sh.Logger),
 	)(http.HandlerFunc(sh.RecordUserActivity)))
 	router.Handle("POST /streaks/milestone/create", middleware.CreateStack(
-		middleware.IsAuthenticated(cfg, sh.Logger),
+		middleware.IsAuthenticated(sh.Cfg, sh.DB, sh.Cacher, sh.Logger),
 	)(http.HandlerFunc(sh.CreateStreakMilestone)))
 	router.Handle("GET /streaks/milestone/active", middleware.CreateStack(
-		middleware.IsAuthenticated(cfg, sh.Logger),
+		middleware.IsAuthenticated(sh.Cfg, sh.DB, sh.Cacher, sh.Logger),
 	)(http.HandlerFunc(sh.GetAllActiveStreakAchievements)))
 	router.Handle("DELETE /streaks/milestone/{id}", middleware.CreateStack(
-		middleware.IsAuthenticated(cfg, sh.Logger),
+		middleware.IsAuthenticated(sh.Cfg, sh.DB, sh.Cacher, sh.Logger),
 	)(http.HandlerFunc(sh.DeleteStreakMilestone)))
-
 }
 
 func (sh *StreakHandler) RecordUserActivity(
@@ -252,7 +254,6 @@ func (sh *StreakHandler) GetAllActiveStreakAchievements(
 			IsActive: &active,
 		},
 	)
-
 	if err != nil {
 		sh.Logger.Error(
 			"Failed to retrieve active streak milestones",
@@ -272,7 +273,6 @@ func (sh *StreakHandler) GetAllActiveStreakAchievements(
 		pageParams,
 	)
 	json.NewEncoder(w).Encode(response)
-
 }
 
 func (sh *StreakHandler) DeleteStreakMilestone(

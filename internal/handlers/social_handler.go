@@ -7,32 +7,34 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/opencrafts-io/verisafe/internal/config"
+	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/repository"
-	"github.com/opencrafts-io/verisafe/internal/utils"
+	"github.com/opencrafts-io/verisafe/internal/tokens"
 )
 
 type SocialHandler struct {
+	Cacher core.Cacher
+	DB     core.IDBProvider
+	Cfg    *config.Config
 	Logger *slog.Logger
 }
 
-func (sh *SocialHandler) RegisterRoutes(
-	cfg *config.Config,
+func (sh *SocialHandler) RegisterHandlers(
 	router *http.ServeMux,
 ) {
 	router.Handle("GET /socials/me",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg, sh.Logger),
+			middleware.IsAuthenticated(sh.Cfg, sh.DB, sh.Cacher, sh.Logger),
 			middleware.HasPermission([]string{"read:account:own"}),
 		)(http.HandlerFunc(sh.GetAllUserSocials)),
 	)
 	router.Handle("GET /socials/user/{user_id}",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg, sh.Logger),
+			middleware.IsAuthenticated(sh.Cfg, sh.DB, sh.Cacher, sh.Logger),
 			middleware.HasPermission([]string{"read:account:any"}),
 		)(http.HandlerFunc(sh.GetUserIDSocials)),
 	)
-
 }
 
 // Returns all user socials accounts specified by id
@@ -97,7 +99,6 @@ func (sh *SocialHandler) GetUserIDSocials(
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(socials)
-
 }
 
 // Returns all user social accounts
@@ -108,7 +109,7 @@ func (sh *SocialHandler) GetAllUserSocials(
 	w.Header().Set("Content-Type", "application/json")
 
 	// Parse the id from the token
-	claims := r.Context().Value(middleware.AuthUserClaims).(*utils.VerisafeClaims)
+	claims := r.Context().Value(middleware.AuthUserClaims).(*tokens.VerisafeClaims)
 	id, err := uuid.Parse(claims.Subject)
 	if err != nil {
 		sh.Logger.Error(

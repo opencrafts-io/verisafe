@@ -7,33 +7,34 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/opencrafts-io/verisafe/internal/config"
+	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/middleware/pagination"
 	"github.com/opencrafts-io/verisafe/internal/repository"
 )
 
 type LeaderBoardHandler struct {
+	Cacher core.Cacher
+	DB     core.IDBProvider
+	Cfg    *config.Config
 	Logger *slog.Logger
 }
 
-func (lh *LeaderBoardHandler) RegisterLeaderBoardHandlers(
-	cfg *config.Config,
+func (lh *LeaderBoardHandler) RegisterHandlers(
 	router *http.ServeMux,
 ) {
 	router.Handle("GET /leaderboard/global", middleware.CreateStack(
-		middleware.IsAuthenticated(cfg, lh.Logger),
+		middleware.IsAuthenticated(lh.Cfg, lh.DB, lh.Cacher, lh.Logger),
 	)(http.HandlerFunc(lh.GetGlobalLeaderBoard)))
 	router.Handle("GET /leaderboard/global/{user}", middleware.CreateStack(
-		middleware.IsAuthenticated(cfg, lh.Logger),
+		middleware.IsAuthenticated(lh.Cfg, lh.DB, lh.Cacher, lh.Logger),
 	)(http.HandlerFunc(lh.GetGlobalUserRank)))
-
 }
 
 func (lh *LeaderBoardHandler) GetGlobalUserRank(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
-
 	w.Header().Set("Content-Type", "application/json")
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
@@ -70,7 +71,6 @@ func (lh *LeaderBoardHandler) GetGlobalUserRank(
 	}
 
 	leaderboardRank, err := repo.GetLeaderBoardRankForUser(r.Context(), id)
-
 	if err != nil {
 		lh.Logger.Error(
 			"Failed to retrieve leaderboard",
@@ -142,7 +142,6 @@ func (lh *LeaderBoardHandler) GetGlobalLeaderBoard(
 			Offset: int32(pageParams.Offset),
 		},
 	)
-
 	if err != nil {
 		lh.Logger.Error(
 			"Failed to retrieve leaderboard",
