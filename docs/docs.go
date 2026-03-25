@@ -24,63 +24,6 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/devices/add": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Registers a device for the authenticated user, capturing IP and geolocation",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "devices"
-                ],
-                "summary": "Register a new user device",
-                "parameters": [
-                    {
-                        "description": "Device registration payload",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/service.DeviceRegistrationInput"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/service.DeviceOutput"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid input",
-                        "schema": {
-                            "$ref": "#/definitions/core.APIError"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/core.APIError"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/core.APIError"
-                        }
-                    }
-                }
-            }
-        },
         "/devices/mine": {
             "get": {
                 "security": [
@@ -132,9 +75,6 @@ const docTemplate = `{
                 }
             }
         },
-        "netip.Addr": {
-            "type": "object"
-        },
         "service.DeviceOutput": {
             "type": "object",
             "properties": {
@@ -155,32 +95,6 @@ const docTemplate = `{
                 },
                 "ip_address": {
                     "type": "string"
-                },
-                "last_active_at": {
-                    "type": "string"
-                },
-                "platform": {
-                    "type": "string"
-                },
-                "user_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "service.DeviceRegistrationInput": {
-            "type": "object",
-            "properties": {
-                "country": {
-                    "type": "string"
-                },
-                "device_name": {
-                    "type": "string"
-                },
-                "device_token": {
-                    "type": "string"
-                },
-                "ip_address": {
-                    "$ref": "#/definitions/netip.Addr"
                 },
                 "last_active_at": {
                     "type": "string"
