@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/opencrafts-io/verisafe/internal/config"
+	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/eventbus"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/middleware/pagination"
@@ -17,26 +18,34 @@ import (
 )
 
 type StreakHandler struct {
+	Cacher               core.Cacher
+	DB                   core.IDBProvider
+	Cfg                  *config.Config
 	Logger               *slog.Logger
 	NotificationEventBus *eventbus.NotificationEventBus
 }
 
-func (sh *StreakHandler) RegisterRoutes(cfg *config.Config, router *http.ServeMux) {
+func (sh *StreakHandler) RegisterHandlers(
+	router *http.ServeMux,
+) {
 	router.Handle("POST /users/activity/complete", middleware.CreateStack(
-		middleware.IsAuthenticated(cfg, sh.Logger),
+		middleware.IsAuthenticated(sh.Cfg, sh.DB, sh.Cacher, sh.Logger),
 	)(http.HandlerFunc(sh.RecordUserActivity)))
 	router.Handle("POST /streaks/milestone/create", middleware.CreateStack(
-		middleware.IsAuthenticated(cfg, sh.Logger),
+		middleware.IsAuthenticated(sh.Cfg, sh.DB, sh.Cacher, sh.Logger),
 	)(http.HandlerFunc(sh.CreateStreakMilestone)))
 	router.Handle("GET /streaks/milestone/active", middleware.CreateStack(
-		middleware.IsAuthenticated(cfg, sh.Logger),
+		middleware.IsAuthenticated(sh.Cfg, sh.DB, sh.Cacher, sh.Logger),
 	)(http.HandlerFunc(sh.GetAllActiveStreakAchievements)))
 	router.Handle("DELETE /streaks/milestone/{id}", middleware.CreateStack(
-		middleware.IsAuthenticated(cfg, sh.Logger),
+		middleware.IsAuthenticated(sh.Cfg, sh.DB, sh.Cacher, sh.Logger),
 	)(http.HandlerFunc(sh.DeleteStreakMilestone)))
-
 }
-func (sh *StreakHandler) RecordUserActivity(w http.ResponseWriter, r *http.Request) {
+
+func (sh *StreakHandler) RecordUserActivity(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	w.Header().Set("Content-Type", "application/json")
 	requestBody := repository.RecordActivityCompletionParams{}
 
@@ -51,15 +60,26 @@ func (sh *StreakHandler) RecordUserActivity(w http.ResponseWriter, r *http.Reque
 
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
-		sh.Logger.Error("Error while processing request", slog.Any("error", err))
-		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+		sh.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
+		http.Error(
+			w,
+			`{"error":"internal server error"}`,
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
 	tx, err := conn.Begin(r.Context())
 	if err != nil {
 		sh.Logger.Error("Failed to start transaction", slog.Any("error", err))
-		http.Error(w, `{"error":"Cannot process your request at the moment"}`, http.StatusInternalServerError)
+		http.Error(
+			w,
+			`{"error":"Cannot process your request at the moment"}`,
+			http.StatusInternalServerError,
+		)
 		return
 	}
 	defer tx.Rollback(r.Context())
@@ -67,13 +87,25 @@ func (sh *StreakHandler) RecordUserActivity(w http.ResponseWriter, r *http.Reque
 
 	completed, err := repo.RecordActivityCompletion(r.Context(), requestBody)
 	if err != nil {
-		sh.Logger.Error("Failed to record user activity", slog.Any("error", err), slog.Any("activity", requestBody))
-		http.Error(w, `{"error":"Cannot process your request at the moment"}`, http.StatusInternalServerError)
+		sh.Logger.Error(
+			"Failed to record user activity",
+			slog.Any("error", err),
+			slog.Any("activity", requestBody),
+		)
+		http.Error(
+			w,
+			`{"error":"Cannot process your request at the moment"}`,
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
 	if err := tx.Commit(r.Context()); err != nil {
-		sh.Logger.Error("Error while committing transaction", slog.Any("error", err), slog.Any("activity", requestBody))
+		sh.Logger.Error(
+			"Error while committing transaction",
+			slog.Any("error", err),
+			slog.Any("activity", requestBody),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]any{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -81,11 +113,18 @@ func (sh *StreakHandler) RecordUserActivity(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	go sh.sendActivityCompletionNotification(requestBody.AccountID.String(), &completed)
-	json.NewEncoder(w).Encode(map[string]any{"message": "Activity recorded successfully!"})
+	go sh.sendActivityCompletionNotification(
+		requestBody.AccountID.String(),
+		&completed,
+	)
+	json.NewEncoder(w).
+		Encode(map[string]any{"message": "Activity recorded successfully!"})
 }
 
-func (sh *StreakHandler) CreateStreakMilestone(w http.ResponseWriter, r *http.Request) {
+func (sh *StreakHandler) CreateStreakMilestone(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	w.Header().Set("Content-Type", "application/json")
 	requestBody := repository.CreateStreakMilestoneParams{}
 
@@ -100,15 +139,26 @@ func (sh *StreakHandler) CreateStreakMilestone(w http.ResponseWriter, r *http.Re
 
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
-		sh.Logger.Error("Error while processing request", slog.Any("error", err))
-		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+		sh.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
+		http.Error(
+			w,
+			`{"error":"internal server error"}`,
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
 	tx, err := conn.Begin(r.Context())
 	if err != nil {
 		sh.Logger.Error("Failed to start transaction", slog.Any("error", err))
-		http.Error(w, `{"error":"Cannot process your request at the moment"}`, http.StatusInternalServerError)
+		http.Error(
+			w,
+			`{"error":"Cannot process your request at the moment"}`,
+			http.StatusInternalServerError,
+		)
 		return
 	}
 	defer tx.Rollback(r.Context())
@@ -116,13 +166,25 @@ func (sh *StreakHandler) CreateStreakMilestone(w http.ResponseWriter, r *http.Re
 
 	milestone, err := repo.CreateStreakMilestone(r.Context(), requestBody)
 	if err != nil {
-		sh.Logger.Error("Failed to create streak milestone", slog.Any("error", err), slog.Any("milestone", requestBody))
-		http.Error(w, `{"error":"Cannot process your request at the moment"}`, http.StatusInternalServerError)
+		sh.Logger.Error(
+			"Failed to create streak milestone",
+			slog.Any("error", err),
+			slog.Any("milestone", requestBody),
+		)
+		http.Error(
+			w,
+			`{"error":"Cannot process your request at the moment"}`,
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
 	if err := tx.Commit(r.Context()); err != nil {
-		sh.Logger.Error("Error while committing transaction", slog.Any("error", err), slog.Any("activity", requestBody))
+		sh.Logger.Error(
+			"Error while committing transaction",
+			slog.Any("error", err),
+			slog.Any("activity", requestBody),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]any{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -133,19 +195,33 @@ func (sh *StreakHandler) CreateStreakMilestone(w http.ResponseWriter, r *http.Re
 	json.NewEncoder(w).Encode(milestone)
 }
 
-func (sh *StreakHandler) GetAllActiveStreakAchievements(w http.ResponseWriter, r *http.Request) {
+func (sh *StreakHandler) GetAllActiveStreakAchievements(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	w.Header().Set("Content-Type", "application/json")
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
-		sh.Logger.Error("Error while processing request", slog.Any("error", err))
-		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+		sh.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
+		http.Error(
+			w,
+			`{"error":"internal server error"}`,
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
 	tx, err := conn.Begin(r.Context())
 	if err != nil {
 		sh.Logger.Error("Failed to start transaction", slog.Any("error", err))
-		http.Error(w, `{"error":"Cannot process your request at the moment"}`, http.StatusInternalServerError)
+		http.Error(
+			w,
+			`{"error":"Cannot process your request at the moment"}`,
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
@@ -157,7 +233,10 @@ func (sh *StreakHandler) GetAllActiveStreakAchievements(w http.ResponseWriter, r
 
 	totalCount, err := repo.GetAllActiveStreakMilestoneCount(r.Context())
 	if err != nil {
-		sh.Logger.Error("Failed to get all active streak milestones count", slog.Any("error", err))
+		sh.Logger.Error(
+			"Failed to get all active streak milestones count",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]any{
 			"error": "We couldn't fetch active streak milestone count at the moment",
@@ -167,14 +246,19 @@ func (sh *StreakHandler) GetAllActiveStreakAchievements(w http.ResponseWriter, r
 
 	active := true
 
-	milestones, err := repo.GetAllStreaksMilestoneByActive(r.Context(), repository.GetAllStreaksMilestoneByActiveParams{
-		Limit:    int32(pageParams.PageSize),
-		Offset:   int32(pageParams.Offset),
-		IsActive: &active,
-	})
-
+	milestones, err := repo.GetAllStreaksMilestoneByActive(
+		r.Context(),
+		repository.GetAllStreaksMilestoneByActiveParams{
+			Limit:    int32(pageParams.PageSize),
+			Offset:   int32(pageParams.Offset),
+			IsActive: &active,
+		},
+	)
 	if err != nil {
-		sh.Logger.Error("Failed to retrieve active streak milestones", slog.Any("error", err))
+		sh.Logger.Error(
+			"Failed to retrieve active streak milestones",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]any{
 			"error": "We couldn't provide active streak milestones at the moment",
@@ -182,31 +266,56 @@ func (sh *StreakHandler) GetAllActiveStreakAchievements(w http.ResponseWriter, r
 		return
 	}
 
-	response := pagination.BuildPaginatedResponse(r, totalCount, milestones, pageParams)
+	response := pagination.BuildPaginatedResponse(
+		r,
+		totalCount,
+		milestones,
+		pageParams,
+	)
 	json.NewEncoder(w).Encode(response)
-
 }
 
-func (sh *StreakHandler) DeleteStreakMilestone(w http.ResponseWriter, r *http.Request) {
+func (sh *StreakHandler) DeleteStreakMilestone(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	rawID := r.PathValue("id")
 	id, err := uuid.Parse(rawID)
 	if err != nil {
-		sh.Logger.Error("Failed to parse uuid from path", slog.Any("error", err))
-		http.Error(w, `{"error":"Please check your request body and try again"}`, http.StatusBadRequest)
+		sh.Logger.Error(
+			"Failed to parse uuid from path",
+			slog.Any("error", err),
+		)
+		http.Error(
+			w,
+			`{"error":"Please check your request body and try again"}`,
+			http.StatusBadRequest,
+		)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
-		sh.Logger.Error("Error while processing request", slog.Any("error", err))
-		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+		sh.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
+		http.Error(
+			w,
+			`{"error":"internal server error"}`,
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
 	tx, err := conn.Begin(r.Context())
 	if err != nil {
 		sh.Logger.Error("Failed to start transaction", slog.Any("error", err))
-		http.Error(w, `{"error":"Cannot process your request at the moment"}`, http.StatusInternalServerError)
+		http.Error(
+			w,
+			`{"error":"Cannot process your request at the moment"}`,
+			http.StatusInternalServerError,
+		)
 		return
 	}
 	defer tx.Rollback(r.Context())
@@ -214,13 +323,23 @@ func (sh *StreakHandler) DeleteStreakMilestone(w http.ResponseWriter, r *http.Re
 
 	err = repo.DeleteStreakMilestoneByID(r.Context(), id)
 	if err != nil {
-		sh.Logger.Error("Failed to delete streak milestone", slog.Any("error", err))
-		http.Error(w, `{"error":"Cannot process your request at the moment"}`, http.StatusInternalServerError)
+		sh.Logger.Error(
+			"Failed to delete streak milestone",
+			slog.Any("error", err),
+		)
+		http.Error(
+			w,
+			`{"error":"Cannot process your request at the moment"}`,
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
 	if err := tx.Commit(r.Context()); err != nil {
-		sh.Logger.Error("Error while committing transaction", slog.Any("error", err))
+		sh.Logger.Error(
+			"Error while committing transaction",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]any{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -228,7 +347,8 @@ func (sh *StreakHandler) DeleteStreakMilestone(w http.ResponseWriter, r *http.Re
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]any{"message": "streak milestone deleted successfully"})
+	json.NewEncoder(w).
+		Encode(map[string]any{"message": "streak milestone deleted successfully"})
 }
 
 func (sh *StreakHandler) sendActivityCompletionNotification(
@@ -250,7 +370,10 @@ func (sh *StreakHandler) sendActivityCompletionNotification(
 
 	// Add milestone bonus if achieved
 	if result.MilestoneAchieved {
-		content += fmt.Sprintf("\n⭐ Milestone bonus: +%d points!", result.MilestoneBonus)
+		content += fmt.Sprintf(
+			"\n⭐ Milestone bonus: +%d points!",
+			result.MilestoneBonus,
+		)
 		buttons = append(buttons, eventbus.NotificationButton{
 			ID:   "view-achievements",
 			Text: "View Achievements",
@@ -288,5 +411,9 @@ func (sh *StreakHandler) sendActivityCompletionNotification(
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	sh.NotificationEventBus.PublishPushNotificationRequested(ctx, notification, eventbus.GenerateRequestID())
+	sh.NotificationEventBus.PublishPushNotificationRequested(
+		ctx,
+		notification,
+		eventbus.GenerateRequestID(),
+	)
 }
