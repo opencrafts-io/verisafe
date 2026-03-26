@@ -138,16 +138,16 @@ func (h *AuthHandler) storeAuthCode(
 	code string,
 	pair *tokens.TokenPair,
 ) error {
-	val, err := json.Marshal(tokenResponse{
-		AccessToken:      pair.AccessToken,
-		RefreshToken:     pair.RawRefreshToken,
-		AccessExpiresAt:  pair.AccessExpiresAt,
-		RefreshExpiresAt: pair.RefreshExpiresAt,
-	})
-	if err != nil {
-		return err
-	}
-	return h.cacher.Set(ctx, authCodePrefix+code, string(val), authCodeTTL)
+	return h.cacher.Set(
+		ctx, authCodePrefix+code,
+		tokenResponse{
+			AccessToken:      pair.AccessToken,
+			RefreshToken:     pair.RawRefreshToken,
+			AccessExpiresAt:  pair.AccessExpiresAt,
+			RefreshExpiresAt: pair.RefreshExpiresAt,
+		},
+		authCodeTTL,
+	)
 }
 
 func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
