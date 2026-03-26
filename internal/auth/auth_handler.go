@@ -473,11 +473,14 @@ func (h *AuthHandler) ExchangeAuthCodeHandler(
 
 	if err := h.cacher.Get(r.Context(), key, &resp); err != nil {
 		if errors.Is(err, core.ErrCacheMiss) {
+			h.logger.Error("Invalid or expired code", slog.Any("error", err))
 			return fmt.Errorf(
 				"%w: invalid or expired code",
 				core.ErrUnauthorized,
 			)
 		}
+
+		h.logger.Error("Failed to retrieve auth code", slog.Any("error", err))
 		return fmt.Errorf("%w: failed to retrieve auth code", core.ErrInternal)
 	}
 
