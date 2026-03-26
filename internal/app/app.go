@@ -56,11 +56,19 @@ func New(logger *slog.Logger, config *config.Config) (*App, error) {
 	}
 
 	rdb := redis.NewClient(&redis.Options{
-		Addr:       config.RedisConfig.RedisAddress,
-		Password:   config.RedisConfig.RedisPassword,
-		DB:         config.RedisConfig.RedisDB,
-		ClientName: "io.opencrats.verisafe",
+		Addr:         config.RedisConfig.RedisAddress,
+		Password:     config.RedisConfig.RedisPassword,
+		DB:           config.RedisConfig.RedisDB,
+		ClientName:   "io.opencrats.verisafe",
+		MinIdleConns: 10,
+		OnConnect: func(ctx context.Context, cn *redis.Conn) error {
+			logger.Info("Connected to RedisDB")
+			return nil
+		},
 	})
+	if err := rdb.Ping(context.Background()).Err(); err != nil {
+		return nil, fmt.Errorf("failed to connect to redis: %w", err)
+	}
 	cache := core.NewRedisCacher(rdb)
 
 	userEventBus, err := eventbus.NewUserEventBus(config, logger)
