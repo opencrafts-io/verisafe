@@ -48,11 +48,10 @@ func (ts tokenService) IssueTokenPair(
 	}
 
 	accessExpiry := time.Now().
-		Add(time.Duration(ts.config.JWTConfig.ExpireDelta))
+		Add(time.Duration(ts.config.JWTConfig.ExpireDelta) * time.Minute)
 
-	refreshExpiry := time.Now().Add(
-		time.Duration(ts.config.JWTConfig.RefreshExpireDelta),
-	)
+	refreshExpiry := time.Now().
+		AddDate(0, 0, int(ts.config.JWTConfig.RefreshExpireDelta))
 
 	accessToken, err := ts.signJwt(jti, userID, accessExpiry)
 	if err != nil {
