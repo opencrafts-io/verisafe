@@ -7,6 +7,7 @@ package repository
 import (
 	"database/sql/driver"
 	"fmt"
+	"net/netip"
 	"time"
 
 	"github.com/google/uuid"
@@ -162,12 +163,37 @@ type Institution struct {
 	StateProvince *string  `json:"state_province"`
 }
 
+type IssuedToken struct {
+	ID         uuid.UUID        `json:"id"`
+	Jti        uuid.UUID        `json:"jti"`
+	UserID     uuid.UUID        `json:"user_id"`
+	DeviceID   pgtype.UUID      `json:"device_id"`
+	IssuedAt   pgtype.Timestamp `json:"issued_at"`
+	ExpiresAt  pgtype.Timestamp `json:"expires_at"`
+	RevokedAt  pgtype.Timestamp `json:"revoked_at"`
+	LastUsedAt pgtype.Timestamp `json:"last_used_at"`
+}
+
 type Permission struct {
 	ID          uuid.UUID        `json:"id"`
 	Name        string           `json:"name"`
 	Description *string          `json:"description"`
 	CreatedAt   pgtype.Timestamp `json:"created_at"`
 	UpdatedAt   pgtype.Timestamp `json:"updated_at"`
+}
+
+type RefreshToken struct {
+	ID         uuid.UUID        `json:"id"`
+	TokenHash  string           `json:"token_hash"`
+	UserID     uuid.UUID        `json:"user_id"`
+	DeviceID   pgtype.UUID      `json:"device_id"`
+	JwtJti     pgtype.UUID      `json:"jwt_jti"`
+	IssuedAt   pgtype.Timestamp `json:"issued_at"`
+	ExpiresAt  pgtype.Timestamp `json:"expires_at"`
+	UsedAt     pgtype.Timestamp `json:"used_at"`
+	RevokedAt  pgtype.Timestamp `json:"revoked_at"`
+	ReplacedBy pgtype.UUID      `json:"replaced_by"`
+	FamilyID   uuid.UUID        `json:"family_id"`
 }
 
 type Role struct {
@@ -242,6 +268,18 @@ type StreakMilestone struct {
 	Title        string      `json:"title"`
 	Description  *string     `json:"description"`
 	IsActive     *bool       `json:"is_active"`
+}
+
+type UserDevice struct {
+	ID           uuid.UUID        `json:"id"`
+	UserID       uuid.UUID        `json:"user_id"`
+	DeviceName   *string          `json:"device_name"`
+	Platform     *string          `json:"platform"`
+	DeviceToken  *string          `json:"device_token"`
+	LastActiveAt pgtype.Timestamp `json:"last_active_at"`
+	CreatedAt    pgtype.Timestamp `json:"created_at"`
+	IpAddress    *netip.Addr      `json:"ip_address"`
+	Country      *string          `json:"country"`
 }
 
 type UserPermissionsView struct {

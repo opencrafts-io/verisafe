@@ -9,26 +9,32 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/opencrafts-io/verisafe/internal/config"
+	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/repository"
 )
 
 type PermissionHandler struct {
+	Cacher core.Cacher
+	DB     core.IDBProvider
+	Cfg    *config.Config
 	Logger *slog.Logger
 }
 
 // Registers all the necessary routes associated with this handler group
-func (ph *PermissionHandler) RegisterRoutes(cfg *config.Config, router *http.ServeMux) {
+func (ph *PermissionHandler) RegisterHandlers(
+	router *http.ServeMux,
+) {
 	router.Handle("POST /permissions/create",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg,ph.Logger),
+			middleware.IsAuthenticated(ph.Cfg, ph.DB, ph.Cacher, ph.Logger),
 			middleware.HasPermission([]string{"create:permission"}),
 		)(http.HandlerFunc(ph.CreatePermission)),
 	)
 
 	router.Handle("GET /permissions",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg,ph.Logger),
+			middleware.IsAuthenticated(ph.Cfg, ph.DB, ph.Cacher, ph.Logger),
 			middleware.HasPermission([]string{"read:permission:any"}),
 			middleware.PaginationMiddleware(10, 100),
 		)(http.HandlerFunc(ph.GetAllPermissions)),
@@ -36,46 +42,52 @@ func (ph *PermissionHandler) RegisterRoutes(cfg *config.Config, router *http.Ser
 
 	router.Handle("GET /permissions/{id}",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg,ph.Logger),
+			middleware.IsAuthenticated(ph.Cfg, ph.DB, ph.Cacher, ph.Logger),
 			middleware.HasPermission([]string{"read:permission:any"}),
 		)(http.HandlerFunc(ph.GetPermissionByID)),
 	)
 
 	router.Handle("GET /permissions/user/{id}",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg,ph.Logger),
+			middleware.IsAuthenticated(ph.Cfg, ph.DB, ph.Cacher, ph.Logger),
 			middleware.HasPermission([]string{"read:permission:user"}),
 		)(http.HandlerFunc(ph.GetAllUserPermissions)),
 	)
 
 	router.Handle("PATCH /permissions/{id}",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg,ph.Logger),
+			middleware.IsAuthenticated(ph.Cfg, ph.DB, ph.Cacher, ph.Logger),
 			middleware.HasPermission([]string{"update:permission:any"}),
 		)(http.HandlerFunc(ph.UpdatePermission)),
 	)
 
 	router.Handle("GET /permissions/assign/{perm_id}/{role_id}",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg,ph.Logger),
+			middleware.IsAuthenticated(ph.Cfg, ph.DB, ph.Cacher, ph.Logger),
 			middleware.HasPermission([]string{"assign:permission:role"}),
 		)(http.HandlerFunc(ph.AssignRolePermission)),
 	)
 
 	router.Handle("DELETE /permissions/revoke/{perm_id}/{role_id}",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg,ph.Logger),
+			middleware.IsAuthenticated(ph.Cfg, ph.DB, ph.Cacher, ph.Logger),
 			middleware.HasPermission([]string{"revoke:permission:role"}),
 		)(http.HandlerFunc(ph.RevokeRolePermission)),
 	)
 }
 
 // Creates a permission
-func (ph *PermissionHandler) CreatePermission(w http.ResponseWriter, r *http.Request) {
+func (ph *PermissionHandler) CreatePermission(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	w.Header().Set("Content-Type", "application/json")
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
-		ph.Logger.Error("Error while processing request", slog.Any("error", err))
+		ph.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -112,7 +124,10 @@ func (ph *PermissionHandler) CreatePermission(w http.ResponseWriter, r *http.Req
 	}
 
 	if err = tx.Commit(r.Context()); err != nil {
-		ph.Logger.Error("Error while committing transaction", slog.Any("error", err))
+		ph.Logger.Error(
+			"Error while committing transaction",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]any{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -125,7 +140,10 @@ func (ph *PermissionHandler) CreatePermission(w http.ResponseWriter, r *http.Req
 }
 
 // Retrieves a permission by it's ID
-func (ph *PermissionHandler) GetPermissionByID(w http.ResponseWriter, r *http.Request) {
+func (ph *PermissionHandler) GetPermissionByID(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	rawID := r.PathValue("id")
 	id, err := uuid.Parse(rawID)
 	if err != nil {
@@ -140,7 +158,10 @@ func (ph *PermissionHandler) GetPermissionByID(w http.ResponseWriter, r *http.Re
 	w.Header().Set("Content-Type", "application/json")
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
-		ph.Logger.Error("Error while processing request", slog.Any("error", err))
+		ph.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -173,18 +194,22 @@ func (ph *PermissionHandler) GetPermissionByID(w http.ResponseWriter, r *http.Re
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(role)
-
 }
 
 // Retrieves all permissions in the system
-func (ph *PermissionHandler) GetAllPermissions(w http.ResponseWriter, r *http.Request) {
-
+func (ph *PermissionHandler) GetAllPermissions(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	pagination := middleware.GetPagination(r.Context())
 
 	w.Header().Set("Content-Type", "application/json")
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
-		ph.Logger.Error("Error while processing request", slog.Any("error", err))
+		ph.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -196,12 +221,18 @@ func (ph *PermissionHandler) GetAllPermissions(w http.ResponseWriter, r *http.Re
 	defer tx.Rollback(r.Context())
 	repo := repository.New(tx)
 
-	roles, err := repo.GetAllPermissions(r.Context(), repository.GetAllPermissionsParams{
-		Limit:  int32(pagination.Limit),
-		Offset: int32(pagination.Offset),
-	})
+	roles, err := repo.GetAllPermissions(
+		r.Context(),
+		repository.GetAllPermissionsParams{
+			Limit:  int32(pagination.Limit),
+			Offset: int32(pagination.Offset),
+		},
+	)
 	if err != nil {
-		ph.Logger.Error("Failed to retrieve permissions", slog.Any("error", err))
+		ph.Logger.Error(
+			"Failed to retrieve permissions",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We couldn't complete this request at the moment please try again later",
@@ -211,11 +242,13 @@ func (ph *PermissionHandler) GetAllPermissions(w http.ResponseWriter, r *http.Re
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(roles)
-
 }
 
 // Retrieves all permissions associated
-func (ph *PermissionHandler) GetAllUserPermissions(w http.ResponseWriter, r *http.Request) {
+func (ph *PermissionHandler) GetAllUserPermissions(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	rawID := r.PathValue("id")
 	id, err := uuid.Parse(rawID)
 	if err != nil {
@@ -230,7 +263,10 @@ func (ph *PermissionHandler) GetAllUserPermissions(w http.ResponseWriter, r *htt
 	w.Header().Set("Content-Type", "application/json")
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
-		ph.Logger.Error("Error while processing request", slog.Any("error", err))
+		ph.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -244,7 +280,10 @@ func (ph *PermissionHandler) GetAllUserPermissions(w http.ResponseWriter, r *htt
 
 	roles, err := repo.GetUserPermissions(r.Context(), id)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		ph.Logger.Error("Failed to retrieve permissions", slog.Any("error", err))
+		ph.Logger.Error(
+			"Failed to retrieve permissions",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]any{
 			"error": "We ran into an issue while retrieving this user's permissions try again later",
@@ -254,15 +293,20 @@ func (ph *PermissionHandler) GetAllUserPermissions(w http.ResponseWriter, r *htt
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(roles)
-
 }
 
 // Updates a permission
-func (ph *PermissionHandler) UpdatePermission(w http.ResponseWriter, r *http.Request) {
+func (ph *PermissionHandler) UpdatePermission(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	w.Header().Set("Content-Type", "application/json")
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
-		ph.Logger.Error("Error while processing request", slog.Any("error", err))
+		ph.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -299,7 +343,10 @@ func (ph *PermissionHandler) UpdatePermission(w http.ResponseWriter, r *http.Req
 	}
 
 	if err = tx.Commit(r.Context()); err != nil {
-		ph.Logger.Error("Error while committing transaction", slog.Any("error", err))
+		ph.Logger.Error(
+			"Error while committing transaction",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]any{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -313,7 +360,10 @@ func (ph *PermissionHandler) UpdatePermission(w http.ResponseWriter, r *http.Req
 
 // Some work might be needed to check for both the assign and revoke permission
 // better error handling
-func (ph *PermissionHandler) AssignRolePermission(w http.ResponseWriter, r *http.Request) {
+func (ph *PermissionHandler) AssignRolePermission(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	rawRoleID := r.PathValue("role_id")
 	roleID, err := uuid.Parse(rawRoleID)
 	if err != nil {
@@ -339,7 +389,10 @@ func (ph *PermissionHandler) AssignRolePermission(w http.ResponseWriter, r *http
 	w.Header().Set("Content-Type", "application/json")
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
-		ph.Logger.Error("Error while processing request", slog.Any("error", err))
+		ph.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -351,10 +404,13 @@ func (ph *PermissionHandler) AssignRolePermission(w http.ResponseWriter, r *http
 	defer tx.Rollback(r.Context())
 	repo := repository.New(tx)
 
-	_, err = repo.AssignRolePermission(r.Context(), repository.AssignRolePermissionParams{
-		PermissionID: permID,
-		RoleID:       roleID,
-	})
+	_, err = repo.AssignRolePermission(
+		r.Context(),
+		repository.AssignRolePermissionParams{
+			PermissionID: permID,
+			RoleID:       roleID,
+		},
+	)
 	if err != nil {
 		ph.Logger.Error("Failed to assign permission to role",
 			slog.Any("error", err),
@@ -369,7 +425,10 @@ func (ph *PermissionHandler) AssignRolePermission(w http.ResponseWriter, r *http
 	}
 
 	if err = tx.Commit(r.Context()); err != nil {
-		ph.Logger.Error("Error while committing transaction", slog.Any("error", err))
+		ph.Logger.Error(
+			"Error while committing transaction",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]any{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -378,11 +437,14 @@ func (ph *PermissionHandler) AssignRolePermission(w http.ResponseWriter, r *http
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]any{"message": "Permission successfully assigned"})
-
+	json.NewEncoder(w).
+		Encode(map[string]any{"message": "Permission successfully assigned"})
 }
 
-func (ph *PermissionHandler) RevokeRolePermission(w http.ResponseWriter, r *http.Request) {
+func (ph *PermissionHandler) RevokeRolePermission(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	rawRoleID := r.PathValue("role_id")
 	roleID, err := uuid.Parse(rawRoleID)
 	if err != nil {
@@ -408,7 +470,10 @@ func (ph *PermissionHandler) RevokeRolePermission(w http.ResponseWriter, r *http
 	w.Header().Set("Content-Type", "application/json")
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
-		ph.Logger.Error("Error while processing request", slog.Any("error", err))
+		ph.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -420,10 +485,13 @@ func (ph *PermissionHandler) RevokeRolePermission(w http.ResponseWriter, r *http
 	defer tx.Rollback(r.Context())
 	repo := repository.New(tx)
 
-	err = repo.RevokeRolePermission(r.Context(), repository.RevokeRolePermissionParams{
-		PermissionID: permID,
-		RoleID:       roleID,
-	})
+	err = repo.RevokeRolePermission(
+		r.Context(),
+		repository.RevokeRolePermissionParams{
+			PermissionID: permID,
+			RoleID:       roleID,
+		},
+	)
 	if err != nil {
 		ph.Logger.Error("Failed to revoke permission from role",
 			slog.Any("error", err),
@@ -438,7 +506,10 @@ func (ph *PermissionHandler) RevokeRolePermission(w http.ResponseWriter, r *http
 	}
 
 	if err = tx.Commit(r.Context()); err != nil {
-		ph.Logger.Error("Error while committing transaction", slog.Any("error", err))
+		ph.Logger.Error(
+			"Error while committing transaction",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]any{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -447,6 +518,6 @@ func (ph *PermissionHandler) RevokeRolePermission(w http.ResponseWriter, r *http
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]any{"message": "Permission successfully revoked from role"})
-
+	json.NewEncoder(w).
+		Encode(map[string]any{"message": "Permission successfully revoked from role"})
 }

@@ -55,7 +55,11 @@ type RabbitMQEventBus struct {
 // NewRabbitMQEventBus creates and returns a new RabbitMQEventBus instance.
 // It connects to RabbitMQ and declares a durable exchange, then starts a
 // background goroutine that reconnects automatically on connection loss.
-func NewRabbitMQEventBus(amqpURI, exchange string, exchangeType ExchangeType, logger *slog.Logger) (*RabbitMQEventBus, error) {
+func NewRabbitMQEventBus(
+	amqpURI, exchange string,
+	exchangeType ExchangeType,
+	logger *slog.Logger,
+) (*RabbitMQEventBus, error) {
 	eb := &RabbitMQEventBus{
 		amqpURI:      amqpURI,
 		exchange:     exchange,
@@ -168,7 +172,8 @@ func (eb *RabbitMQEventBus) reconnectLoop() {
 
 		for _, s := range subs {
 			if err := eb.startConsumer(s.routingKey, s.handler); err != nil {
-				eb.logger.Error("eventbus failed to re-subscribe after reconnect",
+				eb.logger.Error(
+					"eventbus failed to re-subscribe after reconnect",
 					slog.String("routing_key", s.routingKey),
 					slog.Any("error", err),
 				)
@@ -179,7 +184,11 @@ func (eb *RabbitMQEventBus) reconnectLoop() {
 
 // Publish serialises the event and sends it to the RabbitMQ exchange using
 // the dedicated publish channel.
-func (eb *RabbitMQEventBus) Publish(ctx context.Context, routingKey string, event any) error {
+func (eb *RabbitMQEventBus) Publish(
+	ctx context.Context,
+	routingKey string,
+	event any,
+) error {
 	body, err := json.Marshal(event)
 	if err != nil {
 		return fmt.Errorf("marshal event: %w", err)
@@ -210,9 +219,15 @@ func (eb *RabbitMQEventBus) Publish(ctx context.Context, routingKey string, even
 // Subscribe declares a durable queue, binds it to the exchange with the given
 // routing key, and begins consuming messages in a background goroutine.
 // Each subscriber gets its own AMQP channel (required by RabbitMQ).
-func (eb *RabbitMQEventBus) Subscribe(routingKey string, handler func(event []byte)) error {
+func (eb *RabbitMQEventBus) Subscribe(
+	routingKey string,
+	handler func(event []byte),
+) error {
 	eb.mu.Lock()
-	eb.subscriptions = append(eb.subscriptions, subscription{routingKey, handler})
+	eb.subscriptions = append(
+		eb.subscriptions,
+		subscription{routingKey, handler},
+	)
 	eb.mu.Unlock()
 
 	return eb.startConsumer(routingKey, handler)
@@ -221,7 +236,10 @@ func (eb *RabbitMQEventBus) Subscribe(routingKey string, handler func(event []by
 // startConsumer opens a fresh channel and wires up a consumer for the given
 // routing key. It also watches for channel-level close events and logs them
 // (reconnection is handled at the connection level by reconnectLoop).
-func (eb *RabbitMQEventBus) startConsumer(routingKey string, handler func([]byte)) error {
+func (eb *RabbitMQEventBus) startConsumer(
+	routingKey string,
+	handler func([]byte),
+) error {
 	eb.mu.RLock()
 	conn := eb.conn
 	eb.mu.RUnlock()
@@ -321,4 +339,3 @@ func (eb *RabbitMQEventBus) Close() {
 		eb.conn.Close()
 	}
 }
-

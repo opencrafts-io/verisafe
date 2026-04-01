@@ -56,7 +56,10 @@ type UserEventBus struct {
 }
 
 // NewUserEventBus creates a new UserEventBus instance.
-func NewUserEventBus(cfg *config.Config, logger *slog.Logger) (*UserEventBus, error) {
+func NewUserEventBus(
+	cfg *config.Config,
+	logger *slog.Logger,
+) (*UserEventBus, error) {
 	rabbitMQConnString := fmt.Sprintf("amqp://%s:%s@%s:%d/",
 		cfg.RabbitMQConfig.RabbitMQUser,
 		cfg.RabbitMQConfig.RabbitMQPass,
@@ -73,7 +76,10 @@ func NewUserEventBus(cfg *config.Config, logger *slog.Logger) (*UserEventBus, er
 
 	if err != nil {
 		logger.Error("Failed to initialize RabbitMQ event bus", "error", err)
-		return nil, fmt.Errorf("failed to initialize RabbitMQ event bus: %w", err)
+		return nil, fmt.Errorf(
+			"failed to initialize RabbitMQ event bus: %w",
+			err,
+		)
 	}
 
 	return &UserEventBus{
@@ -83,7 +89,11 @@ func NewUserEventBus(cfg *config.Config, logger *slog.Logger) (*UserEventBus, er
 }
 
 // PublishUserCreated publishes a user created event to the event bus
-func (b *UserEventBus) PublishUserCreated(ctx context.Context, user repository.Account, requestID string) error {
+func (b *UserEventBus) PublishUserCreated(
+	ctx context.Context,
+	user repository.Account,
+	requestID string,
+) error {
 	event := UserEvent{
 		User: user,
 		Metadata: UserEventMetadata{
@@ -105,7 +115,11 @@ func (b *UserEventBus) PublishUserCreated(ctx context.Context, user repository.A
 }
 
 // PublishUserUpdated publishes a user updated event to the event bus
-func (b *UserEventBus) PublishUserUpdated(ctx context.Context, user repository.Account, requestID string) error {
+func (b *UserEventBus) PublishUserUpdated(
+	ctx context.Context,
+	user repository.Account,
+	requestID string,
+) error {
 	event := UserEvent{
 		User: user,
 		Metadata: UserEventMetadata{
@@ -127,7 +141,11 @@ func (b *UserEventBus) PublishUserUpdated(ctx context.Context, user repository.A
 }
 
 // PublishUserDeleted publishes a user deleted event to the event bus
-func (b *UserEventBus) PublishUserDeleted(ctx context.Context, user repository.Account, requestID string) error {
+func (b *UserEventBus) PublishUserDeleted(
+	ctx context.Context,
+	user repository.Account,
+	requestID string,
+) error {
 	event := UserEvent{
 		User: user,
 		Metadata: UserEventMetadata{
