@@ -14,8 +14,10 @@ func CORSMiddleware(allowedOrigins []string) Middleware {
 			if slices.Contains(allowedOrigins, origin) {
 				w.Header().Set("Access-Control-Allow-Origin", origin)
 				w.Header().Set("Vary", "Origin") // prevent caching issues
-				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+				w.Header().
+					Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+				w.Header().
+					Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 			}
 
 			// Handle preflight request

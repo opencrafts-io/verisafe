@@ -9,26 +9,33 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/opencrafts-io/verisafe/internal/config"
+	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/repository"
 )
 
 type RoleHandler struct {
+	Cacher core.Cacher
+	DB     core.IDBProvider
+	Cfg    *config.Config
 	Logger *slog.Logger
 }
 
 // Registers all the necessary routes associated with this handler group
-func (rh *RoleHandler) RegisterRoutes(cfg *config.Config, router *http.ServeMux) {
+func (rh *RoleHandler) RegisterHandlers(
+	router *http.ServeMux,
+) {
 	router.Handle("POST /roles/create",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg,rh.Logger),
+			middleware.IsAuthenticated(rh.Cfg, rh.DB, rh.Cacher, rh.Logger),
 			middleware.HasPermission([]string{"create:role"}),
 		)(http.HandlerFunc(rh.CreateRole)),
 	)
 
 	router.Handle("GET /roles",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg,rh.Logger),
+
+			middleware.IsAuthenticated(rh.Cfg, rh.DB, rh.Cacher, rh.Logger),
 			middleware.HasPermission([]string{"read:role:any"}),
 			middleware.PaginationMiddleware(10, 100),
 		)(http.HandlerFunc(rh.GetAllRoles)),
@@ -36,42 +43,42 @@ func (rh *RoleHandler) RegisterRoutes(cfg *config.Config, router *http.ServeMux)
 
 	router.Handle("GET /roles/{id}",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg,rh.Logger),
+			middleware.IsAuthenticated(rh.Cfg, rh.DB, rh.Cacher, rh.Logger),
 			middleware.HasPermission([]string{"read:role:any"}),
 		)(http.HandlerFunc(rh.GetRoleByID)),
 	)
 
 	router.Handle("GET /roles/user/{id}",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg,rh.Logger),
+			middleware.IsAuthenticated(rh.Cfg, rh.DB, rh.Cacher, rh.Logger),
 			middleware.HasPermission([]string{"read:role:any"}),
 		)(http.HandlerFunc(rh.GetAllUserRoles)),
 	)
 
 	router.Handle("GET /roles/permissions/{id}",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg,rh.Logger),
+			middleware.IsAuthenticated(rh.Cfg, rh.DB, rh.Cacher, rh.Logger),
 			middleware.HasPermission([]string{"read:role:permissions"}),
 		)(http.HandlerFunc(rh.GetRolePermissions)),
 	)
 
 	router.Handle("PATCH /roles/{id}",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg,rh.Logger),
+			middleware.IsAuthenticated(rh.Cfg, rh.DB, rh.Cacher, rh.Logger),
 			middleware.HasPermission([]string{"update:role:any"}),
 		)(http.HandlerFunc(rh.UpdateRole)),
 	)
 
 	router.Handle("GET /roles/assign/{user_id}/{role_id}",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg,rh.Logger),
+			middleware.IsAuthenticated(rh.Cfg, rh.DB, rh.Cacher, rh.Logger),
 			middleware.HasPermission([]string{"assign:role:any"}),
 		)(http.HandlerFunc(rh.AssignUserRole)),
 	)
 
 	router.Handle("DELETE /roles/revoke/{user_id}/{role_id}",
 		middleware.CreateStack(
-			middleware.IsAuthenticated(cfg,rh.Logger),
+			middleware.IsAuthenticated(rh.Cfg, rh.DB, rh.Cacher, rh.Logger),
 			middleware.HasPermission([]string{"assign:role:any"}),
 		)(http.HandlerFunc(rh.RevokeUserRole)),
 	)
@@ -82,7 +89,10 @@ func (rh *RoleHandler) CreateRole(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
-		rh.Logger.Error("Error while processing request", slog.Any("error", err))
+		rh.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -116,7 +126,10 @@ func (rh *RoleHandler) CreateRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err = tx.Commit(r.Context()); err != nil {
-		rh.Logger.Error("Error while committing transaction", slog.Any("error", err))
+		rh.Logger.Error(
+			"Error while committing transaction",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]any{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -143,7 +156,10 @@ func (rh *RoleHandler) GetRoleByID(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
-		rh.Logger.Error("Error while processing request", slog.Any("error", err))
+		rh.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -164,7 +180,11 @@ func (rh *RoleHandler) GetRoleByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		rh.Logger.Error("Failed to retrieve role", slog.Any("error", err), slog.Any("role", id.String()))
+		rh.Logger.Error(
+			"Failed to retrieve role",
+			slog.Any("error", err),
+			slog.Any("role", id.String()),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We couldn't complete this request at the moment please try again",
@@ -174,17 +194,18 @@ func (rh *RoleHandler) GetRoleByID(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(role)
-
 }
 
 func (rh *RoleHandler) GetAllRoles(w http.ResponseWriter, r *http.Request) {
-
 	pagination := middleware.GetPagination(r.Context())
 
 	w.Header().Set("Content-Type", "application/json")
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
-		rh.Logger.Error("Error while processing request", slog.Any("error", err))
+		rh.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -211,7 +232,6 @@ func (rh *RoleHandler) GetAllRoles(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(roles)
-
 }
 
 func (rh *RoleHandler) GetAllUserRoles(w http.ResponseWriter, r *http.Request) {
@@ -229,7 +249,10 @@ func (rh *RoleHandler) GetAllUserRoles(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
-		rh.Logger.Error("Error while processing request", slog.Any("error", err))
+		rh.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -253,14 +276,16 @@ func (rh *RoleHandler) GetAllUserRoles(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(roles)
-
 }
 
 func (rh *RoleHandler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
-		rh.Logger.Error("Error while processing request", slog.Any("error", err))
+		rh.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -294,7 +319,10 @@ func (rh *RoleHandler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err = tx.Commit(r.Context()); err != nil {
-		rh.Logger.Error("Error while committing transaction", slog.Any("error", err))
+		rh.Logger.Error(
+			"Error while committing transaction",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]any{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -306,7 +334,10 @@ func (rh *RoleHandler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(created)
 }
 
-func (rh *RoleHandler) GetRolePermissions(w http.ResponseWriter, r *http.Request) {
+func (rh *RoleHandler) GetRolePermissions(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	rawID := r.PathValue("id")
 	id, err := uuid.Parse(rawID)
 	if err != nil {
@@ -321,7 +352,10 @@ func (rh *RoleHandler) GetRolePermissions(w http.ResponseWriter, r *http.Request
 	w.Header().Set("Content-Type", "application/json")
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
-		rh.Logger.Error("Error while processing request", slog.Any("error", err))
+		rh.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -335,7 +369,9 @@ func (rh *RoleHandler) GetRolePermissions(w http.ResponseWriter, r *http.Request
 
 	roles, err := repo.GetRolePermissions(r.Context(), id)
 	if err != nil {
-		rh.Logger.Error("Failed to retrieve role permissions", slog.Any("error", err),
+		rh.Logger.Error(
+			"Failed to retrieve role permissions",
+			slog.Any("error", err),
 			slog.Any("role", id.String()),
 		)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -347,7 +383,6 @@ func (rh *RoleHandler) GetRolePermissions(w http.ResponseWriter, r *http.Request
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(roles)
-
 }
 
 // Some work might be needed to check for both the assign and revoke roles
@@ -378,7 +413,10 @@ func (rh *RoleHandler) AssignUserRole(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
-		rh.Logger.Error("Error while processing request", slog.Any("error", err))
+		rh.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -408,7 +446,10 @@ func (rh *RoleHandler) AssignUserRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err = tx.Commit(r.Context()); err != nil {
-		rh.Logger.Error("Error while committing transaction", slog.Any("error", err))
+		rh.Logger.Error(
+			"Error while committing transaction",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]any{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -417,8 +458,8 @@ func (rh *RoleHandler) AssignUserRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]any{"message": "Role successfully assigned"})
-
+	json.NewEncoder(w).
+		Encode(map[string]any{"message": "Role successfully assigned"})
 }
 
 func (rh *RoleHandler) RevokeUserRole(w http.ResponseWriter, r *http.Request) {
@@ -447,7 +488,10 @@ func (rh *RoleHandler) RevokeUserRole(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
-		rh.Logger.Error("Error while processing request", slog.Any("error", err))
+		rh.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -477,7 +521,10 @@ func (rh *RoleHandler) RevokeUserRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err = tx.Commit(r.Context()); err != nil {
-		rh.Logger.Error("Error while committing transaction", slog.Any("error", err))
+		rh.Logger.Error(
+			"Error while committing transaction",
+			slog.Any("error", err),
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]any{
 			"error": "We ran into a problem while servicing your request please try again later",
@@ -486,6 +533,6 @@ func (rh *RoleHandler) RevokeUserRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]any{"message": "Role successfully revoked"})
-
+	json.NewEncoder(w).
+		Encode(map[string]any{"message": "Role successfully revoked"})
 }
