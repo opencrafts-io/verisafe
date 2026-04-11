@@ -18,9 +18,17 @@ To consume messages from this queue, use the following configuration:
 
 | Property | Value |
 |----------|-------|
-| Exchange Name | `professor.exchange` |
-| Exchange Type | `direct` |
-| Routing Key | `verisafe.institution.connection.events` |
+| Exchange Name | `verisafe.events.topic` |
+| Exchange Type | `topic` |
+| Routing Key | `verisafe.institution.connection.*` |
+
+
+### Verisafe publishes messages with the following routing keys:
+
+- verisafe.institution.connection.connected (for user.institution.connected events)
+- verisafe.institution.connection.disconnected (for user.institution.disconnected events)
+
+Both match the consumer pattern: verisafe.institution.connection.*
 
 ## Message Structure
 
