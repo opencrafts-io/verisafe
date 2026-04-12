@@ -461,8 +461,10 @@ func (h *AuthHandler) AuthCallbackHandler(
 		)
 	})
 	if loadErr != nil {
-		http.Error(w, "Template not found", http.StatusInternalServerError)
-		return loadErr
+		return fmt.Errorf(
+			"%w: failed to load callback template",
+			core.ErrInternal,
+		)
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
