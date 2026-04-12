@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Signing you in…</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,300;8..144,400;8..144,500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* ── M3 Expressive tokens ─────────────────────────────────────────────── */
+      :root {
+        --pri: #6750a4;
+        --on-pri: #ffffff;
+        --pri-c: #eaddff;
+        --on-pri-c: #21005d;
+        --sec-c: #e8def8;
+        --on-sec-c: #1d192b;
+        --ter-c: #ffd8e4;
+        --on-ter-c: #31111d;
+        --err-c: #f9dedc;
+        --on-err-c: #410e0b;
+        --surf: #fffbfe;
+        --on-surf: #1c1b1f;
+        --on-sv: #49454f;
+        --surf-c: #f3edf7;
+        --surf-ch: #ece6f0;
+        --outline-v: #cac4d0;
+        --ease: cubic-bezier(0.2, 0, 0, 1);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --pri: #d0bcff;
+          --on-pri: #381e72;
+          --pri-c: #4f378b;
+          --on-pri-c: #eaddff;
+          --sec-c: #4a4458;
+          --on-sec-c: #e8def8;
+          --ter-c: #633b48;
+          --on-ter-c: #ffd8e4;
+          --err-c: #8c1d18;
+          --on-err-c: #f2b8b5;
+          --surf: #141218;
+          --on-surf: #e6e1e5;
+          --on-sv: #cac4d0;
+          --surf-c: #211f26;
+          --surf-ch: #2b2930;
+          --outline-v: #49454f;
+        }
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: "Roboto Flex", Roboto, system-ui, sans-serif;
+        background: var(--surf);
+        color: var(--on-surf);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px 16px;
+      }
+
+      .page {
+        width: 100%;
+        max-width: 412px;
+        animation: page-in 380ms var(--ease) both;
+      }
+
+      @keyframes page-in {
+        from {
+          opacity: 0;
+          transform: translateY(18px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* Icon block */
+      .icon-block {
+        width: 72px;
+        height: 72px;
+        border-radius: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 24px;
+      }
+      .icon-block svg {
+        width: 30px;
+        height: 30px;
+      }
+      .icon-block--error {
+        background: var(--err-c);
+        color: var(--on-err-c);
+      }
+      .icon-block--primary {
+        background: var(--pri-c);
+        color: var(--on-pri-c);
+      }
+
+      /* Typography — M3 Expressive headline-medium */
+      h1 {
+        font-size: 28px;
+        font-weight: 400;
+        line-height: 1.29;
+        color: var(--on-surf);
+        margin-bottom: 12px;
+      }
+      .body-text {
+        font-size: 16px;
+        font-weight: 400;
+        line-height: 1.5;
+        color: var(--on-sv);
+        margin-bottom: 28px;
+      }
+      .body-text strong {
+        font-weight: 500;
+        color: var(--on-surf);
+      }
+
+      /* Cards */
+      .card {
+        background: var(--surf-c);
+        border-radius: 28px;
+        padding: 22px 20px;
+        margin-bottom: 12px;
+      }
+      .card--alt {
+        background: var(--surf-ch);
+      }
+
+      /* Badges */
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 9999px;
+        padding: 4px 12px;
+        font-size: 11px;
+        font-weight: 500;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        margin-bottom: 14px;
+      }
+      .badge--pri {
+        background: var(--pri-c);
+        color: var(--on-pri-c);
+      }
+      .badge--sec {
+        background: var(--sec-c);
+        color: var(--on-sec-c);
+      }
+
+      .card-title {
+        font-size: 16px;
+        font-weight: 500;
+        color: var(--on-surf);
+        margin-bottom: 6px;
+      }
+      .card-desc {
+        font-size: 14px;
+        line-height: 1.43;
+        color: var(--on-sv);
+        margin-bottom: 18px;
+      }
+
+      /* Buttons — full pill, M3 Expressive */
+      .btn {
+        display: block;
+        width: 100%;
+        min-height: 40px;
+        padding: 10px 24px;
+        border-radius: 9999px;
+        border: none;
+        font-family: inherit;
+        font-size: 14px;
+        font-weight: 500;
+        letter-spacing: 0.006em;
+        text-align: center;
+        text-decoration: none;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+        transition: transform 150ms var(--ease);
+      }
+      .btn::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: currentColor;
+        opacity: 0;
+        transition: opacity 150ms;
+      }
+      .btn:hover::after {
+        opacity: 0.08;
+      }
+      .btn:active::after {
+        opacity: 0.12;
+      }
+      .btn:active {
+        transform: scale(0.97);
+      }
+      .btn-filled {
+        background: var(--pri);
+        color: var(--on-pri);
+      }
+      .btn-tonal {
+        background: var(--sec-c);
+        color: var(--on-sec-c);
+      }
+
+      /* Divider */
+      .or-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 8px 0 4px;
+      }
+      .or-line {
+        flex: 1;
+        height: 1px;
+        background: var(--outline-v);
+      }
+      .or-text {
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--on-sv);
+      }
+
+      /* Steps */
+      .steps {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 18px;
+      }
+      .step {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+      }
+      .step-num {
+        min-width: 24px;
+        height: 24px;
+        border-radius: 9999px;
+        background: var(--sec-c);
+        color: var(--on-sec-c);
+        font-size: 11px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        margin-top: 1px;
+      }
+      .step-body {
+        font-size: 14px;
+        line-height: 1.43;
+        color: var(--on-sv);
+      }
+      .step-body code {
+        font-family: monospace;
+        font-size: 12px;
+        font-weight: 500;
+        background: var(--surf-ch);
+        color: var(--on-surf);
+        border-radius: 8px;
+        padding: 2px 6px;
+      }
+      .step-body strong {
+        font-weight: 500;
+        color: var(--on-surf);
+      }
+
+      /* Notice */
+      .notice {
+        background: var(--ter-c);
+        color: var(--on-ter-c);
+        border-radius: 16px;
+        padding: 14px 16px;
+        font-size: 13px;
+        line-height: 1.54;
+        margin-top: 20px;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+      }
+
+      /* Spinner for the non-samsung redirect view */
+      .spinner {
+        width: 24px;
+        height: 24px;
+        border: 2.5px solid var(--outline-v);
+        border-top-color: var(--pri);
+        border-radius: 50%;
+        animation: spin 700ms linear infinite;
+        margin: 0 auto 24px;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* View toggle */
+      #view-samsung,
+      #view-redirecting {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <!-- ── Samsung Internet: show interstitial ─────────────────────────────── -->
+      <div id="view-samsung">
+        <div class="icon-block icon-block--error">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path
+              d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+            />
+            <line x1="12" y1="9" x2="12" y2="13" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+        </div>
+
+        <h1>One more step to sign in</h1>
+        <p class="body-text">
+          Samsung Internet blocked the redirect back to the app. This happens
+          because
+          <strong>"Open links in other apps"</strong> is turned off by default.
+          Choose an option below to continue.
+        </p>
+
+        <div class="card">
+          <div class="badge badge--pri">Option 1 · Easiest</div>
+          <p class="card-title">Continue in Chrome</p>
+          <p class="card-desc">
+            Chrome will hand you straight back to the app. Your login is already
+            complete — you just need the right browser to finish the redirect.
+          </p>
+          <a href="#" class="btn btn-filled" id="btn-chrome">Open in Chrome</a>
+        </div>
+
+        <div class="or-row">
+          <div class="or-line"></div>
+          <span class="or-text">or</span>
+          <div class="or-line"></div>
+        </div>
+
+        <div class="card card--alt">
+          <div class="badge badge--sec">Option 2 · One-time fix</div>
+          <p class="card-title">Enable "Open links in other apps"</p>
+          <p class="card-desc">
+            Permanently fixes this in Samsung Internet so the redirect works on
+            every future sign-in.
+          </p>
+          <ol class="steps">
+            <li class="step">
+              <span class="step-num">1</span>
+              <span class="step-body"
+                >Tap the button below to open Samsung Internet's settings</span
+              >
+            </li>
+            <li class="step">
+              <span class="step-num">2</span>
+              <span class="step-body">Tap <code>Open by default</code></span>
+            </li>
+            <li class="step">
+              <span class="step-num">3</span>
+              <span class="step-body">
+                Set <code>Open supported links</code> to
+                <strong>Open in this app</strong>
+              </span>
+            </li>
+            <li class="step">
+              <span class="step-num">4</span>
+              <span class="step-body">Return to the app and sign in again</span>
+            </li>
+          </ol>
+          <a href="#" class="btn btn-tonal" id="btn-settings"
+            >Open Samsung Internet settings</a
+          >
+        </div>
+
+        <div class="notice" role="note">
+          <span style="font-size: 15px; flex-shrink: 0; margin-top: 1px"
+            >⏱</span
+          >
+          <span>
+            Your sign-in code is valid for 60 seconds. If it has expired, just
+            try signing in again from the app.
+          </span>
+        </div>
+      </div>
+
+      <!-- ── All other browsers: App Links should have intercepted this URL ─── -->
+      <!-- ── before the page rendered. If it does render, show a fallback.  ─── -->
+      <div id="view-redirecting">
+        <div class="spinner" aria-hidden="true"></div>
+        <div class="icon-block icon-block--primary" style="margin: 0 auto 20px">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M5 12h14M12 5l7 7-7 7" />
+          </svg>
+        </div>
+        <h1 style="text-align: center">Signing you in…</h1>
+        <p class="body-text" style="text-align: center; margin-bottom: 32px">
+          Taking you back to the app. This should only take a moment.
+        </p>
+        <!--
+      Shown only if the OS didn't intercept via App Links (e.g. app not
+      installed, assetlinks.json not verified, or unsupported browser).
+    -->
+        <div id="manual-fallback" style="display: none">
+          <p class="body-text" style="text-align: center; margin-bottom: 16px">
+            If nothing happened, try opening in Chrome:
+          </p>
+          <a
+            href="#"
+            class="btn btn-filled"
+            id="btn-manual-chrome"
+            style="max-width: 240px; margin: 0 auto; display: block"
+          >
+            Open in Chrome
+          </a>
+        </div>
+      </div>
+    </div>
+    <script>
+      /*
+       * This page is hosted at https://academia.opencrafts.io/auth/callback
+       *
+       * flutter_web_auth_2 registers this HTTPS URL as an Android App Link.
+       * Chrome (and browsers that honour App Links) never render this page —
+       * the OS intercepts the navigation and hands the full URL back to the app.
+       *
+       * Samsung Internet ignores App Links by default, so it renders this page
+       * instead. We detect that and show the interstitial below.
+       */
+
+      var isSamsung = /SamsungBrowser/i.test(navigator.userAgent);
+
+      /* The full current URL (including ?code=&state=… params) is all we need.
+     For Option 1, we ask Chrome to navigate to the exact same URL —
+     Chrome will load it, the OS App Link intercepts, and the app opens.    */
+      var currentUrl = window.location.href;
+      var chromeUrl =
+        "googlechrome://navigate?url=" + encodeURIComponent(currentUrl);
+
+      document.getElementById("btn-chrome").href = chromeUrl;
+      document.getElementById("btn-manual-chrome").href = chromeUrl;
+
+      /* Settings intent ——————————————————————————————————————————————————————
+     Android 12+  → opens the "Open by default" screen for Samsung Internet.
+     Older Android → falls back to App Info screen after 800ms.             */
+      var deepSettings =
+        "intent:#Intent;action=android.settings.APP_OPEN_BY_DEFAULT_SETTINGS;data=package%3Acom.sec.android.app.sbrowser;end";
+      var fallbackSettings =
+        "intent:#Intent;action=android.settings.APPLICATION_DETAILS_SETTINGS;data=package%3Acom.sec.android.app.sbrowser;end";
+
+      document
+        .getElementById("btn-settings")
+        .addEventListener("click", function (e) {
+          e.preventDefault();
+          window.location.href = deepSettings;
+          setTimeout(function () {
+            window.location.href = fallbackSettings;
+          }, 800);
+        });
+
+      /* Show the right view */
+      if (isSamsung) {
+        document.getElementById("view-samsung").style.display = "block";
+      } else {
+        document.getElementById("view-redirecting").style.display = "block";
+        /* If the OS App Link didn't fire within 2.5 s (app not installed,
+       assetlinks.json not verified, etc.) show the Chrome fallback button. */
+        setTimeout(function () {
+          document.getElementById("manual-fallback").style.display = "block";
+        }, 2500);
+      }
+    </script>
+  </body>
+</html>
