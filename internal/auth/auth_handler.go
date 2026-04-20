@@ -3,7 +3,6 @@ package auth
 import (
 	"context"
 	"crypto/rand"
-	"embed"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -12,7 +11,6 @@ import (
 	"net/http"
 	"net/netip"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -98,10 +96,6 @@ func NewAuthHandler(
 func (h *AuthHandler) RegisterHandlers(router *http.ServeMux) {
 	router.HandleFunc("GET /auth/{provider}", h.LoginHandler)
 	router.HandleFunc("/auth/{provider}/callback", h.CallbackHandler)
-	router.Handle(
-		"GET /auth/callback",
-		handlers.AppHandler(h.AuthCallbackHandler),
-	)
 	router.Handle(
 		"POST /auth/token/exchange",
 		handlers.AppHandler(h.ExchangeAuthCodeHandler),
@@ -440,35 +434,6 @@ func (h *AuthHandler) RevokeTokenHandler(
 	}
 
 	w.WriteHeader(http.StatusNoContent)
-	return nil
-}
-
-//go:embed templates/*.html
-var templates embed.FS
-
-var (
-	once           sync.Once
-	callbackBuffer []byte
-	loadErr        error
-)
-
-func (h *AuthHandler) AuthCallbackHandler(
-	w http.ResponseWriter, r *http.Request,
-) error {
-	once.Do(func() {
-		callbackBuffer, loadErr = templates.ReadFile(
-			"templates/auth_callback.html",
-		)
-	})
-	if loadErr != nil {
-		return fmt.Errorf(
-			"%w: failed to load callback template",
-			core.ErrInternal,
-		)
-	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	w.Write(callbackBuffer)
 	return nil
 }
 
