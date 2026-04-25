@@ -1,4 +1,3 @@
-
 -- name: CreateInstitution :one
 INSERT INTO institutions (
     name, web_pages, domains, alpha_two_code, country, state_province
@@ -8,12 +7,19 @@ INSERT INTO institutions (
 RETURNING *;
 
 -- name: GetInstitution :one
-SELECT * FROM institutions
-WHERE institution_id = $1 LIMIT 1;
+select *
+from institutions
+where institution_id = $1
+limit 1
+;
 
 -- name: ListInstitutions :many
-SELECT * FROM institutions
-ORDER BY institution_id LIMIT $1 OFFSET $2;
+select *
+from institutions
+order by institution_id
+limit $1
+offset $2
+;
 
 -- name: UpdateInstitution :one
 UPDATE institutions
@@ -28,56 +34,72 @@ WHERE institution_id = @institution_id
 RETURNING *;
 
 -- name: DeleteInstitution :exec
-DELETE FROM institutions
-WHERE institution_id = $1;
+delete from institutions
+where institution_id = $1
+;
 
 
 -- name: SearchInstitutionsByName :many
-SELECT *
-FROM institutions
-WHERE lower(name) LIKE '%' || lower(@name::varchar) || '%'
-ORDER BY name
-LIMIT $1 OFFSET $2;
-
-
+select *
+from institutions
+where lower(name) like '%' || lower(@name::varchar) || '%'
+order by name
+limit $1
+offset $2
+;
 
 
 -- name: AddAccountInstitution :one
-WITH ins AS (
-  INSERT INTO account_institutions (account_id, institution_id)
-  VALUES ($1, $2)
-  ON CONFLICT DO NOTHING
-  RETURNING *
-)
-SELECT * FROM ins
-UNION
-SELECT * FROM account_institutions
-WHERE account_id = $1 AND institution_id = $2;
+with
+    ins as (
+        insert into account_institutions(account_id, institution_id)
+        values ($1, $2) on conflict do nothing
+        returning *
+    )
+select *
+from ins
+union
+select *
+from account_institutions
+where account_id = $1 and institution_id = $2
+;
+
+-- name: ListInstitutionConnections :many
+select *
+from account_institutions
+limit $1
+offset $2
+;
 
 
 -- name: RemoveAccountInstitution :exec
-DELETE FROM account_institutions
-WHERE account_id = $1 AND institution_id = $2;
+delete from account_institutions
+where account_id = $1 and institution_id = $2
+;
 
 -- name: ListInstitutionsForAccount :many
-SELECT i.*
-FROM institutions i
-JOIN account_institutions ai ON i.institution_id = ai.institution_id
-WHERE ai.account_id = $1
-ORDER BY i.name
-LIMIT $2
-OFFSET $3;
+select i.*
+from institutions i
+join account_institutions ai on i.institution_id = ai.institution_id
+where ai.account_id = $1
+order by i.name
+limit $2
+offset $3
+;
 
 -- name: ListAccountsForInstitution :many
-SELECT a.*
-FROM accounts a
-JOIN account_institutions ai ON a.id = ai.account_id
-WHERE ai.institution_id = $1
-ORDER BY a.name
-LIMIT $2
-OFFSET $3;
+select a.*
+from accounts a
+join account_institutions ai on a.id = ai.account_id
+where ai.institution_id = $1
+order by a.name
+limit $2
+offset $3
+;
 
 
 -- name: GetInstitutionsCount :one
 -- Returns the number of all institutions in the system
-SELECT count(*) from institutions;
+select count(*)
+from institutions
+;
