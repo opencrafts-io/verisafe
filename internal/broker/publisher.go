@@ -35,7 +35,9 @@ func NewPublisher(conn Connection, logger *slog.Logger) *Publisher {
 // Publish marshals the message to JSON and publishes it to the exchange
 func (p *Publisher) Publish(
 	ctx context.Context,
-	exchange, routingKey string,
+	exchange string,
+	exchangeType ExchangeType,
+	routingKey string,
 	message any,
 ) error {
 	// Marshal the message to JSON
@@ -50,6 +52,19 @@ func (p *Publisher) Publish(
 		err := fmt.Errorf("channel is nil")
 		p.logger.Error("cannot publish message", "error", err)
 		return err
+	}
+
+	err = ch.ExchangeDeclare(
+		exchange, // name
+		string(exchangeType),
+		true,  // durable
+		false, // auto-deleted
+		false, // internal
+		false, // no-wait
+		nil,   // arguments
+	)
+	if err != nil {
+		return fmt.Errorf("failed to declare exchange: %w", err)
 	}
 
 	// Publish the message

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/opencrafts-io/verisafe/internal/broker"
 	"github.com/opencrafts-io/verisafe/internal/config"
 	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/eventbus"
@@ -25,6 +26,7 @@ type InstitutionHandler struct {
 	Logger              *slog.Logger
 	Cfg                 *config.Config
 	InstitutionEventBus *eventbus.InstitutionEventBus
+	Publisher           *broker.Publisher
 }
 
 func (ih *InstitutionHandler) RegisterHandlers(
@@ -499,6 +501,35 @@ func (ih *InstitutionHandler) AddAcountInstitution(
 		return
 	}
 
+	if ih.Publisher != nil {
+		eventPayload := map[string]any{
+			"meta": map[string]any{
+				"event_type":        "user.institution.connected",
+				"timestamp":         time.Now().UTC().Format(time.RFC3339),
+				"source_service_id": "io.opencrafts.verisafe",
+				"request_id":        uuid.New().String(),
+			},
+			"institution_connection": map[string]any{
+				"account_id":     req.AccountID,
+				"institution_id": req.InstitutionID,
+			},
+		}
+		err := ih.Publisher.Publish(
+			r.Context(),
+			"verisafe.events.topic",
+			broker.TopicExchangeType,
+			"user.institution.connected",
+			eventPayload,
+		)
+		if err != nil {
+			ih.Logger.Error(
+				"failed to publish institution connection event",
+				"error",
+				err,
+			)
+		}
+	}
+
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(created)
 }
@@ -682,6 +713,35 @@ func (ih *InstitutionHandler) RemoveAccountInstitution(
 			http.StatusInternalServerError,
 		)
 		return
+	}
+
+	if ih.Publisher != nil {
+		eventPayload := map[string]any{
+			"meta": map[string]any{
+				"event_type":        "user.institution.disconnected",
+				"timestamp":         time.Now().UTC().Format(time.RFC3339),
+				"source_service_id": "io.opencrafts.verisafe",
+				"request_id":        uuid.New().String(),
+			},
+			"institution_connection": map[string]any{
+				"account_id":     req.AccountID,
+				"institution_id": req.InstitutionID,
+			},
+		}
+		err := ih.Publisher.Publish(
+			r.Context(),
+			"verisafe.events.topic",
+			broker.TopicExchangeType,
+			"user.institution.connected",
+			eventPayload,
+		)
+		if err != nil {
+			ih.Logger.Error(
+				"failed to publish institution connection event",
+				"error",
+				err,
+			)
+		}
 	}
 
 	w.WriteHeader(http.StatusOK)
