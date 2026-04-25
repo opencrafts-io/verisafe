@@ -93,6 +93,11 @@ func (ih *InstitutionHandler) RegisterHandlers(
 		middleware.CreateStack(
 			middleware.IsAuthenticated(ih.Cfg, ih.DB, ih.Cacher, ih.Logger),
 		)(http.HandlerFunc(ih.ListAccountsForInstitution)))
+
+	router.Handle("GET /institutions/accounts/fanout",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(ih.Cfg, ih.DB, ih.Cacher, ih.Logger),
+		)(http.HandlerFunc(ih.FanoutInstitutionConnections)))
 }
 
 // POST /institutions/register
@@ -747,6 +752,121 @@ func (ih *InstitutionHandler) RemoveAccountInstitution(
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).
 		Encode(map[string]any{"message": "Successfully removed from institution"})
+}
+
+func (ih *InstitutionHandler) FanoutInstitutionConnections(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+	ctx := r.Context()
+	conn, err := middleware.GetDBConnFromContext(ctx)
+	if err != nil {
+		ih.Logger.Error("DB connection missing", slog.Any("error", err))
+		http.Error(
+			w,
+			`{"error":"internal server error"}`,
+			http.StatusInternalServerError,
+		)
+		return
+	}
+
+	repo := repository.New(conn)
+
+	const batchSize = 500
+	const workerCount = 10
+
+	jobChan := make(chan repository.AccountInstitution, batchSize)
+	var wg sync.WaitGroup
+
+	for i := 0; i < workerCount; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for connection := range jobChan {
+				ih.publishConnectionEvent(ctx, connection)
+			}
+		}()
+	}
+
+	go func() {
+		defer close(jobChan)
+		offset := 0
+		for {
+			connections, err := repo.ListInstitutionConnections(
+				ctx,
+				repository.ListInstitutionConnectionsParams{
+					Limit:  int32(batchSize),
+					Offset: int32(offset),
+				},
+			)
+			if err != nil {
+				ih.Logger.Error(
+					"Batch fetch failed",
+					"offset",
+					offset,
+					"error",
+					err,
+				)
+				break
+			}
+
+			if len(connections) == 0 {
+				break
+			}
+
+			for _, c := range connections {
+				jobChan <- c
+			}
+
+			offset += batchSize
+		}
+	}()
+
+	wg.Wait()
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "fanout complete"})
+}
+
+// Helper to keep the handler clean
+func (ih *InstitutionHandler) publishConnectionEvent(
+	ctx context.Context,
+	conn repository.AccountInstitution,
+) {
+	if ih.Publisher == nil {
+		return
+	}
+
+	payload := map[string]any{
+		"meta": map[string]any{
+			"event_type":        "user.institution.synced",
+			"timestamp":         time.Now().UTC().Format(time.RFC3339),
+			"source_service_id": "io.opencrafts.verisafe",
+			"request_id":        "batch-sync-" + uuid.New().String()[:8],
+		},
+		"institution_connection": map[string]any{
+			"account_id":     conn.AccountID,
+			"institution_id": conn.InstitutionID,
+		},
+	}
+
+	err := ih.Publisher.Publish(
+		ctx,
+		"verisafe.events.topic",
+		broker.TopicExchangeType,
+		"user.institution.connected",
+		payload,
+	)
+	if err != nil {
+		ih.Logger.Error(
+			"Institution fanout publish failed",
+			"account_id",
+			conn.AccountID,
+			"error",
+			err,
+		)
+	}
 }
 
 func (ih *InstitutionHandler) FanoutInstitutions(
