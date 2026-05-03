@@ -737,7 +737,7 @@ func (ih *InstitutionHandler) RemoveAccountInstitution(
 			r.Context(),
 			"verisafe.events.topic",
 			broker.TopicExchangeType,
-			"user.institution.connected",
+			"user.institution.disconnected",
 			eventPayload,
 		)
 		if err != nil {
@@ -840,10 +840,10 @@ func (ih *InstitutionHandler) publishConnectionEvent(
 
 	payload := map[string]any{
 		"meta": map[string]any{
-			"event_type":        "user.institution.synced",
+			"event_type":        "user.institution.connected",
 			"timestamp":         time.Now().UTC().Format(time.RFC3339),
 			"source_service_id": "io.opencrafts.verisafe",
-			"request_id":        "batch-sync-" + uuid.New().String()[:8],
+			"request_id":        uuid.New().String(),
 		},
 		"institution_connection": map[string]any{
 			"account_id":     conn.AccountID,
