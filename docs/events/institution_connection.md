@@ -20,13 +20,13 @@ To consume messages from this queue, use the following configuration:
 |----------|-------|
 | Exchange Name | `verisafe.events.topic` |
 | Exchange Type | `topic` |
-| Routing Key | `verisafe.institution.connection.*` |
+| Routing Key | `user.institution.*` |
 
 
 ### Verisafe publishes messages with the following routing keys:
 
-- verisafe.institution.connection.connected (for user.institution.connected events)
-- verisafe.institution.connection.disconnected (for user.institution.disconnected events)
+- user.institution.connected (for user.institution.connected events)
+- user.institution.disconnected (for user.institution.disconnected events)
 
 Both match the consumer pattern: verisafe.institution.connection.*
 
