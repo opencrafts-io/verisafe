@@ -642,7 +642,6 @@ func (h *AuthHandler) handleMobileCallback(
 	// Redirect to deep link — tokens never touch the URL
 	// e.g. myapp://auth/callback?code=abc123
 	deepLink := fmt.Sprintf("%s?code=%s", stateData.DeepLink, code)
-	h.logger.Info("Redirecting", slog.String("url", deepLink))
 	http.Redirect(w, r, deepLink, http.StatusFound)
 }
 
