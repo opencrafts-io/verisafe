@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/opencrafts-io/verisafe/database"
+	"github.com/opencrafts-io/verisafe/internal/broker"
 	"github.com/opencrafts-io/verisafe/internal/config"
 	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/eventbus"
@@ -27,6 +28,8 @@ type App struct {
 	institutionEventBus  *eventbus.InstitutionEventBus
 	geoIPLocator         *geo.GeoIPLocater
 	cacher               core.Cacher
+
+	rabbitMQConn broker.Connection
 }
 
 // Returns a new instance of the application
@@ -71,6 +74,24 @@ func New(logger *slog.Logger, config *config.Config) (*App, error) {
 	}
 	cache := core.NewRedisCacher(rdb)
 
+	rabbitMQConnString := fmt.Sprintf("amqp://%s:%s@%s:%d/",
+		config.RabbitMQConfig.RabbitMQUser,
+		config.RabbitMQConfig.RabbitMQPass,
+		config.RabbitMQConfig.RabbitMQAddress,
+		config.RabbitMQConfig.RabbitMQPort,
+	)
+
+	rabbitMQConn, err := broker.NewRabbitMQConnection(
+		context.Background(),
+		rabbitMQConnString,
+	)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"failed to connect to rabbit mq  event bus %w",
+			err,
+		)
+	}
+
 	userEventBus, err := eventbus.NewUserEventBus(config, logger)
 	if err != nil {
 		return nil, err
@@ -106,6 +127,7 @@ func New(logger *slog.Logger, config *config.Config) (*App, error) {
 		institutionEventBus:  institutionEventBus,
 		geoIPLocator:         gil,
 		cacher:               cache,
+		rabbitMQConn:         rabbitMQConn,
 	}, nil
 }
 
@@ -162,9 +184,16 @@ func (a *App) Start(ctx context.Context) error {
 	defer cancel()
 
 	srv.Shutdown(sCtx)
+	a.Shutdown()
 	a.geoIPLocator.Close()
 	a.userEventBus.Close()
 	a.institutionEventBus.Close()
 	a.notificationEventBus.Close()
 	return nil
+}
+
+func (a *App) Shutdown() {
+	if err := a.rabbitMQConn.Close(); err != nil {
+		panic(err)
+	}
 }

@@ -5,6 +5,7 @@ import (
 
 	_ "github.com/opencrafts-io/verisafe/docs"
 	"github.com/opencrafts-io/verisafe/internal/auth"
+	"github.com/opencrafts-io/verisafe/internal/broker"
 	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/handlers"
 	httpSwagger "github.com/swaggo/http-swagger"
@@ -77,6 +78,7 @@ func (a *App) loadRoutes() http.Handler {
 			Cfg:                 a.config,
 			Logger:              a.logger,
 			InstitutionEventBus: a.institutionEventBus,
+			Publisher:           broker.NewPublisher(a.rabbitMQConn, a.logger),
 		},
 		&handlers.LeaderBoardHandler{
 			DB:     db,
