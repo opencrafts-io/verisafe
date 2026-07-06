@@ -190,7 +190,8 @@ func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		DeviceToken: r.URL.Query().Get("device_token"),
 	})
 
-	h.logger.Info("initiating OAuth login",
+	h.logger.Info(
+		"initiating OAuth login",
 		slog.String("provider", provider),
 		slog.String("platform", platform),
 	)
@@ -268,7 +269,13 @@ func (h *AuthHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 			return err
 		}
 
-		if err := h.upsertSocialConnection(r, repo, gothUser, account, provider); err != nil {
+		if err := h.upsertSocialConnection(
+			r,
+			repo,
+			gothUser,
+			account,
+			provider,
+		); err != nil {
 			return err
 		}
 
@@ -411,13 +418,20 @@ func (h *AuthHandler) RevokeTokenHandler(
 		)
 
 		if remaining > 0 {
-			if err := tokenSvc.RevokeAccessToken(r.Context(), jti, remaining); err != nil {
+			if err := tokenSvc.RevokeAccessToken(
+				r.Context(),
+				jti,
+				remaining,
+			); err != nil {
 				return fmt.Errorf("blocklist access token: %w", err)
 			}
 		}
 
 		if req.RefreshToken != "" {
-			if err := tokenSvc.RevokeByRawToken(r.Context(), req.RefreshToken); err != nil {
+			if err := tokenSvc.RevokeByRawToken(
+				r.Context(),
+				req.RefreshToken,
+			); err != nil {
 				// Non-fatal — access token is already blocklisted.
 				h.logger.Warn(
 					"failed to revoke refresh token family",
@@ -446,7 +460,8 @@ func (h *AuthHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := gothic.Logout(w, r); err != nil {
-		h.logger.Error("failed to logout from provider",
+		h.logger.Error(
+			"failed to logout from provider",
 			slog.String("provider", provider),
 			slog.Any("error", err),
 		)
@@ -689,7 +704,10 @@ func patchAppleUserName(r *http.Request, user goth.User) goth.User {
 	}
 
 	var appleData appleUserJSON
-	if err := json.Unmarshal([]byte(r.FormValue("user")), &appleData); err != nil {
+	if err := json.Unmarshal(
+		[]byte(r.FormValue("user")),
+		&appleData,
+	); err != nil {
 		return user
 	}
 
