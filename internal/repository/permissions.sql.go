@@ -94,35 +94,22 @@ func (q *Queries) GetAllPermissions(ctx context.Context, arg GetAllPermissionsPa
 	return items, nil
 }
 
-const getPermissionByID = `-- name: GetPermissionByID :many
+const getPermissionByID = `-- name: GetPermissionByID :one
 SELECT id, name, description, created_at, updated_at FROM permissions
 WHERE id = $1
 `
 
-func (q *Queries) GetPermissionByID(ctx context.Context, id uuid.UUID) ([]Permission, error) {
-	rows, err := q.db.Query(ctx, getPermissionByID, id)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []Permission{}
-	for rows.Next() {
-		var i Permission
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Description,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+func (q *Queries) GetPermissionByID(ctx context.Context, id uuid.UUID) (Permission, error) {
+	row := q.db.QueryRow(ctx, getPermissionByID, id)
+	var i Permission
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Description,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const getUserPermissionNames = `-- name: GetUserPermissionNames :many
