@@ -58,6 +58,15 @@ func (sh *StreakHandler) RecordUserActivity(
 		return
 	}
 
+	claims, ok := middleware.ClaimsFromContext(r.Context())
+	if !ok || requestBody.AccountID.String() != claims.Subject {
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "you can only record activity completions for your own account",
+		})
+		return
+	}
+
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
 		sh.Logger.Error(
