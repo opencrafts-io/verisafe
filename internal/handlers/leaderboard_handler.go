@@ -31,6 +31,19 @@ func (lh *LeaderBoardHandler) RegisterHandlers(
 	)(http.HandlerFunc(lh.GetGlobalUserRank)))
 }
 
+// GetGlobalUserRank godoc
+//
+// @Summary      Get a given user's global leaderboard rank
+// @Description  Note: any authenticated caller can look up any user's rank by id — there is no ownership check on this endpoint today.
+// @Tags         leaderboard
+// @Produce      json
+// @Param        user  path  string  true  "Account ID"
+// @Success      200  {object}  repository.AccountVibepointRank
+// @Failure      400  {object}  core.APIError  "Invalid user id"
+// @Failure      500  {object}  core.APIError  "Failed to fetch rank"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /leaderboard/global/{user} [get]
 func (lh *LeaderBoardHandler) GetGlobalUserRank(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -85,7 +98,18 @@ func (lh *LeaderBoardHandler) GetGlobalUserRank(
 	json.NewEncoder(w).Encode(leaderboardRank)
 }
 
-// Returns the global leaderboard using the limit offset scheme
+// GetGlobalLeaderBoard godoc
+//
+// @Summary      Get the global leaderboard
+// @Tags         leaderboard
+// @Produce      json
+// @Param        page       query  int  false  "Page number (default 1)"
+// @Param        page_size  query  int  false  "Page size (default 10, max 100)"
+// @Success      200  {object}  pagination.PaginatedResponse
+// @Failure      500  {object}  core.APIError  "Failed to fetch leaderboard"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /leaderboard/global [get]
 func (lh *LeaderBoardHandler) GetGlobalLeaderBoard(
 	w http.ResponseWriter,
 	r *http.Request,

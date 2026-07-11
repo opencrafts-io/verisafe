@@ -84,7 +84,19 @@ func (rh *RoleHandler) RegisterHandlers(
 	)
 }
 
-// Creates a role
+// CreateRole godoc
+//
+// @Summary      Create a role
+// @Tags         roles
+// @Accept       json
+// @Produce      json
+// @Param        request  body      repository.CreateRoleParams  true  "Role to create"
+// @Success      201  {object}  repository.Role
+// @Failure      400  {object}  core.APIError  "Invalid request body"
+// @Failure      500  {object}  core.APIError  "Failed to create role"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /roles/create [post]
 func (rh *RoleHandler) CreateRole(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	conn, err := middleware.GetDBConnFromContext(r.Context())
@@ -141,6 +153,19 @@ func (rh *RoleHandler) CreateRole(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(created)
 }
 
+// GetRoleByID godoc
+//
+// @Summary      Get a role by id
+// @Tags         roles
+// @Produce      json
+// @Param        id  path  string  true  "Role ID"
+// @Success      200  {object}  repository.Role
+// @Failure      400  {object}  core.APIError  "Invalid id"
+// @Failure      404  {object}  core.APIError  "Role not found"
+// @Failure      500  {object}  core.APIError  "Failed to fetch role"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /roles/{id} [get]
 func (rh *RoleHandler) GetRoleByID(w http.ResponseWriter, r *http.Request) {
 	rawID := r.PathValue("id")
 	id, err := uuid.Parse(rawID)
@@ -196,6 +221,18 @@ func (rh *RoleHandler) GetRoleByID(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(role)
 }
 
+// GetAllRoles godoc
+//
+// @Summary      List roles
+// @Tags         roles
+// @Produce      json
+// @Param        limit   query  int  false  "Page size (default 10, max 100)"
+// @Param        offset  query  int  false  "Page offset (default 0)"
+// @Success      200  {array}   repository.Role
+// @Failure      500  {object}  core.APIError  "Failed to fetch roles"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /roles [get]
 func (rh *RoleHandler) GetAllRoles(w http.ResponseWriter, r *http.Request) {
 	pagination := middleware.GetPagination(r.Context())
 
@@ -234,6 +271,18 @@ func (rh *RoleHandler) GetAllRoles(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(roles)
 }
 
+// GetAllUserRoles godoc
+//
+// @Summary      List a given user's roles
+// @Tags         roles
+// @Produce      json
+// @Param        id  path  string  true  "Account ID"
+// @Success      200  {array}   repository.UserRolesView
+// @Failure      400  {object}  core.APIError  "Invalid id"
+// @Failure      500  {object}  core.APIError  "Failed to fetch roles"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /roles/user/{id} [get]
 func (rh *RoleHandler) GetAllUserRoles(w http.ResponseWriter, r *http.Request) {
 	rawID := r.PathValue("id")
 	id, err := uuid.Parse(rawID)
@@ -278,6 +327,21 @@ func (rh *RoleHandler) GetAllUserRoles(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(roles)
 }
 
+// UpdateRole godoc
+//
+// @Summary      Update a role
+// @Description  The path id is the authoritative resource identifier — any id in the request body is overwritten with it.
+// @Tags         roles
+// @Accept       json
+// @Produce      json
+// @Param        id       path  string                       true  "Role ID"
+// @Param        request  body  repository.UpdateRoleParams  true  "Fields to update"
+// @Success      200  {object}  repository.Role
+// @Failure      400  {object}  core.APIError  "Invalid id or request body"
+// @Failure      500  {object}  core.APIError  "Failed to update role"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /roles/{id} [patch]
 func (rh *RoleHandler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 	rawID := r.PathValue("id")
 	id, err := uuid.Parse(rawID)
@@ -346,6 +410,18 @@ func (rh *RoleHandler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(created)
 }
 
+// GetRolePermissions godoc
+//
+// @Summary      List permissions granted to a role
+// @Tags         roles
+// @Produce      json
+// @Param        id  path  string  true  "Role ID"
+// @Success      200  {array}   repository.RolePermissionsView
+// @Failure      400  {object}  core.APIError  "Invalid id"
+// @Failure      500  {object}  core.APIError  "Failed to fetch permissions"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /roles/permissions/{id} [get]
 func (rh *RoleHandler) GetRolePermissions(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -397,6 +473,19 @@ func (rh *RoleHandler) GetRolePermissions(
 	json.NewEncoder(w).Encode(roles)
 }
 
+// AssignUserRole godoc
+//
+// @Summary      Assign a role to a user
+// @Tags         roles
+// @Produce      json
+// @Param        user_id  path  string  true  "Account ID"
+// @Param        role_id  path  string  true  "Role ID"
+// @Success      200  {object}  map[string]any  "Confirmation message"
+// @Failure      400  {object}  core.APIError  "Invalid user_id or role_id"
+// @Failure      500  {object}  core.APIError  "Failed to assign role"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /roles/assign/{user_id}/{role_id} [get]
 func (rh *RoleHandler) AssignUserRole(w http.ResponseWriter, r *http.Request) {
 	rawUserID := r.PathValue("user_id")
 	userID, err := uuid.Parse(rawUserID)
@@ -472,6 +561,19 @@ func (rh *RoleHandler) AssignUserRole(w http.ResponseWriter, r *http.Request) {
 		Encode(map[string]any{"message": "Role successfully assigned"})
 }
 
+// RevokeUserRole godoc
+//
+// @Summary      Revoke a role from a user
+// @Tags         roles
+// @Produce      json
+// @Param        user_id  path  string  true  "Account ID"
+// @Param        role_id  path  string  true  "Role ID"
+// @Success      200  {object}  map[string]any  "Confirmation message"
+// @Failure      400  {object}  core.APIError  "Invalid user_id or role_id"
+// @Failure      500  {object}  core.APIError  "Failed to revoke role"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /roles/revoke/{user_id}/{role_id} [delete]
 func (rh *RoleHandler) RevokeUserRole(w http.ResponseWriter, r *http.Request) {
 	rawUserID := r.PathValue("user_id")
 	userID, err := uuid.Parse(rawUserID)

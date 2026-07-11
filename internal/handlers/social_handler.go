@@ -36,7 +36,18 @@ func (sh *SocialHandler) RegisterHandlers(
 	)
 }
 
-// Returns all user socials accounts specified by id
+// GetUserIDSocials godoc
+//
+// @Summary      List a given user's linked social accounts
+// @Tags         socials
+// @Produce      json
+// @Param        user_id  path  string  true  "Account ID"
+// @Success      200  {array}   repository.Social
+// @Failure      400  {object}  core.APIError  "Invalid user_id"
+// @Failure      500  {object}  core.APIError  "Failed to fetch social connections"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /socials/user/{user_id} [get]
 func (sh *SocialHandler) GetUserIDSocials(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -100,7 +111,17 @@ func (sh *SocialHandler) GetUserIDSocials(
 	json.NewEncoder(w).Encode(socials)
 }
 
-// Returns all user social accounts
+// GetAllUserSocials godoc
+//
+// @Summary      List the authenticated user's own linked social accounts
+// @Tags         socials
+// @Produce      json
+// @Success      200  {array}   repository.Social
+// @Failure      401  {object}  core.APIError  "Missing or invalid claims"
+// @Failure      500  {object}  core.APIError  "Failed to fetch social connections"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /socials/me [get]
 func (sh *SocialHandler) GetAllUserSocials(
 	w http.ResponseWriter,
 	r *http.Request,

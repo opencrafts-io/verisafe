@@ -151,6 +151,21 @@ func (h *AuthHandler) storeAuthCode(
 	)
 }
 
+// LoginHandler godoc
+//
+// @Summary      Start OAuth2 login
+// @Description  Redirects the client to the given OAuth2 provider to begin a login. Omit "platform" (or pass anything other than "web") for the mobile flow. Pass platform=web with a redirect_uri that's in the server-side allowlist for the web flow.
+// @Tags         auth
+// @Param        provider      path   string  true   "OAuth2 provider"  Enums(google, spotify, apple)
+// @Param        platform      query  string  false  "Set to 'web' for the web flow; omitted defaults to mobile"
+// @Param        redirect_uri  query  string  false  "Required when platform=web; must be in the configured allowlist"
+// @Param        deep_link     query  string  false  "Mobile deep link to redirect to after login, e.g. myapp://auth/callback"
+// @Param        device_name   query  string  false  "Device name to register on successful login"
+// @Param        device_token  query  string  false  "Push notification token to register on successful login"
+// @Success      302  "Redirects to the OAuth2 provider"
+// @Failure      400  {object}  core.APIError  "Missing provider, or missing/disallowed redirect_uri"
+// @Failure      500  {object}  core.APIError  "Failed to initiate login with the provider"
+// @Router       /auth/{provider} [get]
 func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	provider, err := GetProviderName(r)
 	if err != nil {
@@ -215,6 +230,17 @@ func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, url, http.StatusFound)
 }
 
+// CallbackHandler godoc
+//
+// @Summary      OAuth2 provider callback
+// @Description  Completes an OAuth2 login started by LoginHandler. Not called directly by clients — the provider redirects here (Apple posts via application/x-www-form-urlencoded). On success, redirects to redirect_uri with cookies set (web) or to the deep link with a one-time opaque code (mobile).
+// @Tags         auth
+// @Param        provider  path  string  true  "OAuth2 provider"  Enums(google, spotify, apple)
+// @Success      302  "Redirects to redirect_uri (web) or the deep link (mobile)"
+// @Failure      400  {object}  core.APIError  "Missing provider or malformed/missing state"
+// @Failure      500  {object}  core.APIError  "OAuth flow, database, or token issuance failure"
+// @Router       /auth/{provider}/callback [get]
+// @Router       /auth/{provider}/callback [post]
 func (h *AuthHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		if err := r.ParseForm(); err != nil {
@@ -347,6 +373,18 @@ func (h *AuthHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// RefreshTokenHandler godoc
+//
+// @Summary      Rotate a refresh token
+// @Description  Consumes the given refresh token and issues a fresh access/refresh pair. Reusing an already-rotated, revoked, or expired refresh token revokes its entire token family and returns 401.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body      auth.refreshTokenRequest  true  "Refresh token to rotate"
+// @Success      200  {object}  auth.tokenResponse
+// @Failure      400  {object}  core.APIError  "Missing or malformed refresh_token"
+// @Failure      401  {object}  core.APIError  "Refresh token invalid, expired, or reuse detected"
+// @Router       /auth/token/refresh [post]
 func (h *AuthHandler) RefreshTokenHandler(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -393,6 +431,19 @@ func (h *AuthHandler) RefreshTokenHandler(
 	return nil
 }
 
+// RevokeTokenHandler godoc
+//
+// @Summary      Revoke the caller's access token (and optionally a refresh token family)
+// @Description  Blocklists the presented access token for its remaining lifetime. If a refresh_token is also supplied, revokes its entire token family too; refresh-family revocation failure is logged but non-fatal.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body  auth.revokeTokenRequest  false  "Optional refresh token to also revoke its family"
+// @Success      204  "No Content"
+// @Failure      401  {object}  core.APIError  "Missing or invalid claims"
+// @Failure      500  {object}  core.APIError  "Failed to revoke token"
+// @Security     BearerToken
+// @Router       /auth/token/revoke [post]
 func (h *AuthHandler) RevokeTokenHandler(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -458,6 +509,17 @@ func (h *AuthHandler) RevokeTokenHandler(
 	return nil
 }
 
+// LogoutHandler godoc
+//
+// @Summary      Log out of the OAuth2 provider session
+// @Description  Clears the goth/gothic OAuth2 session for the given provider. This is not the same as token revocation — call RevokeTokenHandler too if the client also wants to invalidate its JWT/refresh token.
+// @Tags         auth
+// @Param        provider  path  string  true  "OAuth2 provider"  Enums(google, spotify, apple)
+// @Success      307  "Redirects to /"
+// @Failure      400  {object}  core.APIError  "Missing provider"
+// @Failure      500  {object}  core.APIError  "Failed to log out from provider"
+// @Security     BearerToken
+// @Router       /auth/{provider}/logout [get]
 func (h *AuthHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	provider, err := GetProviderName(r)
 	if err != nil {
@@ -480,6 +542,19 @@ func (h *AuthHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 }
 
+// ExchangeAuthCodeHandler godoc
+//
+// @Summary      Exchange a mobile auth code for a token pair
+// @Description  Exchanges the one-time opaque code from the deep link (see CallbackHandler) for the access/refresh token pair. The code is single-use with a 60-second TTL and is deleted on first use.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body      auth.authCodeExchangeRequest  true  "Opaque code from the deep link"
+// @Success      200  {object}  auth.tokenResponse
+// @Failure      400  {object}  core.APIError  "Missing or malformed code"
+// @Failure      401  {object}  core.APIError  "Invalid or expired code"
+// @Failure      500  {object}  core.APIError  "Failed to retrieve auth code"
+// @Router       /auth/token/exchange [post]
 func (h *AuthHandler) ExchangeAuthCodeHandler(
 	w http.ResponseWriter,
 	r *http.Request,
