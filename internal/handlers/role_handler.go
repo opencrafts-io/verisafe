@@ -283,10 +283,7 @@ func (rh *RoleHandler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(rawID)
 	if err != nil {
 		rh.Logger.Error("Failed to parse request body", slog.Any("error", err))
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "Please check your request body and try again",
-		})
+		core.WriteError(w, http.StatusBadRequest, "Please check your request body and try again")
 		return
 	}
 
