@@ -10,7 +10,6 @@ import (
 	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/repository"
-	"github.com/opencrafts-io/verisafe/internal/tokens"
 )
 
 type SocialHandler struct {
@@ -109,7 +108,12 @@ func (sh *SocialHandler) GetAllUserSocials(
 	w.Header().Set("Content-Type", "application/json")
 
 	// Parse the id from the token
-	claims := r.Context().Value(middleware.AuthUserClaims).(*tokens.VerisafeClaims)
+	claims, ok := middleware.ClaimsFromContext(r.Context())
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]string{"error": "authentication required"})
+		return
+	}
 	id, err := uuid.Parse(claims.Subject)
 	if err != nil {
 		sh.Logger.Error(
