@@ -200,8 +200,6 @@ func TestRotateRefreshToken(t *testing.T) {
 	})
 }
 
-// ... TestRevokeFamily, TestRevokeAccessToken, TestIsAccessTokenRevoked unchanged ...
-
 func validTokenService(t *testing.T) TokenService {
 	ctrl := gomock.NewController(t)
 	repo := mockQuerier.NewMockQuerier(ctrl)
