@@ -7,10 +7,8 @@
 //
 // Usage:
 //
-//	locator, err := geo.NewGeoIPLocater(
-//	    "path/to/GeoLite2-City.mmdb",
-//	    "path/to/GeoLite2-ASN.mmdb",
-//	)
+//	// Pass empty paths to use the databases embedded in the binary:
+//	locator, err := geo.NewGeoIPLocater("", "")
 //	if err != nil {
 //	    log.Fatal(err)
 //	}

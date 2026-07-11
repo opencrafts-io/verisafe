@@ -8,7 +8,29 @@ on:
       
 
 jobs:
+  test:
+    name: Build, Vet, and Test
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build
+        run: go build ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test ./...
+
   build-push-update-infraops:
+    needs: test
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Checkout Repo

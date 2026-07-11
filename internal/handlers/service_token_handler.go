@@ -141,7 +141,11 @@ func (sth *ServiceTokenHandler) CreateServiceToken(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
-	claims := r.Context().Value(middleware.AuthUserClaims).(*tokens.VerisafeClaims)
+	claims, ok := middleware.ClaimsFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized: missing claims", http.StatusUnauthorized)
+		return
+	}
 	accountID, err := uuid.Parse(claims.Subject)
 	if err != nil {
 		sth.Logger.Error(
@@ -349,7 +353,11 @@ func (sth *ServiceTokenHandler) ListServiceTokens(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
-	claims := r.Context().Value(middleware.AuthUserClaims).(*tokens.VerisafeClaims)
+	claims, ok := middleware.ClaimsFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized: missing claims", http.StatusUnauthorized)
+		return
+	}
 	accountID, err := uuid.Parse(claims.Subject)
 	if err != nil {
 		sth.Logger.Error(
@@ -412,7 +420,11 @@ func (sth *ServiceTokenHandler) GetServiceToken(
 		return
 	}
 
-	claims := r.Context().Value(middleware.AuthUserClaims).(*tokens.VerisafeClaims)
+	claims, ok := middleware.ClaimsFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized: missing claims", http.StatusUnauthorized)
+		return
+	}
 	accountID, err := uuid.Parse(claims.Subject)
 	if err != nil {
 		sth.Logger.Error(
@@ -478,7 +490,11 @@ func (sth *ServiceTokenHandler) UpdateServiceToken(
 		return
 	}
 
-	claims := r.Context().Value(middleware.AuthUserClaims).(*tokens.VerisafeClaims)
+	claims, ok := middleware.ClaimsFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized: missing claims", http.StatusUnauthorized)
+		return
+	}
 	accountID, err := uuid.Parse(claims.Subject)
 	if err != nil {
 		sth.Logger.Error(
@@ -653,7 +669,11 @@ func (sth *ServiceTokenHandler) RotateServiceToken(
 		return
 	}
 
-	claims := r.Context().Value(middleware.AuthUserClaims).(*tokens.VerisafeClaims)
+	claims, ok := middleware.ClaimsFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized: missing claims", http.StatusUnauthorized)
+		return
+	}
 	accountID, err := uuid.Parse(claims.Subject)
 	if err != nil {
 		sth.Logger.Error(
@@ -798,7 +818,11 @@ func (sth *ServiceTokenHandler) RevokeServiceToken(
 		return
 	}
 
-	claims := r.Context().Value(middleware.AuthUserClaims).(*tokens.VerisafeClaims)
+	claims, ok := middleware.ClaimsFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized: missing claims", http.StatusUnauthorized)
+		return
+	}
 	accountID, err := uuid.Parse(claims.Subject)
 	if err != nil {
 		sth.Logger.Error(
@@ -890,7 +914,11 @@ func (sth *ServiceTokenHandler) GetServiceTokenStats(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
-	claims := r.Context().Value(middleware.AuthUserClaims).(*tokens.VerisafeClaims)
+	claims, ok := middleware.ClaimsFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized: missing claims", http.StatusUnauthorized)
+		return
+	}
 	accountID, err := uuid.Parse(claims.Subject)
 	if err != nil {
 		sth.Logger.Error(

@@ -1,3 +1,43 @@
+// Package auth implements OAuth2 login (Google, Spotify, Apple) and the
+// session/state plumbing gothic needs to complete a login round-trip. It
+// covers provider setup and the six /auth/* HTTP endpoints; JWT/refresh-token
+// issuance itself lives in the sibling package internal/tokens.
+//
+// # Login flow
+//
+// GET /auth/{provider} starts a login: the platform (mobile vs web) and,
+// for web, a redirect_uri are captured into a pipe-delimited, base64-encoded
+// state blob (see encodeState/decodeState in auth_handler.go), then gothic
+// redirects the client to the provider.
+//
+// /auth/{provider}/callback completes it: gothic exchanges the provider's
+// code for a profile, the account/social-connection rows are upserted, a
+// device is registered, and a token pair is issued — all inside one DB
+// transaction. Mobile clients get a one-time opaque code redirected via deep
+// link (see ExchangeAuthCodeHandler); web clients get the token pair set
+// directly as cookies.
+//
+// # Apple client secret
+//
+// Apple does not accept a static client secret. GenerateAppleClientSecret
+// signs a fresh short-lived JWT on every server start (see
+// appleClientSecretValidity and ADR 0004 in docs/adrs/ for the operational
+// risk this implies if a server runs unrestarted past that window).
+//
+// # Known limitation
+//
+// encodeState/decodeState split fields on "|" with no escaping — a
+// DeviceName/DeviceToken/DeepLink containing a literal "|" would decode
+// incorrectly. See docs/AUTHENTICATION.md.
+//
+// Usage:
+//
+//	authenticator, err := auth.NewAuthenticator(cfg, logger, auth.GenerateAppleClientSecret)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	authHandler := auth.NewAuthHandler(authenticator, db, cacher, userEventBus, logger, geoLocator)
+//	authHandler.RegisterHandlers(router)
 package auth
 
 import (
@@ -47,6 +87,22 @@ var googleScopes = []string{
 	"https://www.googleapis.com/auth/tasks",
 }
 
+// supportedProviders lists every OAuth2 provider Verisafe registers with
+// goth. Used both to register providers (setupOAuthProviders) and to check
+// they came up successfully (Ready).
+var supportedProviders = []string{"google", "spotify", "apple"}
+
+// appleClientSecretValidity is how long a generated Apple client secret JWT
+// is valid for. Apple's maximum allowed lifetime is 6 months; a server that
+// runs unrestarted past this window will start failing Apple logins with no
+// advance warning, since nothing currently re-signs the secret proactively.
+// See ADR 0004 (docs/adrs/0004-apple-client-secret-lifecycle.md).
+const appleClientSecretValidity = 180 * 24 * time.Hour
+
+// secondsPerDay converts AuthenticationConfig.MaxAge — configured in days —
+// into the seconds gorilla/sessions' CookieStore.MaxAge expects.
+const secondsPerDay = 24 * 60 * 60
+
 // AppleSecretGenerator is a function that generates an Apple client secret JWT.
 // It is defined as a type so it can be swapped out in tests with a stub,
 // avoiding the need for real Apple credentials during testing.
@@ -61,16 +117,6 @@ type Auth struct {
 	config *config.Config
 	logger *slog.Logger
 }
-
-// AuthHandler handles all authentication-related HTTP requests.
-// It depends on Auth for OAuth setup, and holds the services it needs
-// to complete the auth flow — token issuance and event publishing.
-// type AuthHandler struct {
-// 	auth         *Auth
-// 	tokenService tokens.TokenService
-// 	eventBus     *eventbus.UserEventBus
-// 	logger       *slog.Logger
-// }
 
 // NewAuthenticator initialises OAuth2 providers and the session store.
 // It does not require any application services — it is pure configuration.
@@ -99,26 +145,10 @@ func NewAuthenticator(
 	}, nil
 }
 
-// NewAuthHandler creates an AuthHandler that wires the given services into
-// the auth flow. Call this after NewAuthenticator.
-// func NewAuthHandler(
-// 	auth *Auth,
-// 	tokenService tokens.TokenService,
-// 	eventBus *eventbus.UserEventBus,
-// 	logger *slog.Logger,
-// ) *AuthHandler {
-// 	return &AuthHandler{
-// 		auth:         auth,
-// 		tokenService: tokenService,
-// 		eventBus:     eventBus,
-// 		logger:       logger,
-// 	}
-// }
-
 // Ready reports whether all expected OAuth2 providers are registered.
 // Useful as a health or readiness check.
 func (a *Auth) Ready() bool {
-	for _, name := range []string{"google", "spotify", "apple"} {
+	for _, name := range supportedProviders {
 		if _, err := goth.GetProvider(name); err != nil {
 			a.logger.Warn(
 				"OAuth2 provider not ready",
@@ -150,7 +180,7 @@ func setupSessionStore(cfg *config.Config, logger *slog.Logger) error {
 	}
 
 	store := sessions.NewCookieStore([]byte(secret))
-	store.MaxAge(86400 * cfg.AuthenticationConfig.MaxAge)
+	store.MaxAge(secondsPerDay * cfg.AuthenticationConfig.MaxAge)
 	store.Options.Path = "/"
 	store.Options.HttpOnly = true
 
@@ -255,7 +285,7 @@ func GenerateAppleClientSecret(
 	claims := jwt.MapClaims{
 		"iss": teamID,
 		"iat": now.Unix(),
-		"exp": now.Add(180 * 24 * time.Hour).Unix(),
+		"exp": now.Add(appleClientSecretValidity).Unix(),
 		"aud": "https://appleid.apple.com",
 		"sub": clientID,
 	}
