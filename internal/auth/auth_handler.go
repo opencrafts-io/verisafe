@@ -154,7 +154,7 @@ func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	provider, err := GetProviderName(r)
 	if err != nil {
 		h.logger.Warn("missing provider in login request", "error", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		core.WriteError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -165,10 +165,10 @@ func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		platform = authPlatformWebValue
 		redirectURI = r.URL.Query().Get("redirect_uri")
 		if redirectURI == "" {
-			http.Error(
+			core.WriteError(
 				w,
-				"missing redirect_uri for web platform",
 				http.StatusBadRequest,
+				"missing redirect_uri for web platform",
 			)
 			return
 		}
@@ -177,7 +177,7 @@ func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 			redirectURI,
 			h.auth.config.JWTConfig.AllowedRedirectURIs,
 		) {
-			http.Error(w, "redirect_uri not allowed", http.StatusBadRequest)
+			core.WriteError(w, http.StatusBadRequest, "redirect_uri not allowed")
 			return
 		}
 	}
@@ -203,10 +203,10 @@ func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	url, err := gothic.GetAuthURL(w, r)
 	if err != nil {
 		h.logger.Error("failed to get auth URL from provider", "error", err)
-		http.Error(
+		core.WriteError(
 			w,
-			"failed to initiate login",
 			http.StatusInternalServerError,
+			"failed to initiate login",
 		)
 		return
 	}
@@ -218,7 +218,7 @@ func (h *AuthHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		if err := r.ParseForm(); err != nil {
 			h.logger.Error("failed to parse Apple callback form", "error", err)
-			http.Error(w, "invalid request", http.StatusBadRequest)
+			core.WriteError(w, http.StatusBadRequest, "invalid request")
 			return
 		}
 	}
@@ -226,20 +226,20 @@ func (h *AuthHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	provider, err := GetProviderName(r)
 	if err != nil {
 		h.logger.Warn("missing provider in callback", "error", err)
-		http.Error(w, "missing provider", http.StatusBadRequest)
+		core.WriteError(w, http.StatusBadRequest, "missing provider")
 		return
 	}
 
 	stateData, err := decodeState(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		core.WriteError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	gothUser, err := gothic.CompleteUserAuth(w, r)
 	if err != nil {
 		h.logger.Error("OAuth flow failed", slog.Any("error", err))
-		http.Error(w, "authentication failed", http.StatusInternalServerError)
+		core.WriteError(w, http.StatusInternalServerError, "authentication failed")
 		return
 	}
 
@@ -253,7 +253,7 @@ func (h *AuthHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 			"failed to acquire DB connection",
 			slog.Any("error", err),
 		)
-		http.Error(w, "database error", http.StatusInternalServerError)
+		core.WriteError(w, http.StatusInternalServerError, "database error")
 		return
 	}
 
@@ -329,7 +329,7 @@ func (h *AuthHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		h.logger.Error("callback transaction failed", slog.Any("error", err))
-		http.Error(w, "authentication failed", http.StatusInternalServerError)
+		core.WriteError(w, http.StatusInternalServerError, "authentication failed")
 		return
 	}
 
@@ -455,7 +455,7 @@ func (h *AuthHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	provider, err := GetProviderName(r)
 	if err != nil {
 		h.logger.Warn("missing provider in logout request", "error", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		core.WriteError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -465,7 +465,7 @@ func (h *AuthHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 			slog.String("provider", provider),
 			slog.Any("error", err),
 		)
-		http.Error(w, "logout failed", http.StatusInternalServerError)
+		core.WriteError(w, http.StatusInternalServerError, "logout failed")
 		return
 	}
 
@@ -629,13 +629,13 @@ func (h *AuthHandler) handleMobileCallback(
 	code, err := generateOpaqueCode()
 	if err != nil {
 		h.logger.Error("failed to generate auth code", slog.Any("error", err))
-		http.Error(w, "authentication failed", http.StatusInternalServerError)
+		core.WriteError(w, http.StatusInternalServerError, "authentication failed")
 		return
 	}
 
 	if err := h.storeAuthCode(r.Context(), code, pair); err != nil {
 		h.logger.Error("failed to store auth code", slog.Any("error", err))
-		http.Error(w, "authentication failed", http.StatusInternalServerError)
+		core.WriteError(w, http.StatusInternalServerError, "authentication failed")
 		return
 	}
 

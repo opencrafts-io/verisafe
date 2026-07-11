@@ -83,6 +83,6 @@ func (dh *DeviceHandler) GetPersonalDevices(
 		return err
 	}
 
-	writeJSON(w, http.StatusOK, userDevices)
+	core.WriteJSON(w, http.StatusOK, userDevices)
 	return nil
 }
