@@ -489,11 +489,7 @@ func (ih *InstitutionHandler) AddAcountInstitution(
 	perms, _ := r.Context().Value(middleware.AuthUserPerms).([]string)
 	isAdmin := slices.Contains(perms, "manage:institutions:accounts:any")
 	if !ok || (!isAdmin && req.AccountID.String() != claims.Subject) {
-		http.Error(
-			w,
-			`{"error":"you can only manage your own institution memberships"}`,
-			http.StatusForbidden,
-		)
+		core.WriteError(w, http.StatusForbidden, "you can only manage your own institution memberships")
 		return
 	}
 
@@ -715,11 +711,7 @@ func (ih *InstitutionHandler) RemoveAccountInstitution(
 	perms, _ := r.Context().Value(middleware.AuthUserPerms).([]string)
 	isAdmin := slices.Contains(perms, "manage:institutions:accounts:any")
 	if !ok || (!isAdmin && req.AccountID.String() != claims.Subject) {
-		http.Error(
-			w,
-			`{"error":"you can only manage your own institution memberships"}`,
-			http.StatusForbidden,
-		)
+		core.WriteError(w, http.StatusForbidden, "you can only manage your own institution memberships")
 		return
 	}
 
