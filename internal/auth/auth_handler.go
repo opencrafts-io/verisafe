@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/netip"
 	"strings"
@@ -279,8 +280,14 @@ func (h *AuthHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 			return err
 		}
 
-		// Parse IP from request
-		ip, err := netip.ParseAddr(strings.Split(r.RemoteAddr, ":")[0])
+		// Parse IP from request. net.SplitHostPort (not a naive strings.Split
+		// on ":") is required here since IPv6 addresses contain multiple
+		// colons themselves.
+		host, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			return fmt.Errorf("split remote addr: %w", err)
+		}
+		ip, err := netip.ParseAddr(host)
 		if err != nil {
 			return fmt.Errorf("parse remote addr: %w", err)
 		}
@@ -390,7 +397,7 @@ func (h *AuthHandler) RevokeTokenHandler(
 	w http.ResponseWriter,
 	r *http.Request,
 ) error {
-	claims, ok := r.Context().Value(middleware.AuthUserClaims).(*tokens.VerisafeClaims)
+	claims, ok := middleware.ClaimsFromContext(r.Context())
 	if !ok || claims == nil {
 		return fmt.Errorf("%w: missing claims", core.ErrUnauthorized)
 	}
