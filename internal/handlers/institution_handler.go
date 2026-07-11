@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -73,7 +74,6 @@ func (ih *InstitutionHandler) RegisterHandlers(
 		)(http.HandlerFunc(ih.DeleteInstitution)))
 
 	// Institution account management
-	// TODO: (erick) Add fine permissions for both admin and the user in question
 	router.Handle("POST /institutions/account",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(ih.Cfg, ih.DB, ih.Cacher, ih.Logger),
@@ -485,6 +485,14 @@ func (ih *InstitutionHandler) AddAcountInstitution(
 		return
 	}
 
+	claims, ok := middleware.ClaimsFromContext(r.Context())
+	perms, _ := r.Context().Value(middleware.AuthUserPerms).([]string)
+	isAdmin := slices.Contains(perms, "manage:institutions:accounts:any")
+	if !ok || (!isAdmin && req.AccountID.String() != claims.Subject) {
+		core.WriteError(w, http.StatusForbidden, "you can only manage your own institution memberships")
+		return
+	}
+
 	created, err := repo.AddAccountInstitution(r.Context(), req)
 	if err != nil {
 		ih.Logger.Error("Failed to create institution", slog.Any("error", err))
@@ -696,6 +704,14 @@ func (ih *InstitutionHandler) RemoveAccountInstitution(
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		ih.Logger.Error("Failed to parse request body", slog.Any("error", err))
 		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
+		return
+	}
+
+	claims, ok := middleware.ClaimsFromContext(r.Context())
+	perms, _ := r.Context().Value(middleware.AuthUserPerms).([]string)
+	isAdmin := slices.Contains(perms, "manage:institutions:accounts:any")
+	if !ok || (!isAdmin && req.AccountID.String() != claims.Subject) {
+		core.WriteError(w, http.StatusForbidden, "you can only manage your own institution memberships")
 		return
 	}
 
