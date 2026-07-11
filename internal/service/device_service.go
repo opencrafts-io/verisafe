@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/repository"
 )
 
@@ -81,7 +82,7 @@ func (s *deviceService) RegisterDevice(
 
 	row, err := s.querier.RecordUserDevice(ctx, params)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %v", core.ErrInternal, err)
 	}
 
 	output := deviceRowToOutput(row)
@@ -100,7 +101,7 @@ func deviceRegistrationInputToRepoParams(
 		parsed, err := time.Parse(time.RFC3339, input.LastActiveAt)
 		if err != nil {
 			return repository.RecordUserDeviceParams{},
-				fmt.Errorf("invalid timestamp: %v", err)
+				fmt.Errorf("%w: invalid timestamp: %v", core.ErrInvalidInput, err)
 		}
 		lastActive = parsed
 	}
