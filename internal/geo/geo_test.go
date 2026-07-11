@@ -10,10 +10,7 @@ import (
 )
 
 func TestGeoIP_Lookup(t *testing.T) {
-	locator, err := geo.NewGeoIPLocater(
-		"../../database/mmdb/GeoLite2-City.mmdb",
-		"../../database/mmdb/GeoLite2-ASN.mmdb",
-	)
+	locator, err := geo.NewGeoIPLocater("", "")
 	require.NoError(t, err)
 	defer locator.Close()
 

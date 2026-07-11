@@ -121,7 +121,7 @@ func TestRegisterDevice_TimestampParsing(t *testing.T) {
 		{"valid with offset", "2024-06-01T12:00:00+03:00", false},
 		{"missing T", "2024-06-01 12:00:00", true},
 		{"date only", "2024-06-01", true},
-		{"empty string", "", true},
+		{"empty string defaults to now", "", false},
 		{"unix epoch string", "1717243200", true},
 	}
 

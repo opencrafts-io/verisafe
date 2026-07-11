@@ -937,6 +937,21 @@ func (mr *MockQuerierMockRecorder) ListActiveServiceTokens(ctx any) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListActiveServiceTokens", reflect.TypeOf((*MockQuerier)(nil).ListActiveServiceTokens), ctx)
 }
 
+// ListInstitutionConnections mocks base method.
+func (m *MockQuerier) ListInstitutionConnections(ctx context.Context, arg repository.ListInstitutionConnectionsParams) ([]repository.AccountInstitution, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListInstitutionConnections", ctx, arg)
+	ret0, _ := ret[0].([]repository.AccountInstitution)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListInstitutionConnections indicates an expected call of ListInstitutionConnections.
+func (mr *MockQuerierMockRecorder) ListInstitutionConnections(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListInstitutionConnections", reflect.TypeOf((*MockQuerier)(nil).ListInstitutionConnections), ctx, arg)
+}
+
 // ListInstitutions mocks base method.
 func (m *MockQuerier) ListInstitutions(ctx context.Context, arg repository.ListInstitutionsParams) ([]repository.Institution, error) {
 	m.ctrl.T.Helper()
