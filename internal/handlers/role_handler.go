@@ -79,7 +79,7 @@ func (rh *RoleHandler) RegisterHandlers(
 	router.Handle("DELETE /roles/revoke/{user_id}/{role_id}",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(rh.Cfg, rh.DB, rh.Cacher, rh.Logger),
-			middleware.HasPermission([]string{"assign:role:any"}),
+			middleware.HasPermission([]string{"revoke:role:any"}),
 		)(http.HandlerFunc(rh.RevokeUserRole)),
 	)
 }
@@ -279,6 +279,17 @@ func (rh *RoleHandler) GetAllUserRoles(w http.ResponseWriter, r *http.Request) {
 }
 
 func (rh *RoleHandler) UpdateRole(w http.ResponseWriter, r *http.Request) {
+	rawID := r.PathValue("id")
+	id, err := uuid.Parse(rawID)
+	if err != nil {
+		rh.Logger.Error("Failed to parse request body", slog.Any("error", err))
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Please check your request body and try again",
+		})
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
@@ -307,6 +318,10 @@ func (rh *RoleHandler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	// The path segment is the resource identifier; ignore whatever id (if
+	// any) was in the request body so callers can't update the wrong role
+	// by sending a mismatched body id.
+	roleData.ID = id
 
 	created, err := repo.UpdateRole(r.Context(), roleData)
 	if err != nil {
@@ -385,8 +400,6 @@ func (rh *RoleHandler) GetRolePermissions(
 	json.NewEncoder(w).Encode(roles)
 }
 
-// Some work might be needed to check for both the assign and revoke roles
-// better error handling
 func (rh *RoleHandler) AssignUserRole(w http.ResponseWriter, r *http.Request) {
 	rawUserID := r.PathValue("user_id")
 	userID, err := uuid.Parse(rawUserID)
