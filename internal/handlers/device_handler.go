@@ -13,7 +13,6 @@ import (
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/repository"
 	"github.com/opencrafts-io/verisafe/internal/service"
-	"github.com/opencrafts-io/verisafe/internal/tokens"
 )
 
 type DeviceHandler struct {
@@ -52,7 +51,10 @@ func (dh *DeviceHandler) GetPersonalDevices(
 	w http.ResponseWriter,
 	r *http.Request,
 ) error {
-	claims := r.Context().Value(middleware.AuthUserClaims).(*tokens.VerisafeClaims)
+	claims, ok := middleware.ClaimsFromContext(r.Context())
+	if !ok {
+		return fmt.Errorf("%w: missing claims", core.ErrUnauthorized)
+	}
 	userID, err := uuid.Parse(claims.Subject)
 	if err != nil {
 		dh.Logger.Error("Error while parsing user id", slog.Any("error", err))

@@ -31,6 +31,16 @@ const (
 // has already been written. The outer handler checks for non-nil and stops.
 var errAbort = fmt.Errorf("abort")
 
+// ClaimsFromContext retrieves the *tokens.VerisafeClaims set by IsAuthenticated.
+// Returns ok=false if the value is missing or of an unexpected type, instead
+// of the panic a raw type assertion would produce — call this from any
+// handler that runs behind IsAuthenticated rather than asserting the context
+// value directly.
+func ClaimsFromContext(ctx context.Context) (*tokens.VerisafeClaims, bool) {
+	claims, ok := ctx.Value(AuthUserClaims).(*tokens.VerisafeClaims)
+	return claims, ok
+}
+
 // IsAuthenticated validates the incoming request using either a Bearer JWT
 // or an X-API-Key header. On success it injects claims, roles, and permissions
 // into the request context for downstream handlers.

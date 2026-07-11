@@ -20,7 +20,6 @@ import (
 	"github.com/opencrafts-io/verisafe/internal/eventbus"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/repository"
-	"github.com/opencrafts-io/verisafe/internal/tokens"
 )
 
 type AccountHandler struct {
@@ -544,7 +543,12 @@ func (ah *AccountHandler) GetPersonalAccount(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
-	claims := r.Context().Value(middleware.AuthUserClaims).(*tokens.VerisafeClaims)
+	claims, ok := middleware.ClaimsFromContext(r.Context())
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]string{"error": "authentication required"})
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
@@ -615,7 +619,12 @@ func (ah *AccountHandler) UpdatePersonalAccount(
 		})
 		return
 	}
-	claims := r.Context().Value(middleware.AuthUserClaims).(*tokens.VerisafeClaims)
+	claims, ok := middleware.ClaimsFromContext(r.Context())
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]string{"error": "authentication required"})
+		return
+	}
 
 	// Check if the user is indeed the owner of the account
 	if accData.ID.String() != claims.Subject {
@@ -714,7 +723,12 @@ func (ah *AccountHandler) VerifyPhone(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	claims := r.Context().Value(middleware.AuthUserClaims).(*tokens.VerisafeClaims)
+	claims, ok := middleware.ClaimsFromContext(r.Context())
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]string{"error": "authentication required"})
+		return
+	}
 
 	// Check if the user is indeed the owner of the account
 	if accData.ID.String() != claims.Subject {
@@ -1175,7 +1189,12 @@ func (ah *AccountHandler) MarkAccountForDeletion(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
-	claims := r.Context().Value(middleware.AuthUserClaims).(*tokens.VerisafeClaims)
+	claims, ok := middleware.ClaimsFromContext(r.Context())
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]string{"error": "authentication required"})
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
@@ -1256,7 +1275,12 @@ func (ah *AccountHandler) RecoverAccountFromDeletion(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
-	claims := r.Context().Value(middleware.AuthUserClaims).(*tokens.VerisafeClaims)
+	claims, ok := middleware.ClaimsFromContext(r.Context())
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]string{"error": "authentication required"})
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	conn, err := middleware.GetDBConnFromContext(r.Context())
 	if err != nil {
