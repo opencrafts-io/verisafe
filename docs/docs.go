@@ -24,11 +24,1653 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/accounts/all": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Note: this route is not wired with pagination middleware, so limit/offset query params are currently ignored — it always returns the first page (10 accounts).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "accounts"
+                ],
+                "summary": "List all accounts",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/repository.Account"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch accounts",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/accounts/bot/create": {
+            "post": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Creates a service (bot) account, assigns it the \"bot\" role, and issues a service token for it in one call.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "accounts"
+                ],
+                "summary": "Create a bot account with a service token",
+                "parameters": [
+                    {
+                        "description": "Bot account and service token details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.BotAccountRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.BotAccountResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body, or missing required fields",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to create account, assign role, or issue service token",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/accounts/deletion-request": {
+            "post": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "The account is soft-deleted and permanently removed after a 14-day grace period; signing in again before then cancels the deletion.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "accounts"
+                ],
+                "summary": "Request deletion of the authenticated user's own account",
+                "responses": {
+                    "200": {
+                        "description": "Confirmation message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid claims",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to mark account for deletion",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/accounts/fanout": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Batches through all accounts and republishes a UserCreated event for each, via a worker pool. Intended for backfilling downstream consumers, not routine use.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "accounts"
+                ],
+                "summary": "Republish every account to the event bus",
+                "responses": {
+                    "200": {
+                        "description": "Publish count message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to read accounts or publish one or more batches",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/accounts/me": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Returns the account belonging to the caller's own JWT/API-key subject.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "accounts"
+                ],
+                "summary": "Get the authenticated user's own account",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/repository.Account"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid claims",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch account",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "The request body's id must match the caller's own subject — updating a different account's id is rejected.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "accounts"
+                ],
+                "summary": "Update the authenticated user's own account details",
+                "parameters": [
+                    {
+                        "description": "Account fields to update; id must be the caller's own",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/repository.UpdateAccountDetailsParams"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/repository.Account"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid claims",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Not the account owner, or failed to update/fetch account",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/accounts/me/phone": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "The request body's id must match the caller's own subject. Note: this only updates the stored phone number today — it does not yet verify it (see TODO below).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "accounts"
+                ],
+                "summary": "Update the authenticated user's own phone number",
+                "parameters": [
+                    {
+                        "description": "New phone number; id must be the caller's own",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/repository.UpdateAccountPhoneNumberParams"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/repository.Account"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body or phone number too short",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid claims",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Not the account owner, or failed to update/fetch account",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/accounts/recovery": {
+            "post": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Restores full access to an account that was previously marked for deletion, provided it's still within the 14-day grace period.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "accounts"
+                ],
+                "summary": "Cancel a pending deletion of the authenticated user's own account",
+                "responses": {
+                    "200": {
+                        "description": "Confirmation message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid claims",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to recover account",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/accounts/search/email": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Case-sensitivity and match semantics follow the underlying SQL query.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "accounts"
+                ],
+                "summary": "Search accounts by email",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Email search query",
+                        "name": "q",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 10, max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page offset (default 0)",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "accounts, pagination, query, search_type",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Missing query parameter 'q'",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Search failed",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/accounts/search/name": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "accounts"
+                ],
+                "summary": "Search accounts by name",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Name search query",
+                        "name": "q",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 10, max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page offset (default 0)",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "accounts, pagination, query, search_type",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Missing query parameter 'q'",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Search failed",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/accounts/search/username": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "accounts"
+                ],
+                "summary": "Search accounts by username",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Username search query",
+                        "name": "q",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 10, max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page offset (default 0)",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "accounts, pagination, query, search_type",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Missing query parameter 'q'",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Search failed",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/activity/active": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "activities"
+                ],
+                "summary": "List active activity definitions",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Page number (default 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 10, max 100)",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/pagination.PaginatedResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch activities",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/activity/add": {
+            "post": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Note: this route only checks IsAuthenticated today, with no admin-style permission gate (see ADR 0006 for the planned fix).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "activities"
+                ],
+                "summary": "Create an activity definition",
+                "parameters": [
+                    {
+                        "description": "Activity to create",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/repository.CreateActivityParams"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/repository.Activity"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to create activity",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/activity/all": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "activities"
+                ],
+                "summary": "List all activity definitions",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Page number (default 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 10, max 100)",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/pagination.PaginatedResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch activities",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/activity/inactive": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "activities"
+                ],
+                "summary": "List inactive activity definitions",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Page number (default 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 10, max 100)",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/pagination.PaginatedResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch activities",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/activity/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Note: Activity is a shared catalog resource with no per-user owner — this route only checks IsAuthenticated today, with no admin-style permission gate (see ADR 0006 for the planned fix).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "activities"
+                ],
+                "summary": "Delete an activity definition",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Activity ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Confirmation message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid id",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to delete activity",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Note: Activity is a shared catalog resource with no per-user owner — this route only checks IsAuthenticated today, with no admin-style permission gate (see ADR 0006 for the planned fix).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "activities"
+                ],
+                "summary": "Update an activity definition",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Activity ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to update",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/repository.UpdateActivityParams"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/repository.Activity"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid id or request body",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to update activity",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/service-tokens": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "service-tokens"
+                ],
+                "summary": "List all active service tokens (admin)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/handlers.ServiceTokenResponse"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to list service tokens",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/service-tokens/cleanup": {
+            "post": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "tags": [
+                    "service-tokens"
+                ],
+                "summary": "Delete expired service tokens (admin)",
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "500": {
+                        "description": "Failed to clean up expired tokens",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/service-tokens": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "service-tokens"
+                ],
+                "summary": "List the authenticated account's own service tokens",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/handlers.ServiceTokenResponse"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid claims",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to list service tokens",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "service-tokens"
+                ],
+                "summary": "Create a service token for the authenticated account",
+                "parameters": [
+                    {
+                        "description": "Service token to create",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ServiceTokenRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Includes the raw token, only returned on creation",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ServiceTokenResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid claims",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to create service token",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/service-tokens/stats": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "service-tokens"
+                ],
+                "summary": "Get usage statistics for the authenticated account's service tokens",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ServiceTokenStats"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid claims",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch stats",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/service-tokens/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Requires read:service_token:own for the caller's own tokens, or read:service_token:any to read any account's token.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "service-tokens"
+                ],
+                "summary": "Get a service token by id",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Service token ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ServiceTokenResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid token",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the token owner and not an admin",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "Service token not found",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch service token",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Requires update:service_token:own for the caller's own tokens, or update:service_token:any to update any account's token.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "service-tokens"
+                ],
+                "summary": "Update a service token",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Service token ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to update",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ServiceTokenUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ServiceTokenResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid id or request body",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the token owner and not an admin",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "Service token not found",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to update service token",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Requires revoke:service_token:own for the caller's own tokens, or revoke:service_token:any for any account's token.",
+                "tags": [
+                    "service-tokens"
+                ],
+                "summary": "Revoke a service token",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Service token ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Invalid id",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the token owner and not an admin",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "Service token not found",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to revoke service token",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/service-tokens/{id}/rotate": {
+            "post": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Issues a new raw token value for the same service token record. Requires rotate:service_token:own for the caller's own tokens, or rotate:service_token:any for any account's token.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "service-tokens"
+                ],
+                "summary": "Rotate a service token",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Service token ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Includes the new raw token",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ServiceTokenResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid id",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the token owner and not an admin",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "Service token not found",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to rotate service token",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/token/exchange": {
+            "post": {
+                "description": "Exchanges the one-time opaque code from the deep link (see CallbackHandler) for the access/refresh token pair. The code is single-use with a 60-second TTL and is deleted on first use.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Exchange a mobile auth code for a token pair",
+                "parameters": [
+                    {
+                        "description": "Opaque code from the deep link",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/auth.authCodeExchangeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/auth.tokenResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Missing or malformed code",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "Invalid or expired code",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to retrieve auth code",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/token/refresh": {
+            "post": {
+                "description": "Consumes the given refresh token and issues a fresh access/refresh pair. Reusing an already-rotated, revoked, or expired refresh token revokes its entire token family and returns 401.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Rotate a refresh token",
+                "parameters": [
+                    {
+                        "description": "Refresh token to rotate",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/auth.refreshTokenRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/auth.tokenResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Missing or malformed refresh_token",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "Refresh token invalid, expired, or reuse detected",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/token/revoke": {
+            "post": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    }
+                ],
+                "description": "Blocklists the presented access token for its remaining lifetime. If a refresh_token is also supplied, revokes its entire token family too; refresh-family revocation failure is logged but non-fatal.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Revoke the caller's access token (and optionally a refresh token family)",
+                "parameters": [
+                    {
+                        "description": "Optional refresh token to also revoke its family",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/auth.revokeTokenRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "description": "Missing or invalid claims",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to revoke token",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/{provider}": {
+            "get": {
+                "description": "Redirects the client to the given OAuth2 provider to begin a login. Omit \"platform\" (or pass anything other than \"web\") for the mobile flow. Pass platform=web with a redirect_uri that's in the server-side allowlist for the web flow.",
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Start OAuth2 login",
+                "parameters": [
+                    {
+                        "enum": [
+                            "google",
+                            "spotify",
+                            "apple"
+                        ],
+                        "type": "string",
+                        "description": "OAuth2 provider",
+                        "name": "provider",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Set to 'web' for the web flow; omitted defaults to mobile",
+                        "name": "platform",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Required when platform=web; must be in the configured allowlist",
+                        "name": "redirect_uri",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Mobile deep link to redirect to after login, e.g. myapp://auth/callback",
+                        "name": "deep_link",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Device name to register on successful login",
+                        "name": "device_name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Push notification token to register on successful login",
+                        "name": "device_token",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "302": {
+                        "description": "Redirects to the OAuth2 provider"
+                    },
+                    "400": {
+                        "description": "Missing provider, or missing/disallowed redirect_uri",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to initiate login with the provider",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/{provider}/callback": {
+            "get": {
+                "description": "Completes an OAuth2 login started by LoginHandler. Not called directly by clients — the provider redirects here (Apple posts via application/x-www-form-urlencoded). On success, redirects to redirect_uri with cookies set (web) or to the deep link with a one-time opaque code (mobile).",
+                "tags": [
+                    "auth"
+                ],
+                "summary": "OAuth2 provider callback",
+                "parameters": [
+                    {
+                        "enum": [
+                            "google",
+                            "spotify",
+                            "apple"
+                        ],
+                        "type": "string",
+                        "description": "OAuth2 provider",
+                        "name": "provider",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "302": {
+                        "description": "Redirects to redirect_uri (web) or the deep link (mobile)"
+                    },
+                    "400": {
+                        "description": "Missing provider or malformed/missing state",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "OAuth flow, database, or token issuance failure",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Completes an OAuth2 login started by LoginHandler. Not called directly by clients — the provider redirects here (Apple posts via application/x-www-form-urlencoded). On success, redirects to redirect_uri with cookies set (web) or to the deep link with a one-time opaque code (mobile).",
+                "tags": [
+                    "auth"
+                ],
+                "summary": "OAuth2 provider callback",
+                "parameters": [
+                    {
+                        "enum": [
+                            "google",
+                            "spotify",
+                            "apple"
+                        ],
+                        "type": "string",
+                        "description": "OAuth2 provider",
+                        "name": "provider",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "302": {
+                        "description": "Redirects to redirect_uri (web) or the deep link (mobile)"
+                    },
+                    "400": {
+                        "description": "Missing provider or malformed/missing state",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "OAuth flow, database, or token issuance failure",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/{provider}/logout": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    }
+                ],
+                "description": "Clears the goth/gothic OAuth2 session for the given provider. This is not the same as token revocation — call RevokeTokenHandler too if the client also wants to invalidate its JWT/refresh token.",
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Log out of the OAuth2 provider session",
+                "parameters": [
+                    {
+                        "enum": [
+                            "google",
+                            "spotify",
+                            "apple"
+                        ],
+                        "type": "string",
+                        "description": "OAuth2 provider",
+                        "name": "provider",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "307": {
+                        "description": "Redirects to /"
+                    },
+                    "400": {
+                        "description": "Missing provider",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to log out from provider",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
         "/devices/mine": {
             "get": {
                 "security": [
                     {
-                        "BearerAuth": []
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
                     }
                 ],
                 "description": "Returns all devices registered to the currently authenticated user",
@@ -63,15 +1705,2948 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/institutions/account": {
+            "post": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "The request body's account_id must match the caller's own subject, unless the caller holds manage:institutions:accounts:any.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "institutions"
+                ],
+                "summary": "Link an account to an institution",
+                "parameters": [
+                    {
+                        "description": "account_id must be the caller's own, unless an admin",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/repository.AddAccountInstitutionParams"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/repository.AddAccountInstitutionRow"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "403": {
+                        "description": "account_id does not match the caller and caller is not an admin",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to link account to institution",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "The request body's account_id must match the caller's own subject, unless the caller holds manage:institutions:accounts:any.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "institutions"
+                ],
+                "summary": "Unlink an account from an institution",
+                "parameters": [
+                    {
+                        "description": "account_id must be the caller's own, unless an admin",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/repository.RemoveAccountInstitutionParams"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Confirmation message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "403": {
+                        "description": "account_id does not match the caller and caller is not an admin",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to unlink account from institution",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/institutions/accounts": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "institutions"
+                ],
+                "summary": "List accounts linked to a given institution",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Institution ID",
+                        "name": "institution_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 10, max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page offset (default 0)",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/repository.Account"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Missing or invalid institution_id",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch accounts",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/institutions/accounts/fanout": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Batches through all account/institution links and republishes a connected event for each, via a worker pool. Intended for backfilling downstream consumers, not routine use. Note: this route only checks IsAuthenticated today, with no admin-style permission gate (see ADR 0006 for the planned fix).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "institutions"
+                ],
+                "summary": "Republish every institution-account connection to the event bus",
+                "responses": {
+                    "200": {
+                        "description": "status: fanout complete",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to acquire a database connection",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/institutions/all": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "institutions"
+                ],
+                "summary": "List institutions",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 10, max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page offset (default 0)",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/repository.Institution"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch institutions",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/institutions/delete/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "tags": [
+                    "institutions"
+                ],
+                "summary": "Delete an institution",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Institution ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Invalid id",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "Institution not found",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to delete institution",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/institutions/fanout": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Batches through all institutions and republishes an InstitutionCreated event for each, via a worker pool. Intended for backfilling downstream consumers, not routine use.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "institutions"
+                ],
+                "summary": "Republish every institution to the event bus",
+                "responses": {
+                    "200": {
+                        "description": "Publish count message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to read institutions or publish one or more batches",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/institutions/find/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "institutions"
+                ],
+                "summary": "Get an institution by id",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Institution ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/repository.Institution"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid id",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "Institution not found",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/institutions/for-account": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Note: any authenticated caller can look up any account's institution memberships by account_id — there is no ownership check on this endpoint today.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "institutions"
+                ],
+                "summary": "List institutions linked to a given account",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Account ID",
+                        "name": "account_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 10, max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page offset (default 0)",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/repository.Institution"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Missing or invalid account_id",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch institutions",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/institutions/register": {
+            "post": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "institutions"
+                ],
+                "summary": "Register a new institution",
+                "parameters": [
+                    {
+                        "description": "Institution to create",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/repository.CreateInstitutionParams"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/repository.Institution"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to create institution",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/institutions/search": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "institutions"
+                ],
+                "summary": "Search institutions by name",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Name search query",
+                        "name": "q",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 10, max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page offset (default 0)",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/repository.Institution"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Missing query parameter 'q'",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Search failed",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/institutions/update/{id}": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "institutions"
+                ],
+                "summary": "Update an institution's details",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Institution ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to update",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/repository.UpdateInstitutionParams"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/repository.Institution"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid id or request body",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to update institution",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/leaderboard/global": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "leaderboard"
+                ],
+                "summary": "Get the global leaderboard",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Page number (default 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 10, max 100)",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/pagination.PaginatedResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch leaderboard",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/leaderboard/global/{user}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Note: any authenticated caller can look up any user's rank by id — there is no ownership check on this endpoint today.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "leaderboard"
+                ],
+                "summary": "Get a given user's global leaderboard rank",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Account ID",
+                        "name": "user",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/repository.AccountVibepointRank"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid user id",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch rank",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/permissions": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "permissions"
+                ],
+                "summary": "List permissions",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 10, max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page offset (default 0)",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/repository.Permission"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch permissions",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/permissions/assign/{perm_id}/{role_id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "permissions"
+                ],
+                "summary": "Grant a permission to a role",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Permission ID",
+                        "name": "perm_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Role ID",
+                        "name": "role_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Confirmation message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid perm_id or role_id",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to assign permission",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/permissions/create": {
+            "post": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Newly created permissions are automatically granted to the \"system\" and \"Administrator\" roles by database triggers — see docs/RBAC.md.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "permissions"
+                ],
+                "summary": "Create a permission",
+                "parameters": [
+                    {
+                        "description": "Permission to create",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/repository.CreatePermissionParams"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/repository.Permission"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to create permission",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/permissions/revoke/{perm_id}/{role_id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "permissions"
+                ],
+                "summary": "Revoke a permission from a role",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Permission ID",
+                        "name": "perm_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Role ID",
+                        "name": "role_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Confirmation message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid perm_id or role_id",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to revoke permission",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/permissions/user/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "permissions"
+                ],
+                "summary": "List a given user's effective permissions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Account ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/repository.UserPermissionsView"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid id",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch permissions",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/permissions/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "permissions"
+                ],
+                "summary": "Get a permission by id",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Permission ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/repository.Permission"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid id",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "Permission not found",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch permission",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "permissions"
+                ],
+                "summary": "Update a permission",
+                "parameters": [
+                    {
+                        "description": "Fields to update (id identifies the permission)",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/repository.UpdatePermissionParams"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/repository.Permission"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to update permission",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/roles": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "roles"
+                ],
+                "summary": "List roles",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 10, max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page offset (default 0)",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/repository.Role"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch roles",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/roles/assign/{user_id}/{role_id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "roles"
+                ],
+                "summary": "Assign a role to a user",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Account ID",
+                        "name": "user_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Role ID",
+                        "name": "role_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Confirmation message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid user_id or role_id",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to assign role",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/roles/create": {
+            "post": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "roles"
+                ],
+                "summary": "Create a role",
+                "parameters": [
+                    {
+                        "description": "Role to create",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/repository.CreateRoleParams"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/repository.Role"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to create role",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/roles/permissions/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "roles"
+                ],
+                "summary": "List permissions granted to a role",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Role ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/repository.RolePermissionsView"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid id",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch permissions",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/roles/revoke/{user_id}/{role_id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "roles"
+                ],
+                "summary": "Revoke a role from a user",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Account ID",
+                        "name": "user_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Role ID",
+                        "name": "role_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Confirmation message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid user_id or role_id",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to revoke role",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/roles/user/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "roles"
+                ],
+                "summary": "List a given user's roles",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Account ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/repository.UserRolesView"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid id",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch roles",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/roles/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "roles"
+                ],
+                "summary": "Get a role by id",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Role ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/repository.Role"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid id",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "Role not found",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch role",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "The path id is the authoritative resource identifier — any id in the request body is overwritten with it.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "roles"
+                ],
+                "summary": "Update a role",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Role ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to update",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/repository.UpdateRoleParams"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/repository.Role"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid id or request body",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to update role",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/socials/me": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "socials"
+                ],
+                "summary": "List the authenticated user's own linked social accounts",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/repository.Social"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid claims",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch social connections",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/socials/user/{user_id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "socials"
+                ],
+                "summary": "List a given user's linked social accounts",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Account ID",
+                        "name": "user_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/repository.Social"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid user_id",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch social connections",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/streaks/milestone/active": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "streaks"
+                ],
+                "summary": "List active streak milestones",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Page number (default 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 10, max 100)",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/pagination.PaginatedResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch milestones",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/streaks/milestone/create": {
+            "post": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Note: this route only checks IsAuthenticated today, with no admin-style permission gate (see ADR 0006 for the planned fix).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "streaks"
+                ],
+                "summary": "Create a streak milestone",
+                "parameters": [
+                    {
+                        "description": "Milestone to create",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/repository.CreateStreakMilestoneParams"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/repository.StreakMilestone"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to create milestone",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/streaks/milestone/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Note: this route only checks IsAuthenticated today, with no admin-style permission gate (see ADR 0006 for the planned fix).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "streaks"
+                ],
+                "summary": "Delete a streak milestone",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Milestone ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Confirmation message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid id",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to delete milestone",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/users/activity/complete": {
+            "post": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "The request body's account_id must match the caller's own subject.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "streaks"
+                ],
+                "summary": "Record a completed activity for the authenticated user",
+                "parameters": [
+                    {
+                        "description": "account_id must be the caller's own",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/repository.RecordActivityCompletionParams"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Confirmation message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "403": {
+                        "description": "account_id does not match the caller",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to record completion",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/users/activity/completions/for-user/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Note: any authenticated caller can view any other user's activity completions by id — there is no ownership check on this endpoint today.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "activities"
+                ],
+                "summary": "List a given user's completed activities",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Account ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page number (default 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 10, max 100)",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/pagination.PaginatedResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid id",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch completions",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
+        "auth.authCodeExchangeRequest": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                }
+            }
+        },
+        "auth.refreshTokenRequest": {
+            "type": "object",
+            "properties": {
+                "refresh_token": {
+                    "type": "string"
+                }
+            }
+        },
+        "auth.revokeTokenRequest": {
+            "type": "object",
+            "properties": {
+                "refresh_token": {
+                    "type": "string"
+                }
+            }
+        },
+        "auth.tokenResponse": {
+            "type": "object",
+            "properties": {
+                "access_expires_at": {
+                    "type": "string"
+                },
+                "access_token": {
+                    "type": "string"
+                },
+                "refresh_expires_at": {
+                    "type": "string"
+                },
+                "refresh_token": {
+                    "type": "string"
+                }
+            }
+        },
         "core.APIError": {
             "type": "object",
             "properties": {
                 "error": {
                     "type": "string",
                     "example": "the provided input is invalid or malformed"
+                }
+            }
+        },
+        "handlers.BotAccountRequest": {
+            "type": "object",
+            "properties": {
+                "account": {
+                    "type": "object",
+                    "required": [
+                        "email",
+                        "name"
+                    ],
+                    "properties": {
+                        "avatar_url": {
+                            "type": "string"
+                        },
+                        "email": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string",
+                            "maxLength": 100,
+                            "minLength": 1
+                        }
+                    }
+                },
+                "service_token": {
+                    "type": "object",
+                    "required": [
+                        "name"
+                    ],
+                    "properties": {
+                        "description": {
+                            "type": "string"
+                        },
+                        "expires_in_days": {
+                            "type": "integer",
+                            "maximum": 3650,
+                            "minimum": 1
+                        },
+                        "ip_whitelist": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "max_uses": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "metadata": {
+                            "type": "object",
+                            "additionalProperties": {}
+                        },
+                        "name": {
+                            "type": "string",
+                            "maxLength": 100,
+                            "minLength": 1
+                        },
+                        "rotation_policy": {
+                            "$ref": "#/definitions/handlers.RotationPolicy"
+                        },
+                        "scopes": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "user_agent_pattern": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "handlers.BotAccountResponse": {
+            "type": "object",
+            "properties": {
+                "account": {
+                    "type": "object",
+                    "properties": {
+                        "created_at": {
+                            "type": "string"
+                        },
+                        "email": {
+                            "type": "string"
+                        },
+                        "id": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "service_token": {
+                    "type": "object",
+                    "properties": {
+                        "created_at": {
+                            "type": "string"
+                        },
+                        "description": {
+                            "type": "string"
+                        },
+                        "expires_at": {
+                            "type": "string"
+                        },
+                        "id": {
+                            "type": "string"
+                        },
+                        "max_uses": {
+                            "type": "integer"
+                        },
+                        "metadata": {
+                            "type": "object",
+                            "additionalProperties": {}
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "scopes": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "token": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "handlers.RotationPolicy": {
+            "type": "object",
+            "properties": {
+                "auto_rotate": {
+                    "type": "boolean"
+                },
+                "notify_before_days": {
+                    "type": "integer",
+                    "maximum": 30,
+                    "minimum": 1
+                },
+                "rotation_interval_days": {
+                    "type": "integer",
+                    "maximum": 365,
+                    "minimum": 1
+                }
+            }
+        },
+        "handlers.ServiceTokenRequest": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "expires_in_days": {
+                    "description": "Max 10 years",
+                    "type": "integer",
+                    "maximum": 3650,
+                    "minimum": 1
+                },
+                "ip_whitelist": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "max_uses": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "minLength": 1
+                },
+                "rotation_policy": {
+                    "$ref": "#/definitions/handlers.RotationPolicy"
+                },
+                "scopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "user_agent_pattern": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.ServiceTokenResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "last_used_at": {
+                    "type": "string"
+                },
+                "max_uses": {
+                    "type": "integer"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "name": {
+                    "type": "string"
+                },
+                "revoked_at": {
+                    "type": "string"
+                },
+                "rotated_at": {
+                    "type": "string"
+                },
+                "scopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "token": {
+                    "description": "Only included on creation",
+                    "type": "string"
+                },
+                "use_count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.ServiceTokenStats": {
+            "type": "object",
+            "properties": {
+                "active_tokens": {
+                    "type": "integer"
+                },
+                "expired_tokens": {
+                    "type": "integer"
+                },
+                "recently_used_tokens": {
+                    "type": "integer"
+                },
+                "revoked_tokens": {
+                    "type": "integer"
+                },
+                "total_tokens": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.ServiceTokenUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "ip_whitelist": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "max_uses": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "minLength": 1
+                },
+                "rotation_policy": {
+                    "$ref": "#/definitions/handlers.RotationPolicy"
+                },
+                "scopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "user_agent_pattern": {
+                    "type": "string"
+                }
+            }
+        },
+        "pagination.PaginatedResponse": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "next": {
+                    "type": "string"
+                },
+                "previous": {
+                    "type": "string"
+                },
+                "results": {}
+            }
+        },
+        "pgtype.InfinityModifier": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+                1,
+                0,
+                -1
+            ],
+            "x-enum-varnames": [
+                "Infinity",
+                "Finite",
+                "NegativeInfinity"
+            ]
+        },
+        "pgtype.Timestamp": {
+            "type": "object",
+            "properties": {
+                "infinityModifier": {
+                    "$ref": "#/definitions/pgtype.InfinityModifier"
+                },
+                "time": {
+                    "description": "Time zone will be ignored when encoding to PostgreSQL.",
+                    "type": "string"
+                },
+                "valid": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "repository.Account": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string"
+                },
+                "bio": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "$ref": "#/definitions/pgtype.Timestamp"
+                },
+                "deleted_at": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "national_id": {
+                    "type": "string"
+                },
+                "onboarded": {
+                    "type": "boolean"
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "terms_accepted": {
+                    "type": "boolean"
+                },
+                "type": {
+                    "$ref": "#/definitions/repository.AccountType"
+                },
+                "updated_at": {
+                    "$ref": "#/definitions/pgtype.Timestamp"
+                },
+                "username": {
+                    "type": "string"
+                },
+                "vibe_points": {
+                    "type": "integer"
+                }
+            }
+        },
+        "repository.AccountType": {
+            "type": "string",
+            "enum": [
+                "human",
+                "service",
+                "bot",
+                "organization"
+            ],
+            "x-enum-varnames": [
+                "AccountTypeHuman",
+                "AccountTypeService",
+                "AccountTypeBot",
+                "AccountTypeOrganization"
+            ]
+        },
+        "repository.AccountVibepointRank": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "$ref": "#/definitions/pgtype.Timestamp"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "$ref": "#/definitions/pgtype.Timestamp"
+                },
+                "username": {
+                    "type": "string"
+                },
+                "vibe_points": {
+                    "type": "integer"
+                },
+                "vibe_rank": {
+                    "type": "integer"
+                }
+            }
+        },
+        "repository.Activity": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "$ref": "#/definitions/pgtype.Timestamp"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_active": {
+                    "type": "boolean"
+                },
+                "max_daily_completions": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "points_awarded": {
+                    "type": "integer"
+                },
+                "streak_eligible": {
+                    "type": "boolean"
+                },
+                "updated_at": {
+                    "$ref": "#/definitions/pgtype.Timestamp"
+                }
+            }
+        },
+        "repository.AddAccountInstitutionParams": {
+            "type": "object",
+            "properties": {
+                "account_id": {
+                    "type": "string"
+                },
+                "institution_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "repository.AddAccountInstitutionRow": {
+            "type": "object",
+            "properties": {
+                "account_id": {
+                    "type": "string"
+                },
+                "institution_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "repository.CreateActivityParams": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "max_daily_completions": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "points_awarded": {
+                    "type": "integer"
+                },
+                "streak_eligible": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "repository.CreateInstitutionParams": {
+            "type": "object",
+            "properties": {
+                "alpha_two_code": {
+                    "type": "string"
+                },
+                "country": {
+                    "type": "string"
+                },
+                "domains": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "state_province": {
+                    "type": "string"
+                },
+                "web_pages": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "repository.CreatePermissionParams": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "repository.CreateRoleParams": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "repository.CreateStreakMilestoneParams": {
+            "type": "object",
+            "properties": {
+                "activity_id": {
+                    "type": "string"
+                },
+                "bonus_points": {
+                    "type": "integer"
+                },
+                "days_required": {
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "is_active": {
+                    "type": "boolean"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "repository.Institution": {
+            "type": "object",
+            "properties": {
+                "alpha_two_code": {
+                    "type": "string"
+                },
+                "country": {
+                    "type": "string"
+                },
+                "domains": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "institution_id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "state_province": {
+                    "type": "string"
+                },
+                "web_pages": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "repository.Permission": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "$ref": "#/definitions/pgtype.Timestamp"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "$ref": "#/definitions/pgtype.Timestamp"
+                }
+            }
+        },
+        "repository.RecordActivityCompletionParams": {
+            "type": "object",
+            "properties": {
+                "account_id": {
+                    "type": "string"
+                },
+                "activity_id": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "repository.RemoveAccountInstitutionParams": {
+            "type": "object",
+            "properties": {
+                "account_id": {
+                    "type": "string"
+                },
+                "institution_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "repository.Role": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "$ref": "#/definitions/pgtype.Timestamp"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_default": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "$ref": "#/definitions/pgtype.Timestamp"
+                }
+            }
+        },
+        "repository.RolePermissionsView": {
+            "type": "object",
+            "properties": {
+                "permission_id": {
+                    "type": "string"
+                },
+                "permission_name": {
+                    "type": "string"
+                },
+                "role_description": {
+                    "type": "string"
+                },
+                "role_id": {
+                    "type": "string"
+                },
+                "role_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "repository.Social": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "type": "string"
+                },
+                "access_token_secret": {
+                    "type": "string"
+                },
+                "account_id": {
+                    "type": "string"
+                },
+                "avatar_url": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "$ref": "#/definitions/pgtype.Timestamp"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "$ref": "#/definitions/pgtype.Timestamp"
+                },
+                "first_name": {
+                    "type": "string"
+                },
+                "id_token": {
+                    "type": "string"
+                },
+                "last_name": {
+                    "type": "string"
+                },
+                "location": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "nick_name": {
+                    "type": "string"
+                },
+                "provider": {
+                    "type": "string"
+                },
+                "refresh_token": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "$ref": "#/definitions/pgtype.Timestamp"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "repository.StreakMilestone": {
+            "type": "object",
+            "properties": {
+                "activity_id": {
+                    "type": "string"
+                },
+                "bonus_points": {
+                    "type": "integer"
+                },
+                "days_required": {
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_active": {
+                    "type": "boolean"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "repository.UpdateAccountDetailsParams": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string"
+                },
+                "bio": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "national_id": {
+                    "type": "string"
+                },
+                "onboarded": {
+                    "type": "boolean"
+                },
+                "terms_accepted": {
+                    "type": "boolean"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "repository.UpdateAccountPhoneNumberParams": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                }
+            }
+        },
+        "repository.UpdateActivityParams": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_active": {
+                    "type": "boolean"
+                },
+                "max_daily_completions": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "points_awarded": {
+                    "type": "integer"
+                },
+                "streak_eligible": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "repository.UpdateInstitutionParams": {
+            "type": "object",
+            "properties": {
+                "alpha_two_code": {
+                    "type": "string"
+                },
+                "country": {
+                    "type": "string"
+                },
+                "domains": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "institution_id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "state_province": {
+                    "type": "string"
+                },
+                "web_pages": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "repository.UpdatePermissionParams": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "repository.UpdateRoleParams": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "repository.UserPermissionsView": {
+            "type": "object",
+            "properties": {
+                "permission": {
+                    "type": "string"
+                },
+                "permission_id": {
+                    "type": "string"
+                },
+                "role_id": {
+                    "type": "string"
+                },
+                "role_name": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "repository.UserRolesView": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "role_created_at": {
+                    "$ref": "#/definitions/pgtype.Timestamp"
+                },
+                "role_description": {
+                    "type": "string"
+                },
+                "role_id": {
+                    "type": "string"
+                },
+                "role_name": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
                 }
             }
         },
