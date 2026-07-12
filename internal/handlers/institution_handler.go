@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -73,7 +74,6 @@ func (ih *InstitutionHandler) RegisterHandlers(
 		)(http.HandlerFunc(ih.DeleteInstitution)))
 
 	// Institution account management
-	// TODO: (erick) Add fine permissions for both admin and the user in question
 	router.Handle("POST /institutions/account",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(ih.Cfg, ih.DB, ih.Cacher, ih.Logger),
@@ -100,7 +100,19 @@ func (ih *InstitutionHandler) RegisterHandlers(
 		)(http.HandlerFunc(ih.FanoutInstitutionConnections)))
 }
 
-// POST /institutions/register
+// RegisterInstitution godoc
+//
+// @Summary      Register a new institution
+// @Tags         institutions
+// @Accept       json
+// @Produce      json
+// @Param        request  body      repository.CreateInstitutionParams  true  "Institution to create"
+// @Success      201  {object}  repository.Institution
+// @Failure      400  {object}  core.APIError  "Invalid request body"
+// @Failure      500  {object}  core.APIError  "Failed to create institution"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /institutions/register [post]
 func (ih *InstitutionHandler) RegisterInstitution(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -164,7 +176,20 @@ func (ih *InstitutionHandler) RegisterInstitution(
 	json.NewEncoder(w).Encode(created)
 }
 
-// PATCH /institutions/update/{id}
+// UpdateInstitutionDetails godoc
+//
+// @Summary      Update an institution's details
+// @Tags         institutions
+// @Accept       json
+// @Produce      json
+// @Param        id       path  int                                  true  "Institution ID"
+// @Param        request  body  repository.UpdateInstitutionParams  true  "Fields to update"
+// @Success      200  {object}  repository.Institution
+// @Failure      400  {object}  core.APIError  "Invalid id or request body"
+// @Failure      500  {object}  core.APIError  "Failed to update institution"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /institutions/update/{id} [patch]
 func (ih *InstitutionHandler) UpdateInstitutionDetails(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -240,7 +265,18 @@ func (ih *InstitutionHandler) UpdateInstitutionDetails(
 	json.NewEncoder(w).Encode(updated)
 }
 
-// GET /institutions/find/{id}
+// GetInstitutionByID godoc
+//
+// @Summary      Get an institution by id
+// @Tags         institutions
+// @Produce      json
+// @Param        id  path  int  true  "Institution ID"
+// @Success      200  {object}  repository.Institution
+// @Failure      400  {object}  core.APIError  "Invalid id"
+// @Failure      404  {object}  core.APIError  "Institution not found"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /institutions/find/{id} [get]
 func (ih *InstitutionHandler) GetInstitutionByID(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -282,7 +318,18 @@ func (ih *InstitutionHandler) GetInstitutionByID(
 	json.NewEncoder(w).Encode(institution)
 }
 
-// GET /institutions/all
+// GetAllInstitutions godoc
+//
+// @Summary      List institutions
+// @Tags         institutions
+// @Produce      json
+// @Param        limit   query  int  false  "Page size (default 10, max 100)"
+// @Param        offset  query  int  false  "Page offset (default 0)"
+// @Success      200  {array}   repository.Institution
+// @Failure      500  {object}  core.APIError  "Failed to fetch institutions"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /institutions/all [get]
 func (ih *InstitutionHandler) GetAllInstitutions(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -325,7 +372,18 @@ func (ih *InstitutionHandler) GetAllInstitutions(
 	json.NewEncoder(w).Encode(institutions)
 }
 
-// DELETE /institutions/delete/{id}
+// DeleteInstitution godoc
+//
+// @Summary      Delete an institution
+// @Tags         institutions
+// @Param        id  path  int  true  "Institution ID"
+// @Success      204  "No Content"
+// @Failure      400  {object}  core.APIError  "Invalid id"
+// @Failure      404  {object}  core.APIError  "Institution not found"
+// @Failure      500  {object}  core.APIError  "Failed to delete institution"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /institutions/delete/{id} [delete]
 func (ih *InstitutionHandler) DeleteInstitution(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -399,6 +457,20 @@ func (ih *InstitutionHandler) DeleteInstitution(
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// SearchInstitutions godoc
+//
+// @Summary      Search institutions by name
+// @Tags         institutions
+// @Produce      json
+// @Param        q       query  string  true   "Name search query"
+// @Param        limit   query  int     false  "Page size (default 10, max 100)"
+// @Param        offset  query  int     false  "Page offset (default 0)"
+// @Success      200  {array}   repository.Institution
+// @Failure      400  {object}  core.APIError  "Missing query parameter 'q'"
+// @Failure      500  {object}  core.APIError  "Search failed"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /institutions/search [get]
 func (ih *InstitutionHandler) SearchInstitutions(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -454,7 +526,21 @@ func (ih *InstitutionHandler) SearchInstitutions(
 	}
 }
 
-// Links an account to institution
+// AddAcountInstitution godoc
+//
+// @Summary      Link an account to an institution
+// @Description  The request body's account_id must match the caller's own subject, unless the caller holds manage:institutions:accounts:any.
+// @Tags         institutions
+// @Accept       json
+// @Produce      json
+// @Param        request  body      repository.AddAccountInstitutionParams  true  "account_id must be the caller's own, unless an admin"
+// @Success      201  {object}  repository.AddAccountInstitutionRow
+// @Failure      400  {object}  core.APIError  "Invalid request body"
+// @Failure      403  {object}  core.APIError  "account_id does not match the caller and caller is not an admin"
+// @Failure      500  {object}  core.APIError  "Failed to link account to institution"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /institutions/account [post]
 func (ih *InstitutionHandler) AddAcountInstitution(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -482,6 +568,14 @@ func (ih *InstitutionHandler) AddAcountInstitution(
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		ih.Logger.Error("Failed to parse request body", slog.Any("error", err))
 		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
+		return
+	}
+
+	claims, ok := middleware.ClaimsFromContext(r.Context())
+	perms, _ := r.Context().Value(middleware.AuthUserPerms).([]string)
+	isAdmin := slices.Contains(perms, "manage:institutions:accounts:any")
+	if !ok || (!isAdmin && req.AccountID.String() != claims.Subject) {
+		core.WriteError(w, http.StatusForbidden, "you can only manage your own institution memberships")
 		return
 	}
 
@@ -539,6 +633,21 @@ func (ih *InstitutionHandler) AddAcountInstitution(
 	json.NewEncoder(w).Encode(created)
 }
 
+// ListInstitutionForAccount godoc
+//
+// @Summary      List institutions linked to a given account
+// @Description  Note: any authenticated caller can look up any account's institution memberships by account_id — there is no ownership check on this endpoint today.
+// @Tags         institutions
+// @Produce      json
+// @Param        account_id  query  string  true   "Account ID"
+// @Param        limit       query  int     false  "Page size (default 10, max 100)"
+// @Param        offset      query  int     false  "Page offset (default 0)"
+// @Success      200  {array}   repository.Institution
+// @Failure      400  {object}  core.APIError  "Missing or invalid account_id"
+// @Failure      500  {object}  core.APIError  "Failed to fetch institutions"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /institutions/for-account [get]
 func (ih *InstitutionHandler) ListInstitutionForAccount(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -603,7 +712,20 @@ func (ih *InstitutionHandler) ListInstitutionForAccount(
 	json.NewEncoder(w).Encode(institutions)
 }
 
-// Get accounts that are registered to an institution
+// ListAccountsForInstitution godoc
+//
+// @Summary      List accounts linked to a given institution
+// @Tags         institutions
+// @Produce      json
+// @Param        institution_id  query  int  true   "Institution ID"
+// @Param        limit           query  int  false  "Page size (default 10, max 100)"
+// @Param        offset          query  int  false  "Page offset (default 0)"
+// @Success      200  {array}   repository.Account
+// @Failure      400  {object}  core.APIError  "Missing or invalid institution_id"
+// @Failure      500  {object}  core.APIError  "Failed to fetch accounts"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /institutions/accounts [get]
 func (ih *InstitutionHandler) ListAccountsForInstitution(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -668,7 +790,21 @@ func (ih *InstitutionHandler) ListAccountsForInstitution(
 	json.NewEncoder(w).Encode(institutions)
 }
 
-// Remove an account from an institution
+// RemoveAccountInstitution godoc
+//
+// @Summary      Unlink an account from an institution
+// @Description  The request body's account_id must match the caller's own subject, unless the caller holds manage:institutions:accounts:any.
+// @Tags         institutions
+// @Accept       json
+// @Produce      json
+// @Param        request  body      repository.RemoveAccountInstitutionParams  true  "account_id must be the caller's own, unless an admin"
+// @Success      200  {object}  map[string]any  "Confirmation message"
+// @Failure      400  {object}  core.APIError  "Invalid request body"
+// @Failure      403  {object}  core.APIError  "account_id does not match the caller and caller is not an admin"
+// @Failure      500  {object}  core.APIError  "Failed to unlink account from institution"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /institutions/account [delete]
 func (ih *InstitutionHandler) RemoveAccountInstitution(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -696,6 +832,14 @@ func (ih *InstitutionHandler) RemoveAccountInstitution(
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		ih.Logger.Error("Failed to parse request body", slog.Any("error", err))
 		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
+		return
+	}
+
+	claims, ok := middleware.ClaimsFromContext(r.Context())
+	perms, _ := r.Context().Value(middleware.AuthUserPerms).([]string)
+	isAdmin := slices.Contains(perms, "manage:institutions:accounts:any")
+	if !ok || (!isAdmin && req.AccountID.String() != claims.Subject) {
+		core.WriteError(w, http.StatusForbidden, "you can only manage your own institution memberships")
 		return
 	}
 
@@ -754,6 +898,17 @@ func (ih *InstitutionHandler) RemoveAccountInstitution(
 		Encode(map[string]any{"message": "Successfully removed from institution"})
 }
 
+// FanoutInstitutionConnections godoc
+//
+// @Summary      Republish every institution-account connection to the event bus
+// @Description  Batches through all account/institution links and republishes a connected event for each, via a worker pool. Intended for backfilling downstream consumers, not routine use. Note: this route only checks IsAuthenticated today, with no admin-style permission gate (see ADR 0006 for the planned fix).
+// @Tags         institutions
+// @Produce      json
+// @Success      200  {object}  map[string]string  "status: fanout complete"
+// @Failure      500  {object}  core.APIError  "Failed to acquire a database connection"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /institutions/accounts/fanout [get]
 func (ih *InstitutionHandler) FanoutInstitutionConnections(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -869,6 +1024,17 @@ func (ih *InstitutionHandler) publishConnectionEvent(
 	}
 }
 
+// FanoutInstitutions godoc
+//
+// @Summary      Republish every institution to the event bus
+// @Description  Batches through all institutions and republishes an InstitutionCreated event for each, via a worker pool. Intended for backfilling downstream consumers, not routine use.
+// @Tags         institutions
+// @Produce      json
+// @Success      200  {object}  map[string]any  "Publish count message"
+// @Failure      500  {object}  core.APIError  "Failed to read institutions or publish one or more batches"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /institutions/fanout [get]
 func (ih *InstitutionHandler) FanoutInstitutions(
 	w http.ResponseWriter,
 	r *http.Request,

@@ -51,6 +51,21 @@ func (ah *ActivityHandler) RegisterHandlers(
 	)
 }
 
+// GetAllUserActivityCompletions godoc
+//
+// @Summary      List a given user's completed activities
+// @Description  Note: any authenticated caller can view any other user's activity completions by id — there is no ownership check on this endpoint today.
+// @Tags         activities
+// @Produce      json
+// @Param        id         path   string  true   "Account ID"
+// @Param        page       query  int     false  "Page number (default 1)"
+// @Param        page_size  query  int     false  "Page size (default 10, max 100)"
+// @Success      200  {object}  pagination.PaginatedResponse
+// @Failure      400  {object}  core.APIError  "Invalid id"
+// @Failure      500  {object}  core.APIError  "Failed to fetch completions"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /users/activity/completions/for-user/{id} [get]
 func (ah *ActivityHandler) GetAllUserActivityCompletions(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -145,6 +160,19 @@ func (ah *ActivityHandler) GetAllUserActivityCompletions(
 	json.NewEncoder(w).Encode(response)
 }
 
+// DeleteActivity godoc
+//
+// @Summary      Delete an activity definition
+// @Description  Note: Activity is a shared catalog resource with no per-user owner — this route only checks IsAuthenticated today, with no admin-style permission gate (see ADR 0006 for the planned fix).
+// @Tags         activities
+// @Produce      json
+// @Param        id  path  string  true  "Activity ID"
+// @Success      200  {object}  map[string]any  "Confirmation message"
+// @Failure      400  {object}  core.APIError  "Invalid id"
+// @Failure      500  {object}  core.APIError  "Failed to delete activity"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /activity/{id} [delete]
 func (ah *ActivityHandler) DeleteActivity(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -225,6 +253,21 @@ func (ah *ActivityHandler) DeleteActivity(
 		Encode(map[string]any{"message": "Activity deleted successfully"})
 }
 
+// UpdateActivity godoc
+//
+// @Summary      Update an activity definition
+// @Description  Note: Activity is a shared catalog resource with no per-user owner — this route only checks IsAuthenticated today, with no admin-style permission gate (see ADR 0006 for the planned fix).
+// @Tags         activities
+// @Accept       json
+// @Produce      json
+// @Param        id       path  string                            true  "Activity ID"
+// @Param        request  body  repository.UpdateActivityParams  true  "Fields to update"
+// @Success      200  {object}  repository.Activity
+// @Failure      400  {object}  core.APIError  "Invalid id or request body"
+// @Failure      500  {object}  core.APIError  "Failed to update activity"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /activity/{id} [patch]
 func (ah *ActivityHandler) UpdateActivity(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -315,6 +358,18 @@ func (ah *ActivityHandler) UpdateActivity(
 	json.NewEncoder(w).Encode(activity)
 }
 
+// GetAllInactiveActivities godoc
+//
+// @Summary      List inactive activity definitions
+// @Tags         activities
+// @Produce      json
+// @Param        page       query  int  false  "Page number (default 1)"
+// @Param        page_size  query  int  false  "Page size (default 10, max 100)"
+// @Success      200  {object}  pagination.PaginatedResponse
+// @Failure      500  {object}  core.APIError  "Failed to fetch activities"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /activity/inactive [get]
 func (ah *ActivityHandler) GetAllInactiveActivities(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -397,6 +452,18 @@ func (ah *ActivityHandler) GetAllInactiveActivities(
 	json.NewEncoder(w).Encode(response)
 }
 
+// GetAllActiveActivities godoc
+//
+// @Summary      List active activity definitions
+// @Tags         activities
+// @Produce      json
+// @Param        page       query  int  false  "Page number (default 1)"
+// @Param        page_size  query  int  false  "Page size (default 10, max 100)"
+// @Success      200  {object}  pagination.PaginatedResponse
+// @Failure      500  {object}  core.APIError  "Failed to fetch activities"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /activity/active [get]
 func (ah *ActivityHandler) GetAllActiveActivities(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -479,6 +546,18 @@ func (ah *ActivityHandler) GetAllActiveActivities(
 	json.NewEncoder(w).Encode(response)
 }
 
+// GetAllActivities godoc
+//
+// @Summary      List all activity definitions
+// @Tags         activities
+// @Produce      json
+// @Param        page       query  int  false  "Page number (default 1)"
+// @Param        page_size  query  int  false  "Page size (default 10, max 100)"
+// @Success      200  {object}  pagination.PaginatedResponse
+// @Failure      500  {object}  core.APIError  "Failed to fetch activities"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /activity/all [get]
 func (ah *ActivityHandler) GetAllActivities(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -561,6 +640,20 @@ func (ah *ActivityHandler) GetAllActivities(
 	json.NewEncoder(w).Encode(response)
 }
 
+// CreateActivity godoc
+//
+// @Summary      Create an activity definition
+// @Description  Note: this route only checks IsAuthenticated today, with no admin-style permission gate (see ADR 0006 for the planned fix).
+// @Tags         activities
+// @Accept       json
+// @Produce      json
+// @Param        request  body      repository.CreateActivityParams  true  "Activity to create"
+// @Success      200  {object}  repository.Activity
+// @Failure      400  {object}  core.APIError  "Invalid request body"
+// @Failure      500  {object}  core.APIError  "Failed to create activity"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /activity/add [post]
 func (ah *ActivityHandler) CreateActivity(
 	w http.ResponseWriter,
 	r *http.Request,

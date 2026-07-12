@@ -45,7 +45,8 @@ func (dh *DeviceHandler) RegisterHandlers(
 // @Success      200  {array}   service.DeviceOutput
 // @Failure      401  {object}  core.APIError  "Unauthorized"
 // @Failure      500  {object}  core.APIError  "Internal server error"
-// @Security     BearerAuth
+// @Security     BearerToken
+// @Security     ApiKey
 // @Router       /devices/mine [get]
 func (dh *DeviceHandler) GetPersonalDevices(
 	w http.ResponseWriter,

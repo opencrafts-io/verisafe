@@ -136,7 +136,20 @@ func (sth *ServiceTokenHandler) RegisterHandlers(router *http.ServeMux) {
 		)(http.HandlerFunc(sth.CleanupExpiredTokens)))
 }
 
-// CreateServiceToken creates a new service token for a bot account
+// CreateServiceToken godoc
+//
+// @Summary      Create a service token for the authenticated account
+// @Tags         service-tokens
+// @Accept       json
+// @Produce      json
+// @Param        request  body      handlers.ServiceTokenRequest  true  "Service token to create"
+// @Success      201  {object}  handlers.ServiceTokenResponse  "Includes the raw token, only returned on creation"
+// @Failure      400  {object}  core.APIError  "Invalid request body"
+// @Failure      401  {object}  core.APIError  "Missing or invalid claims"
+// @Failure      500  {object}  core.APIError  "Failed to create service token"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /api/v1/service-tokens [post]
 func (sth *ServiceTokenHandler) CreateServiceToken(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -348,7 +361,17 @@ func (sth *ServiceTokenHandler) CreateServiceToken(
 	json.NewEncoder(w).Encode(response)
 }
 
-// ListServiceTokens lists all service tokens for the authenticated account
+// ListServiceTokens godoc
+//
+// @Summary      List the authenticated account's own service tokens
+// @Tags         service-tokens
+// @Produce      json
+// @Success      200  {array}   handlers.ServiceTokenResponse
+// @Failure      401  {object}  core.APIError  "Missing or invalid claims"
+// @Failure      500  {object}  core.APIError  "Failed to list service tokens"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /api/v1/service-tokens [get]
 func (sth *ServiceTokenHandler) ListServiceTokens(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -403,7 +426,21 @@ func (sth *ServiceTokenHandler) ListServiceTokens(
 	json.NewEncoder(w).Encode(responses)
 }
 
-// GetServiceToken retrieves a specific service token
+// GetServiceToken godoc
+//
+// @Summary      Get a service token by id
+// @Description  Requires read:service_token:own for the caller's own tokens, or read:service_token:any to read any account's token.
+// @Tags         service-tokens
+// @Produce      json
+// @Param        id  path  string  true  "Service token ID"
+// @Success      200  {object}  handlers.ServiceTokenResponse
+// @Failure      400  {object}  core.APIError  "Invalid token"
+// @Failure      403  {object}  core.APIError  "Not the token owner and not an admin"
+// @Failure      404  {object}  core.APIError  "Service token not found"
+// @Failure      500  {object}  core.APIError  "Failed to fetch service token"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /api/v1/service-tokens/{id} [get]
 func (sth *ServiceTokenHandler) GetServiceToken(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -473,6 +510,23 @@ func (sth *ServiceTokenHandler) GetServiceToken(
 	json.NewEncoder(w).Encode(response)
 }
 
+// UpdateServiceToken godoc
+//
+// @Summary      Update a service token
+// @Description  Requires update:service_token:own for the caller's own tokens, or update:service_token:any to update any account's token.
+// @Tags         service-tokens
+// @Accept       json
+// @Produce      json
+// @Param        id       path  string                                true  "Service token ID"
+// @Param        request  body  handlers.ServiceTokenUpdateRequest  true  "Fields to update"
+// @Success      200  {object}  handlers.ServiceTokenResponse
+// @Failure      400  {object}  core.APIError  "Invalid id or request body"
+// @Failure      403  {object}  core.APIError  "Not the token owner and not an admin"
+// @Failure      404  {object}  core.APIError  "Service token not found"
+// @Failure      500  {object}  core.APIError  "Failed to update service token"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /api/v1/service-tokens/{id} [put]
 // UpdateServiceToken updates a service token
 func (sth *ServiceTokenHandler) UpdateServiceToken(
 	w http.ResponseWriter,
@@ -652,6 +706,21 @@ func (sth *ServiceTokenHandler) UpdateServiceToken(
 	json.NewEncoder(w).Encode(response)
 }
 
+// RotateServiceToken godoc
+//
+// @Summary      Rotate a service token
+// @Description  Issues a new raw token value for the same service token record. Requires rotate:service_token:own for the caller's own tokens, or rotate:service_token:any for any account's token.
+// @Tags         service-tokens
+// @Produce      json
+// @Param        id  path  string  true  "Service token ID"
+// @Success      200  {object}  handlers.ServiceTokenResponse  "Includes the new raw token"
+// @Failure      400  {object}  core.APIError  "Invalid id"
+// @Failure      403  {object}  core.APIError  "Not the token owner and not an admin"
+// @Failure      404  {object}  core.APIError  "Service token not found"
+// @Failure      500  {object}  core.APIError  "Failed to rotate service token"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /api/v1/service-tokens/{id}/rotate [post]
 // RotateServiceToken rotates a service token
 func (sth *ServiceTokenHandler) RotateServiceToken(
 	w http.ResponseWriter,
@@ -801,6 +870,20 @@ func (sth *ServiceTokenHandler) RotateServiceToken(
 	json.NewEncoder(w).Encode(response)
 }
 
+// RevokeServiceToken godoc
+//
+// @Summary      Revoke a service token
+// @Description  Requires revoke:service_token:own for the caller's own tokens, or revoke:service_token:any for any account's token.
+// @Tags         service-tokens
+// @Param        id  path  string  true  "Service token ID"
+// @Success      204  "No Content"
+// @Failure      400  {object}  core.APIError  "Invalid id"
+// @Failure      403  {object}  core.APIError  "Not the token owner and not an admin"
+// @Failure      404  {object}  core.APIError  "Service token not found"
+// @Failure      500  {object}  core.APIError  "Failed to revoke service token"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /api/v1/service-tokens/{id} [delete]
 // RevokeServiceToken revokes a service token
 func (sth *ServiceTokenHandler) RevokeServiceToken(
 	w http.ResponseWriter,
@@ -909,6 +992,17 @@ func (sth *ServiceTokenHandler) RevokeServiceToken(
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// GetServiceTokenStats godoc
+//
+// @Summary      Get usage statistics for the authenticated account's service tokens
+// @Tags         service-tokens
+// @Produce      json
+// @Success      200  {object}  handlers.ServiceTokenStats
+// @Failure      401  {object}  core.APIError  "Missing or invalid claims"
+// @Failure      500  {object}  core.APIError  "Failed to fetch stats"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /api/v1/service-tokens/stats [get]
 // GetServiceTokenStats returns usage statistics for service tokens
 func (sth *ServiceTokenHandler) GetServiceTokenStats(
 	w http.ResponseWriter,
@@ -966,6 +1060,16 @@ func (sth *ServiceTokenHandler) GetServiceTokenStats(
 	json.NewEncoder(w).Encode(response)
 }
 
+// ListAllServiceTokens godoc
+//
+// @Summary      List all active service tokens (admin)
+// @Tags         service-tokens
+// @Produce      json
+// @Success      200  {array}   handlers.ServiceTokenResponse
+// @Failure      500  {object}  core.APIError  "Failed to list service tokens"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /api/v1/admin/service-tokens [get]
 // ListAllServiceTokens lists all service tokens (admin only)
 func (sth *ServiceTokenHandler) ListAllServiceTokens(
 	w http.ResponseWriter,
@@ -1006,6 +1110,15 @@ func (sth *ServiceTokenHandler) ListAllServiceTokens(
 	json.NewEncoder(w).Encode(responses)
 }
 
+// CleanupExpiredTokens godoc
+//
+// @Summary      Delete expired service tokens (admin)
+// @Tags         service-tokens
+// @Success      204  "No Content"
+// @Failure      500  {object}  core.APIError  "Failed to clean up expired tokens"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /api/v1/admin/service-tokens/cleanup [post]
 // CleanupExpiredTokens cleans up expired tokens (admin only)
 func (sth *ServiceTokenHandler) CleanupExpiredTokens(
 	w http.ResponseWriter,

@@ -160,7 +160,20 @@ type BotAccountResponse struct {
 	} `json:"service_token"`
 }
 
-// Creates a bot account with an enhanced service token
+// CreateBotAccount godoc
+//
+// @Summary      Create a bot account with a service token
+// @Description  Creates a service (bot) account, assigns it the "bot" role, and issues a service token for it in one call.
+// @Tags         accounts
+// @Accept       json
+// @Produce      json
+// @Param        request  body      handlers.BotAccountRequest  true  "Bot account and service token details"
+// @Success      201  {object}  handlers.BotAccountResponse
+// @Failure      400  {object}  core.APIError  "Invalid request body, or missing required fields"
+// @Failure      500  {object}  core.APIError  "Failed to create account, assign role, or issue service token"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /accounts/bot/create [post]
 func (ah *AccountHandler) CreateBotAccount(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -430,7 +443,17 @@ func (ah *AccountHandler) generateSecureToken() (string, error) {
 	return token, nil
 }
 
-// Publishes all accounts to other services via the event bus
+// FanoutAccouts godoc
+//
+// @Summary      Republish every account to the event bus
+// @Description  Batches through all accounts and republishes a UserCreated event for each, via a worker pool. Intended for backfilling downstream consumers, not routine use.
+// @Tags         accounts
+// @Produce      json
+// @Success      200  {object}  map[string]any  "Publish count message"
+// @Failure      500  {object}  core.APIError  "Failed to read accounts or publish one or more batches"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /accounts/fanout [get]
 func (ah *AccountHandler) FanoutAccouts(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -539,6 +562,18 @@ func (ah *AccountHandler) FanoutAccouts(
 	})
 }
 
+// GetPersonalAccount godoc
+//
+// @Summary      Get the authenticated user's own account
+// @Description  Returns the account belonging to the caller's own JWT/API-key subject.
+// @Tags         accounts
+// @Produce      json
+// @Success      200  {object}  repository.Account
+// @Failure      401  {object}  core.APIError  "Missing or invalid claims"
+// @Failure      500  {object}  core.APIError  "Failed to fetch account"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /accounts/me [get]
 func (ah *AccountHandler) GetPersonalAccount(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -605,6 +640,21 @@ func (ah *AccountHandler) GetPersonalAccount(
 	json.NewEncoder(w).Encode(user)
 }
 
+// UpdatePersonalAccount godoc
+//
+// @Summary      Update the authenticated user's own account details
+// @Description  The request body's id must match the caller's own subject — updating a different account's id is rejected.
+// @Tags         accounts
+// @Accept       json
+// @Produce      json
+// @Param        request  body      repository.UpdateAccountDetailsParams  true  "Account fields to update; id must be the caller's own"
+// @Success      200  {object}  repository.Account
+// @Failure      400  {object}  core.APIError  "Invalid request body"
+// @Failure      401  {object}  core.APIError  "Missing or invalid claims"
+// @Failure      500  {object}  core.APIError  "Not the account owner, or failed to update/fetch account"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /accounts/me [patch]
 func (ah *AccountHandler) UpdatePersonalAccount(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -710,6 +760,22 @@ func (ah *AccountHandler) UpdatePersonalAccount(
 	json.NewEncoder(w).Encode(updated)
 }
 
+// VerifyPhone godoc
+//
+// @Summary      Update the authenticated user's own phone number
+// @Description  The request body's id must match the caller's own subject. Note: this only updates the stored phone number today — it does not yet verify it (see TODO below).
+// @Tags         accounts
+// @Accept       json
+// @Produce      json
+// @Param        request  body      repository.UpdateAccountPhoneNumberParams  true  "New phone number; id must be the caller's own"
+// @Success      200  {object}  repository.Account
+// @Failure      400  {object}  core.APIError  "Invalid request body or phone number too short"
+// @Failure      401  {object}  core.APIError  "Missing or invalid claims"
+// @Failure      500  {object}  core.APIError  "Not the account owner, or failed to update/fetch account"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /accounts/me/phone [patch]
+//
 // TODO: implement verifying mechanisms
 // Use a provider such as AT or One Signal etc
 func (ah *AccountHandler) VerifyPhone(w http.ResponseWriter, r *http.Request) {
@@ -810,7 +876,21 @@ func (ah *AccountHandler) VerifyPhone(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(updated)
 }
 
-// SearchAccountsByEmail handles searching for accounts by email address
+// SearchAccountsByEmail godoc
+//
+// @Summary      Search accounts by email
+// @Description  Case-sensitivity and match semantics follow the underlying SQL query.
+// @Tags         accounts
+// @Produce      json
+// @Param        q       query  string  true   "Email search query"
+// @Param        limit   query  int     false  "Page size (default 10, max 100)"
+// @Param        offset  query  int     false  "Page offset (default 0)"
+// @Success      200  {object}  map[string]any  "accounts, pagination, query, search_type"
+// @Failure      400  {object}  core.APIError  "Missing query parameter 'q'"
+// @Failure      500  {object}  core.APIError  "Search failed"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /accounts/search/email [get]
 func (ah *AccountHandler) SearchAccountsByEmail(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -911,7 +991,20 @@ func (ah *AccountHandler) SearchAccountsByEmail(
 	json.NewEncoder(w).Encode(response)
 }
 
-// SearchAccountsByName handles searching for accounts by name
+// SearchAccountsByName godoc
+//
+// @Summary      Search accounts by name
+// @Tags         accounts
+// @Produce      json
+// @Param        q       query  string  true   "Name search query"
+// @Param        limit   query  int     false  "Page size (default 10, max 100)"
+// @Param        offset  query  int     false  "Page offset (default 0)"
+// @Success      200  {object}  map[string]any  "accounts, pagination, query, search_type"
+// @Failure      400  {object}  core.APIError  "Missing query parameter 'q'"
+// @Failure      500  {object}  core.APIError  "Search failed"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /accounts/search/name [get]
 func (ah *AccountHandler) SearchAccountsByName(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -1012,6 +1105,17 @@ func (ah *AccountHandler) SearchAccountsByName(
 	json.NewEncoder(w).Encode(response)
 }
 
+// GetAllUserAccounts godoc
+//
+// @Summary      List all accounts
+// @Description  Note: this route is not wired with pagination middleware, so limit/offset query params are currently ignored — it always returns the first page (10 accounts).
+// @Tags         accounts
+// @Produce      json
+// @Success      200  {array}   repository.Account
+// @Failure      500  {object}  core.APIError  "Failed to fetch accounts"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /accounts/all [get]
 func (ah *AccountHandler) GetAllUserAccounts(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -1084,7 +1188,20 @@ func (ah *AccountHandler) GetAllUserAccounts(
 	json.NewEncoder(w).Encode(accounts)
 }
 
-// SearchAccountsByUsername handles searching for accounts by username
+// SearchAccountsByUsername godoc
+//
+// @Summary      Search accounts by username
+// @Tags         accounts
+// @Produce      json
+// @Param        q       query  string  true   "Username search query"
+// @Param        limit   query  int     false  "Page size (default 10, max 100)"
+// @Param        offset  query  int     false  "Page offset (default 0)"
+// @Success      200  {object}  map[string]any  "accounts, pagination, query, search_type"
+// @Failure      400  {object}  core.APIError  "Missing query parameter 'q'"
+// @Failure      500  {object}  core.APIError  "Search failed"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /accounts/search/username [get]
 func (ah *AccountHandler) SearchAccountsByUsername(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -1185,6 +1302,18 @@ func (ah *AccountHandler) SearchAccountsByUsername(
 	json.NewEncoder(w).Encode(response)
 }
 
+// MarkAccountForDeletion godoc
+//
+// @Summary      Request deletion of the authenticated user's own account
+// @Description  The account is soft-deleted and permanently removed after a 14-day grace period; signing in again before then cancels the deletion.
+// @Tags         accounts
+// @Produce      json
+// @Success      200  {object}  map[string]any  "Confirmation message"
+// @Failure      401  {object}  core.APIError  "Missing or invalid claims"
+// @Failure      500  {object}  core.APIError  "Failed to mark account for deletion"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /accounts/deletion-request [post]
 func (ah *AccountHandler) MarkAccountForDeletion(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -1271,6 +1400,18 @@ func (ah *AccountHandler) MarkAccountForDeletion(
 	})
 }
 
+// RecoverAccountFromDeletion godoc
+//
+// @Summary      Cancel a pending deletion of the authenticated user's own account
+// @Description  Restores full access to an account that was previously marked for deletion, provided it's still within the 14-day grace period.
+// @Tags         accounts
+// @Produce      json
+// @Success      200  {object}  map[string]any  "Confirmation message"
+// @Failure      401  {object}  core.APIError  "Missing or invalid claims"
+// @Failure      500  {object}  core.APIError  "Failed to recover account"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /accounts/recovery [post]
 func (ah *AccountHandler) RecoverAccountFromDeletion(
 	w http.ResponseWriter,
 	r *http.Request,

@@ -76,7 +76,20 @@ func (ph *PermissionHandler) RegisterHandlers(
 	)
 }
 
-// Creates a permission
+// CreatePermission godoc
+//
+// @Summary      Create a permission
+// @Description  Newly created permissions are automatically granted to the "system" and "Administrator" roles by database triggers — see docs/RBAC.md.
+// @Tags         permissions
+// @Accept       json
+// @Produce      json
+// @Param        request  body      repository.CreatePermissionParams  true  "Permission to create"
+// @Success      201  {object}  repository.Permission
+// @Failure      400  {object}  core.APIError  "Invalid request body"
+// @Failure      500  {object}  core.APIError  "Failed to create permission"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /permissions/create [post]
 func (ph *PermissionHandler) CreatePermission(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -139,7 +152,19 @@ func (ph *PermissionHandler) CreatePermission(
 	json.NewEncoder(w).Encode(created)
 }
 
-// Retrieves a permission by it's ID
+// GetPermissionByID godoc
+//
+// @Summary      Get a permission by id
+// @Tags         permissions
+// @Produce      json
+// @Param        id  path  string  true  "Permission ID"
+// @Success      200  {object}  repository.Permission
+// @Failure      400  {object}  core.APIError  "Invalid id"
+// @Failure      404  {object}  core.APIError  "Permission not found"
+// @Failure      500  {object}  core.APIError  "Failed to fetch permission"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /permissions/{id} [get]
 func (ph *PermissionHandler) GetPermissionByID(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -196,7 +221,18 @@ func (ph *PermissionHandler) GetPermissionByID(
 	json.NewEncoder(w).Encode(role)
 }
 
-// Retrieves all permissions in the system
+// GetAllPermissions godoc
+//
+// @Summary      List permissions
+// @Tags         permissions
+// @Produce      json
+// @Param        limit   query  int  false  "Page size (default 10, max 100)"
+// @Param        offset  query  int  false  "Page offset (default 0)"
+// @Success      200  {array}   repository.Permission
+// @Failure      500  {object}  core.APIError  "Failed to fetch permissions"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /permissions [get]
 func (ph *PermissionHandler) GetAllPermissions(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -244,7 +280,18 @@ func (ph *PermissionHandler) GetAllPermissions(
 	json.NewEncoder(w).Encode(roles)
 }
 
-// Retrieves all permissions associated
+// GetAllUserPermissions godoc
+//
+// @Summary      List a given user's effective permissions
+// @Tags         permissions
+// @Produce      json
+// @Param        id  path  string  true  "Account ID"
+// @Success      200  {array}   repository.UserPermissionsView
+// @Failure      400  {object}  core.APIError  "Invalid id"
+// @Failure      500  {object}  core.APIError  "Failed to fetch permissions"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /permissions/user/{id} [get]
 func (ph *PermissionHandler) GetAllUserPermissions(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -295,7 +342,19 @@ func (ph *PermissionHandler) GetAllUserPermissions(
 	json.NewEncoder(w).Encode(roles)
 }
 
-// Updates a permission
+// UpdatePermission godoc
+//
+// @Summary      Update a permission
+// @Tags         permissions
+// @Accept       json
+// @Produce      json
+// @Param        request  body      repository.UpdatePermissionParams  true  "Fields to update (id identifies the permission)"
+// @Success      200  {object}  repository.Permission
+// @Failure      400  {object}  core.APIError  "Invalid request body"
+// @Failure      500  {object}  core.APIError  "Failed to update permission"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /permissions/{id} [patch]
 func (ph *PermissionHandler) UpdatePermission(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -358,8 +417,19 @@ func (ph *PermissionHandler) UpdatePermission(
 	json.NewEncoder(w).Encode(created)
 }
 
-// Some work might be needed to check for both the assign and revoke permission
-// better error handling
+// AssignRolePermission godoc
+//
+// @Summary      Grant a permission to a role
+// @Tags         permissions
+// @Produce      json
+// @Param        perm_id  path  string  true  "Permission ID"
+// @Param        role_id  path  string  true  "Role ID"
+// @Success      200  {object}  map[string]any  "Confirmation message"
+// @Failure      400  {object}  core.APIError  "Invalid perm_id or role_id"
+// @Failure      500  {object}  core.APIError  "Failed to assign permission"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /permissions/assign/{perm_id}/{role_id} [get]
 func (ph *PermissionHandler) AssignRolePermission(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -441,6 +511,19 @@ func (ph *PermissionHandler) AssignRolePermission(
 		Encode(map[string]any{"message": "Permission successfully assigned"})
 }
 
+// RevokeRolePermission godoc
+//
+// @Summary      Revoke a permission from a role
+// @Tags         permissions
+// @Produce      json
+// @Param        perm_id  path  string  true  "Permission ID"
+// @Param        role_id  path  string  true  "Role ID"
+// @Success      200  {object}  map[string]any  "Confirmation message"
+// @Failure      400  {object}  core.APIError  "Invalid perm_id or role_id"
+// @Failure      500  {object}  core.APIError  "Failed to revoke permission"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /permissions/revoke/{perm_id}/{role_id} [delete]
 func (ph *PermissionHandler) RevokeRolePermission(
 	w http.ResponseWriter,
 	r *http.Request,

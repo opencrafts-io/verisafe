@@ -713,10 +713,10 @@ func (mr *MockQuerierMockRecorder) GetLeaderboard(ctx, arg any) *gomock.Call {
 }
 
 // GetPermissionByID mocks base method.
-func (m *MockQuerier) GetPermissionByID(ctx context.Context, id uuid.UUID) ([]repository.Permission, error) {
+func (m *MockQuerier) GetPermissionByID(ctx context.Context, id uuid.UUID) (repository.Permission, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetPermissionByID", ctx, id)
-	ret0, _ := ret[0].([]repository.Permission)
+	ret0, _ := ret[0].(repository.Permission)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

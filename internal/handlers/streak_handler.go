@@ -42,6 +42,21 @@ func (sh *StreakHandler) RegisterHandlers(
 	)(http.HandlerFunc(sh.DeleteStreakMilestone)))
 }
 
+// RecordUserActivity godoc
+//
+// @Summary      Record a completed activity for the authenticated user
+// @Description  The request body's account_id must match the caller's own subject.
+// @Tags         streaks
+// @Accept       json
+// @Produce      json
+// @Param        request  body      repository.RecordActivityCompletionParams  true  "account_id must be the caller's own"
+// @Success      200  {object}  map[string]any  "Confirmation message"
+// @Failure      400  {object}  core.APIError  "Invalid request body"
+// @Failure      403  {object}  core.APIError  "account_id does not match the caller"
+// @Failure      500  {object}  core.APIError  "Failed to record completion"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /users/activity/complete [post]
 func (sh *StreakHandler) RecordUserActivity(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -55,6 +70,12 @@ func (sh *StreakHandler) RecordUserActivity(
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "Please check your request body and try again",
 		})
+		return
+	}
+
+	claims, ok := middleware.ClaimsFromContext(r.Context())
+	if !ok || requestBody.AccountID.String() != claims.Subject {
+		core.WriteError(w, http.StatusForbidden, "you can only record activity completions for your own account")
 		return
 	}
 
@@ -121,6 +142,20 @@ func (sh *StreakHandler) RecordUserActivity(
 		Encode(map[string]any{"message": "Activity recorded successfully!"})
 }
 
+// CreateStreakMilestone godoc
+//
+// @Summary      Create a streak milestone
+// @Description  Note: this route only checks IsAuthenticated today, with no admin-style permission gate (see ADR 0006 for the planned fix).
+// @Tags         streaks
+// @Accept       json
+// @Produce      json
+// @Param        request  body      repository.CreateStreakMilestoneParams  true  "Milestone to create"
+// @Success      201  {object}  repository.StreakMilestone
+// @Failure      400  {object}  core.APIError  "Invalid request body"
+// @Failure      500  {object}  core.APIError  "Failed to create milestone"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /streaks/milestone/create [post]
 func (sh *StreakHandler) CreateStreakMilestone(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -195,6 +230,18 @@ func (sh *StreakHandler) CreateStreakMilestone(
 	json.NewEncoder(w).Encode(milestone)
 }
 
+// GetAllActiveStreakAchievements godoc
+//
+// @Summary      List active streak milestones
+// @Tags         streaks
+// @Produce      json
+// @Param        page       query  int  false  "Page number (default 1)"
+// @Param        page_size  query  int  false  "Page size (default 10, max 100)"
+// @Success      200  {object}  pagination.PaginatedResponse
+// @Failure      500  {object}  core.APIError  "Failed to fetch milestones"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /streaks/milestone/active [get]
 func (sh *StreakHandler) GetAllActiveStreakAchievements(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -275,6 +322,19 @@ func (sh *StreakHandler) GetAllActiveStreakAchievements(
 	json.NewEncoder(w).Encode(response)
 }
 
+// DeleteStreakMilestone godoc
+//
+// @Summary      Delete a streak milestone
+// @Description  Note: this route only checks IsAuthenticated today, with no admin-style permission gate (see ADR 0006 for the planned fix).
+// @Tags         streaks
+// @Produce      json
+// @Param        id  path  string  true  "Milestone ID"
+// @Success      200  {object}  map[string]any  "Confirmation message"
+// @Failure      400  {object}  core.APIError  "Invalid id"
+// @Failure      500  {object}  core.APIError  "Failed to delete milestone"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /streaks/milestone/{id} [delete]
 func (sh *StreakHandler) DeleteStreakMilestone(
 	w http.ResponseWriter,
 	r *http.Request,

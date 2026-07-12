@@ -95,7 +95,7 @@ type Querier interface {
 	GetLeaderBoardRankForUser(ctx context.Context, id uuid.UUID) (AccountVibepointRank, error)
 	// Get top N users ranked by vibe points
 	GetLeaderboard(ctx context.Context, arg GetLeaderboardParams) ([]AccountVibepointRank, error)
-	GetPermissionByID(ctx context.Context, id uuid.UUID) ([]Permission, error)
+	GetPermissionByID(ctx context.Context, id uuid.UUID) (Permission, error)
 	// Retrieves an earlier issued refresh token given its hash
 	GetRefreshTokenByHash(ctx context.Context, tokenHash string) (RefreshToken, error)
 	// Retrieves a role specified by its id
