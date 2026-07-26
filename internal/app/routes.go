@@ -22,6 +22,7 @@ func (a *App) loadRoutes() http.Handler {
 		a.config,
 		a.logger,
 		auth.GenerateAppleClientSecret,
+		a.oauthRegistry,
 	)
 	if err != nil {
 		a.logger.Error("Failed to initialize authenticator", "error", err)
@@ -40,7 +41,7 @@ func (a *App) loadRoutes() http.Handler {
 			a.userEventBus,
 			a.logger,
 			a.geoIPLocator,
-		),
+		).WithGrantRecording(a.oauthRegistry, a.tokenSealer, a.tokenExchanger),
 		&handlers.AccountHandler{
 			DB:           db,
 			Cacher:       a.cacher,

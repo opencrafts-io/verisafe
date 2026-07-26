@@ -131,13 +131,23 @@ func NewRegistry(cfg *config.Config) *Registry {
 }
 
 // Get returns the descriptor for a provider name, case-insensitively.
+//
+// Nil-safe: a Registry is held as a pointer field on several handlers, and a
+// caller that has not been given one should degrade to "provider unknown"
+// rather than panicking on a request path.
 func (r *Registry) Get(name string) (Descriptor, bool) {
+	if r == nil {
+		return Descriptor{}, false
+	}
 	d, ok := r.byName[strings.ToLower(strings.TrimSpace(name))]
 	return d, ok
 }
 
 // Names returns every registered provider name, sorted for stable output.
 func (r *Registry) Names() []string {
+	if r == nil {
+		return nil
+	}
 	out := make([]string, 0, len(r.byName))
 	for name := range r.byName {
 		out = append(out, name)
@@ -165,6 +175,9 @@ func (r *Registry) LoginScopesFor(name string) []string {
 // Lets a settings UI render connect-this toggles generically — adding a
 // provider grows the map with no client change.
 func (r *Registry) AvailableCapabilities() map[string][]Capability {
+	if r == nil {
+		return map[string][]Capability{}
+	}
 	out := make(map[string][]Capability, len(r.byName))
 	for name, d := range r.byName {
 		out[name] = d.CapabilityNames()

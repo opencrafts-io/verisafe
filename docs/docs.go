@@ -2442,6 +2442,411 @@ const docTemplate = `{
                 }
             }
         },
+        "/oauth/grants": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Pre-flight for the broker: which providers an account has connected and what each grant covers. Never includes tokens.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "oauth"
+                ],
+                "summary": "List an account's third-party connections",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Account ID",
+                        "name": "account_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.GrantView"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Missing or malformed account_id",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "403": {
+                        "description": "Caller is not a service token or lacks the permission",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/oauth/scopes": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    }
+                ],
+                "description": "What each connected provider covers, plus every capability each provider could offer, so a settings UI can render connect toggles without knowing the provider list. Never includes tokens.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "oauth"
+                ],
+                "summary": "List the signed-in user's third-party connections",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ScopesResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid claims",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/oauth/{provider}/authorize": {
+            "post": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    }
+                ],
+                "description": "Starts incremental authorization for the signed-in user and returns a provider URL to open. The user's session, devices and tokens are untouched — this grants a capability, it does not sign anyone in again. Returns already_granted when the user has already granted everything asked for. A URL is returned rather than a redirect because this endpoint needs the caller's Bearer token, which a browser navigation cannot supply and which mobile clients must hand to a Custom Tab or ASWebAuthenticationSession themselves.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "oauth"
+                ],
+                "summary": "Begin authorizing additional provider capabilities",
+                "parameters": [
+                    {
+                        "enum": [
+                            "google",
+                            "spotify"
+                        ],
+                        "type": "string",
+                        "description": "OAuth2 provider",
+                        "name": "provider",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Capabilities to request and where to return the user",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ScopeAuthorizeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ScopeAuthorizeResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Unknown capability, provider without incremental support, or a redirect target that is not allowlisted",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid claims",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "Unknown provider",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/oauth/{provider}/callback": {
+            "get": {
+                "description": "Completes a scope upgrade started by the authorize endpoint. Not called by clients — the provider redirects the user's browser here. Records the scopes the provider reports as granted and returns the user to the app. Deliberately issues no session: no token family, no device registration, no cookies, so the caller's existing session survives the round trip.",
+                "tags": [
+                    "oauth"
+                ],
+                "summary": "Provider callback for incremental authorization",
+                "parameters": [
+                    {
+                        "enum": [
+                            "google",
+                            "spotify"
+                        ],
+                        "type": "string",
+                        "description": "OAuth2 provider",
+                        "name": "provider",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Opaque state handle issued by the authorize endpoint",
+                        "name": "state",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Authorization code from the provider",
+                        "name": "code",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Set when the user declined",
+                        "name": "error",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "302": {
+                        "description": "Redirects to the originating app with scope_upgrade=success or =denied"
+                    },
+                    "400": {
+                        "description": "Missing, expired, replayed, or mismatched state",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/oauth/{provider}/grant": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    }
+                ],
+                "description": "Revokes the signed-in user's grant and destroys the stored credentials. Does not sign the user out; it only ends Verisafe's access to that provider on their behalf.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "oauth"
+                ],
+                "summary": "Disconnect a third-party provider",
+                "parameters": [
+                    {
+                        "enum": [
+                            "google",
+                            "spotify",
+                            "apple"
+                        ],
+                        "type": "string",
+                        "description": "OAuth2 provider",
+                        "name": "provider",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "description": "Missing or invalid claims",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "No grant for this provider",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/oauth/{provider}/reconcile": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Refreshes an account's grant purely to learn the scopes the provider reports, converting a presumed scope list into a verified one. Operational endpoint; the background reconciler does this automatically.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "oauth"
+                ],
+                "summary": "Force a grant to be re-verified against the provider",
+                "parameters": [
+                    {
+                        "enum": [
+                            "google",
+                            "spotify"
+                        ],
+                        "type": "string",
+                        "description": "OAuth2 provider",
+                        "name": "provider",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Account to reconcile (capabilities ignored)",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ProviderTokenRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Malformed body or bad account_id",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "403": {
+                        "description": "Lacks manage:provider_token:any",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "No grant for this account and provider",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "503": {
+                        "description": "Provider is temporarily unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/oauth/{provider}/token": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Returns a usable provider access token for the given account, refreshing it against the provider if the stored one is stale. Requires a service token (X-API-Key) and the read:provider_token:any permission — a human Bearer JWT is rejected even if it holds the permission. Refresh tokens are never returned. When the user has not granted the requested capabilities, responds 403 with a machine-readable insufficient_scope body naming what is missing and where to send the user.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "oauth"
+                ],
+                "summary": "Obtain a third-party OAuth access token on behalf of a user",
+                "parameters": [
+                    {
+                        "enum": [
+                            "google",
+                            "spotify"
+                        ],
+                        "type": "string",
+                        "description": "OAuth2 provider",
+                        "name": "provider",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Account and capabilities required",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ProviderTokenRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ProviderTokenResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed body, bad account_id, or unknown capability",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid credentials",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "403": {
+                        "description": "Caller is not a service token, lacks the permission, or the user has not granted the capability",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.InsufficientScopeResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Unknown provider, or the account has never connected it",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "409": {
+                        "description": "Provider cannot refresh tokens and the stored one has expired",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "503": {
+                        "description": "Provider is temporarily unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
         "/permissions": {
             "get": {
                 "security": [
@@ -3254,6 +3659,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
+                "description": "Provider access and refresh tokens are never included; those are brokered through /oauth/{provider}/token instead.",
                 "produces": [
                     "application/json"
                 ],
@@ -3267,7 +3673,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/repository.Social"
+                                "$ref": "#/definitions/handlers.socialResponse"
                             }
                         }
                     },
@@ -3296,6 +3702,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
+                "description": "Provider access and refresh tokens are never included; those are brokered through /oauth/{provider}/token instead.",
                 "produces": [
                     "application/json"
                 ],
@@ -3318,7 +3725,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/repository.Social"
+                                "$ref": "#/definitions/handlers.socialResponse"
                             }
                         }
                     },
@@ -3795,6 +4202,108 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.InsufficientScopeResponse": {
+            "type": "object",
+            "properties": {
+                "account_id": {
+                    "type": "string"
+                },
+                "authorization_body": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "authorization_method": {
+                    "type": "string"
+                },
+                "authorization_url": {
+                    "description": "AuthorizationURL points at Verisafe's own scope-upgrade endpoint, not at\nthe provider. It cannot be a directly openable provider URL: starting an\nauthorization requires the *user's* JWT, which a service token holder\ndoes not have. The service relays this to its own client, which calls\nthe endpoint with the user's token and opens the URL it returns.",
+                    "type": "string"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "granted_capabilities": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "missing_capabilities": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "missing_scopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "provider": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.ProviderTokenRequest": {
+            "type": "object",
+            "properties": {
+                "account_id": {
+                    "type": "string"
+                },
+                "capabilities": {
+                    "description": "Capabilities are abstract names (\"calendar\"), not raw provider scopes.\nThere is deliberately no raw-scope escape hatch: a caller needing\nsomething unmapped adds it to the provider registry, which keeps the\nregistry authoritative and the insufficient_scope response meaningful.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "handlers.ProviderTokenResponse": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "type": "string"
+                },
+                "account_id": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "expires_in": {
+                    "type": "integer"
+                },
+                "from_cache": {
+                    "type": "boolean"
+                },
+                "granted_scopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "provider": {
+                    "type": "string"
+                },
+                "refreshed": {
+                    "type": "boolean"
+                },
+                "scopes_verified": {
+                    "description": "ScopesVerified is false when the scope list is still what Verisafe\npresumed from historical logins rather than what the provider confirmed.\nA caller that gets a 403 from the provider despite this being false\nshould simply re-call the broker: the failed attempt will have converted\nthe grant to verified.",
+                    "type": "boolean"
+                },
+                "token_type": {
+                    "type": "string"
+                }
+            }
+        },
         "handlers.RotationPolicy": {
             "type": "object",
             "properties": {
@@ -3810,6 +4319,76 @@ const docTemplate = `{
                     "type": "integer",
                     "maximum": 365,
                     "minimum": 1
+                }
+            }
+        },
+        "handlers.ScopeAuthorizeRequest": {
+            "type": "object",
+            "properties": {
+                "capabilities": {
+                    "description": "Capabilities are abstract names (\"calendar\"), resolved to provider\nscopes by the registry.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "deep_link": {
+                    "description": "DeepLink is where to return a mobile user. Must be allowlisted.",
+                    "type": "string"
+                },
+                "platform": {
+                    "description": "Platform is \"web\" or \"mobile\"; mobile returns to a deep link.",
+                    "type": "string"
+                },
+                "redirect_uri": {
+                    "description": "RedirectURI is where to return a web user. Must be allowlisted.",
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.ScopeAuthorizeResponse": {
+            "type": "object",
+            "properties": {
+                "already_granted": {
+                    "description": "AlreadyGranted short-circuits the round trip when the user has already\ngranted everything asked for and the provider has confirmed it.",
+                    "type": "boolean"
+                },
+                "authorization_url": {
+                    "description": "AuthorizationURL is empty when AlreadyGranted is true.",
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "requested_scopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "state": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.ScopesResponse": {
+            "type": "object",
+            "properties": {
+                "available_capabilities": {
+                    "description": "AvailableCapabilities lets a settings UI render connect-this toggles\ngenerically, so adding a provider grows the UI with no client change.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/definitions/providers.Capability"
+                        }
+                    }
+                },
+                "grants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.GrantView"
+                    }
                 }
             }
         },
@@ -3969,6 +4548,66 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.socialResponse": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "description": "Always null. See the type comment.",
+                    "type": "string"
+                },
+                "access_token_secret": {
+                    "type": "string"
+                },
+                "account_id": {
+                    "type": "string"
+                },
+                "avatar_url": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "$ref": "#/definitions/pgtype.Timestamp"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "$ref": "#/definitions/pgtype.Timestamp"
+                },
+                "first_name": {
+                    "type": "string"
+                },
+                "id_token": {
+                    "type": "string"
+                },
+                "last_name": {
+                    "type": "string"
+                },
+                "location": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "nick_name": {
+                    "type": "string"
+                },
+                "provider": {
+                    "type": "string"
+                },
+                "refresh_token": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "$ref": "#/definitions/pgtype.Timestamp"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
         "pagination.PaginatedResponse": {
             "type": "object",
             "properties": {
@@ -4012,6 +4651,25 @@ const docTemplate = `{
                     "type": "boolean"
                 }
             }
+        },
+        "providers.Capability": {
+            "type": "string",
+            "enum": [
+                "identity",
+                "calendar",
+                "tasks",
+                "playback",
+                "playlist",
+                "library"
+            ],
+            "x-enum-varnames": [
+                "CapabilityIdentity",
+                "CapabilityCalendar",
+                "CapabilityTasks",
+                "CapabilityPlayback",
+                "CapabilityPlaylist",
+                "CapabilityLibrary"
+            ]
         },
         "repository.Account": {
             "type": "object",
@@ -4387,65 +5045,6 @@ const docTemplate = `{
                 }
             }
         },
-        "repository.Social": {
-            "type": "object",
-            "properties": {
-                "access_token": {
-                    "type": "string"
-                },
-                "access_token_secret": {
-                    "type": "string"
-                },
-                "account_id": {
-                    "type": "string"
-                },
-                "avatar_url": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "$ref": "#/definitions/pgtype.Timestamp"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "email": {
-                    "type": "string"
-                },
-                "expires_at": {
-                    "$ref": "#/definitions/pgtype.Timestamp"
-                },
-                "first_name": {
-                    "type": "string"
-                },
-                "id_token": {
-                    "type": "string"
-                },
-                "last_name": {
-                    "type": "string"
-                },
-                "location": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "nick_name": {
-                    "type": "string"
-                },
-                "provider": {
-                    "type": "string"
-                },
-                "refresh_token": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "$ref": "#/definitions/pgtype.Timestamp"
-                },
-                "user_id": {
-                    "type": "string"
-                }
-            }
-        },
         "repository.StreakMilestone": {
             "type": "object",
             "properties": {
@@ -4679,6 +5278,59 @@ const docTemplate = `{
                 },
                 "user_id": {
                     "type": "string"
+                }
+            }
+        },
+        "service.GrantView": {
+            "type": "object",
+            "properties": {
+                "available_capabilities": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/providers.Capability"
+                    }
+                },
+                "connected_at": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "external_user_id": {
+                    "type": "string"
+                },
+                "granted_capabilities": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/providers.Capability"
+                    }
+                },
+                "granted_scopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "last_refreshed_at": {
+                    "type": "string"
+                },
+                "provider": {
+                    "type": "string"
+                },
+                "refresh_available": {
+                    "type": "boolean"
+                },
+                "revoked": {
+                    "type": "boolean"
+                },
+                "revoked_reason": {
+                    "type": "string"
+                },
+                "scopes_verified": {
+                    "type": "boolean"
+                },
+                "supports_incremental": {
+                    "type": "boolean"
                 }
             }
         }

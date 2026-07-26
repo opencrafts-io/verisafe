@@ -40,6 +40,19 @@ func TestRegistry_Names(t *testing.T) {
 	assert.Equal(t, []string{"apple", "google", "spotify"}, NewRegistry(nil).Names())
 }
 
+// A Registry is a pointer field on several handlers, and the login path calls
+// Get on every request. A handler constructed without one must degrade to
+// "provider unknown" rather than panicking mid-request.
+func TestRegistry_NilReceiverDoesNotPanic(t *testing.T) {
+	var r *Registry
+
+	_, ok := r.Get("google")
+	assert.False(t, ok)
+	assert.Nil(t, r.Names())
+	assert.Nil(t, r.LoginScopesFor("google"))
+	assert.Empty(t, r.AvailableCapabilities())
+}
+
 // Guards a malformed descriptor — most usefully, a future Microsoft one.
 func TestRegistry_DescriptorInvariants(t *testing.T) {
 	for _, d := range descriptors {
