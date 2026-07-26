@@ -115,6 +115,15 @@ func (a *App) loadRoutes() http.Handler {
 			Exchanger: a.tokenExchanger,
 			Sealer:    a.tokenSealer,
 		},
+		&handlers.OAuthScopeHandler{
+			DB:        db,
+			Cacher:    a.cacher,
+			Cfg:       a.config,
+			Logger:    a.logger,
+			Registry:  a.oauthRegistry,
+			Exchanger: a.tokenExchanger,
+			Sealer:    a.tokenSealer,
+		},
 	}
 
 	for _, handler := range verisafeHandlers {
