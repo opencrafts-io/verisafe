@@ -106,6 +106,15 @@ func (a *App) loadRoutes() http.Handler {
 			GeoLocator: a.geoIPLocator,
 			Logger:     a.logger,
 		},
+		&handlers.OAuthBrokerHandler{
+			DB:        db,
+			Cacher:    a.cacher,
+			Cfg:       a.config,
+			Logger:    a.logger,
+			Registry:  a.oauthRegistry,
+			Exchanger: a.tokenExchanger,
+			Sealer:    a.tokenSealer,
+		},
 	}
 
 	for _, handler := range verisafeHandlers {

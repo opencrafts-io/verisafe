@@ -25,6 +25,12 @@ const (
 	AuthUserPerms             = "middleware.auth.perms"
 	AuthUserRoles             = "middleware.auth.roles"
 	AuthUserIsPendingDeletion = "middleware.auth.pending_deletion"
+
+	// AuthIsServiceToken marks a request authenticated with an X-API-Key
+	// service token rather than a user's Bearer JWT. Endpoints that act on
+	// behalf of a user for another service — the OAuth token broker — use it
+	// to reject a human caller who happens to hold the permission.
+	AuthIsServiceToken = "middleware.auth.is_service_token"
 )
 
 // errAbort is returned inside the transaction closure when the HTTP response
@@ -39,6 +45,22 @@ var errAbort = fmt.Errorf("abort")
 func ClaimsFromContext(ctx context.Context) (*tokens.VerisafeClaims, bool) {
 	claims, ok := ctx.Value(AuthUserClaims).(*tokens.VerisafeClaims)
 	return claims, ok
+}
+
+// IsServiceToken reports whether the request was authenticated with a service
+// token rather than a user's JWT. Defaults to false when unset, so a missing
+// value denies rather than admits.
+func IsServiceToken(ctx context.Context) bool {
+	isService, _ := ctx.Value(AuthIsServiceToken).(bool)
+	return isService
+}
+
+// PermissionsFromContext returns the permissions IsAuthenticated loaded for
+// the caller. Use this rather than asserting the context value directly — a
+// bare .([]string) panics when IsAuthenticated has not run.
+func PermissionsFromContext(ctx context.Context) []string {
+	perms, _ := ctx.Value(AuthUserPerms).([]string)
+	return perms
 }
 
 // IsAuthenticated validates the incoming request using either a Bearer JWT
@@ -165,6 +187,8 @@ func IsAuthenticated(
 								Subject: account.ID.String(),
 							},
 						}
+
+						ctx = context.WithValue(ctx, AuthIsServiceToken, true)
 
 					default:
 						writeUnauthorized(

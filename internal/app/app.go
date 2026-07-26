@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -16,6 +17,9 @@ import (
 	"github.com/opencrafts-io/verisafe/internal/eventbus"
 	"github.com/opencrafts-io/verisafe/internal/geo"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
+	"github.com/opencrafts-io/verisafe/internal/providers"
+	"github.com/opencrafts-io/verisafe/internal/secrets"
+	"github.com/opencrafts-io/verisafe/internal/service"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -28,6 +32,17 @@ type App struct {
 	institutionEventBus  *eventbus.InstitutionEventBus
 	geoIPLocator         *geo.GeoIPLocater
 	cacher               core.Cacher
+
+	// Third-party OAuth plumbing: the provider registry, the AES-GCM sealer
+	// that protects stored provider tokens, and the token endpoint client.
+	oauthRegistry  *providers.Registry
+	tokenSealer    *secrets.Sealer
+	tokenExchanger providers.TokenExchanger
+
+	// reconciler drains grants whose scopes are still presumed rather than
+	// provider-verified. Nil when OAUTH_RECONCILE_ENABLED is off.
+	reconciler   *service.OAuthReconciler
+	reconcilerWG sync.WaitGroup
 
 	rabbitMQConn broker.Connection
 }
@@ -118,6 +133,17 @@ func New(logger *slog.Logger, config *config.Config) (*App, error) {
 		return nil, err
 	}
 
+	// Built eagerly so a malformed PROVIDER_TOKEN_ENC_KEYS stops the process
+	// at startup rather than surfacing at the first token write.
+	tokenSealer, err := secrets.NewSealer(
+		config.ProviderTokensConfig.EncryptionKeys,
+		config.ProviderTokensConfig.ActiveKeyVersion,
+	)
+	if err != nil {
+		logger.Error("failed to initialise provider token sealer", "error", err)
+		return nil, fmt.Errorf("provider token encryption: %w", err)
+	}
+
 	return &App{
 		config:               config,
 		logger:               logger,
@@ -127,6 +153,9 @@ func New(logger *slog.Logger, config *config.Config) (*App, error) {
 		institutionEventBus:  institutionEventBus,
 		geoIPLocator:         gil,
 		cacher:               cache,
+		oauthRegistry:        providers.NewRegistry(config),
+		tokenSealer:          tokenSealer,
+		tokenExchanger:       providers.NewOAuth2Exchanger(config, nil),
 		rabbitMQConn:         rabbitMQConn,
 	}, nil
 }
@@ -156,6 +185,8 @@ func (a *App) Start(ctx context.Context) error {
 		Handler: middlewares(router),
 	}
 
+	a.startReconciler(ctx)
+
 	errCh := make(chan error, 1)
 
 	go func() {
@@ -184,12 +215,41 @@ func (a *App) Start(ctx context.Context) error {
 	defer cancel()
 
 	srv.Shutdown(sCtx)
+	// The reconciler selects on the same ctx that just fired, so this only
+	// waits for an in-flight batch to notice and unwind.
+	a.reconcilerWG.Wait()
 	a.Shutdown()
 	a.geoIPLocator.Close()
 	a.userEventBus.Close()
 	a.institutionEventBus.Close()
 	a.notificationEventBus.Close()
 	return nil
+}
+
+// startReconciler launches the background worker that converts presumed OAuth
+// scope grants into provider-verified ones. Off by default: it is a migration
+// aid with a finite job, not steady-state infrastructure.
+func (a *App) startReconciler(ctx context.Context) {
+	if !a.config.ProviderTokensConfig.ReconcileEnabled {
+		a.logger.Info("oauth reconciler disabled")
+		return
+	}
+
+	a.reconciler = service.NewOAuthReconciler(
+		&core.PgxPoolAdapter{Pool: a.pool},
+		a.cacher,
+		a.oauthRegistry,
+		a.tokenSealer,
+		a.tokenExchanger,
+		a.config,
+		a.logger,
+	)
+
+	a.reconcilerWG.Add(1)
+	go func() {
+		defer a.reconcilerWG.Done()
+		a.reconciler.Run(ctx)
+	}()
 }
 
 func (a *App) Shutdown() {
