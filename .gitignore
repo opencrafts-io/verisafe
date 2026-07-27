@@ -36,3 +36,6 @@ tmp/
 
 # Keys file
 keys/
+
+# Generated analysis/report output (tech-debt reports, scans)
+build/
