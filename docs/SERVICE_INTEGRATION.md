@@ -109,6 +109,19 @@ raw-scope escape hatch, which keeps that file the single description of a provid
 |---|---|
 | `google` | `identity`, `calendar`, `tasks` |
 | `spotify` | `identity`, `playback`, `playlist`, `library` |
+| `apple` | `identity` (sign-in only — not brokerable) |
+
+**A capability only means something paired with a provider.** `identity` appears under all three, but it is a
+different grant in each case — Google's is `userinfo.email` + `userinfo.profile`, Spotify's is
+`user-read-email` + `user-read-private`. You never disambiguate by hand, because the provider is in the path:
+
+```
+POST /oauth/spotify/token    { "capabilities": ["identity"] }   → Spotify's identity
+POST /oauth/google/token     { "capabilities": ["identity"] }   → Google's identity
+```
+
+The same holds when reading: every grant in a response carries its own `provider` field. See
+[OAUTH_SCOPES.md](OAUTH_SCOPES.md#capabilities-are-per-provider) for the full resolution table.
 
 Ask for the narrowest set you need. Requesting `["calendar","tasks"]` when you only use calendar
 turns a working request into a consent prompt for half your users.

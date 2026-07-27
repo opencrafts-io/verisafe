@@ -12,14 +12,54 @@ rationale see [ADR 0008](adrs/0008-incremental-oauth-scopes-and-token-brokering.
 `https://www.googleapis.com/auth/calendar`. `internal/providers` maps capabilities onto each provider's wire
 scopes, so API contracts stay free of provider vocabulary and one capability can expand to several scopes.
 
-| Provider | Capabilities |
-|---|---|
-| `google` | `identity`, `calendar`, `tasks` |
-| `spotify` | `identity`, `playback`, `playlist`, `library` |
-| `apple` | `identity` |
-
 There is no raw-scope escape hatch. A caller needing something unmapped adds it to
 `internal/providers/descriptors.go`, which keeps that file the single description of a provider.
+
+### Capabilities are per-provider
+
+A capability name only means something **paired with a provider**. `identity` is not one thing — it names a
+different grant at each provider:
+
+| Capability | google | spotify | apple |
+|---|---|---|---|
+| `identity` | `userinfo.email`, `userinfo.profile` | `user-read-email`, `user-read-private` | `name`, `email` |
+| `calendar` | `auth/calendar` | — | — |
+| `tasks` | `auth/tasks` | — | — |
+| `playback` | — | `user-read-playback-state`, `user-modify-playback-state`, `user-read-currently-playing`, `app-remote-control` | — |
+| `playlist` | — | `playlist-read-private`, `playlist-modify-private`, `playlist-modify-public` | — |
+| `library` | — | `user-read-recently-played`, `user-top-read`, `user-follow-read`, `user-follow-modify` | — |
+
+(Google scopes shown short; the real values are `https://www.googleapis.com/auth/...`.)
+
+You never have to disambiguate by hand, because the provider is always explicit:
+
+```http
+POST /oauth/spotify/token    { "capabilities": ["identity"] }   → Spotify's identity
+POST /oauth/google/token     { "capabilities": ["identity"] }   → Google's identity
+```
+
+Reads are provider-keyed too — every grant carries its own `provider`, and `available_capabilities` is a map
+keyed by provider name:
+
+```json
+{
+  "grants": [
+    { "provider": "google",  "granted_capabilities": ["identity", "calendar"] },
+    { "provider": "spotify", "granted_capabilities": ["identity"] }
+  ],
+  "available_capabilities": {
+    "google":  ["calendar", "identity", "tasks"],
+    "spotify": ["identity", "library", "playback", "playlist"],
+    "apple":   ["identity"]
+  }
+}
+```
+
+So "does this user have Spotify identity?" is answered by finding the grant whose `provider` is `spotify` and
+checking its `granted_capabilities` — never by looking for a bare `identity` anywhere in the response.
+
+A user can hold `identity` at all three providers at once. Those are three independent grants, revocable
+independently: disconnecting Google leaves Spotify untouched.
 
 **Presumed vs verified scopes.** No provider offers a "what did user X grant" API — scope is reported only in a
 token response. Grants migrated from the old `socials` table were seeded from what logins *historically

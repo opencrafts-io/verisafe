@@ -402,6 +402,26 @@ in the codebase knows what a Google scope string looks like.
 | `spotify` | `identity`, `playback`, `playlist`, `library` |
 | `apple` | `identity` |
 
+**A capability is meaningless on its own — it's always "this capability, at this provider".** `identity`
+shows up under all three, but it's a different thing each time:
+
+| `identity` at | means |
+|---|---|
+| google | `userinfo.email` + `userinfo.profile` |
+| spotify | `user-read-email` + `user-read-private` |
+| apple | `name` + `email` |
+
+You never have to spell out which one you mean, because the provider is always right there — in the
+URL when you ask, and in a `provider` field on every grant when you read:
+
+```
+POST /oauth/spotify/token   { "capabilities": ["identity"] }   ← Spotify's
+POST /oauth/google/token    { "capabilities": ["identity"] }   ← Google's
+```
+
+A user can have `identity` at all three at once. They're three separate grants — disconnecting Google
+doesn't touch Spotify.
+
 ### Asking for a token
 
 ```
