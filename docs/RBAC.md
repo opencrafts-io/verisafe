@@ -73,16 +73,46 @@ whether to bypass the ownership check. A caller holding only `:any` (not `:own`)
 the middleware before ever reaching that in-handler bypass — worth knowing if you're granting these
 permissions individually rather than via a role that has both.
 
-## Known gap: no default role at signup
+## Default role at signup
 
-**A brand-new human account gets zero roles and zero permissions.** `internal/auth/auth_handler.go`'s
-`upsertAccount` creates the account row and publishes a `UserCreated` event, but never calls
-`AssignRole`. The only roles ever assigned automatically are `system` (one hardcoded system account)
-and `bot` (via `account_handler.go`'s bot-account creation flow, not human signup). `Administrator`
-is never auto-assigned to anyone — it must be granted manually.
+**Every new account automatically receives the `user` role**, and with it
+`read:account:own`, `update:account:own`, and `delete:account:own`. This happens in the database,
+not in Go — which is why it is easy to miss when reading `upsertAccount`, and why this section
+previously claimed the opposite.
 
-This is why most non-RBAC, non-account endpoints in the codebase today only check
-`IsAuthenticated` (any logged-in user) rather than a specific permission: there is no permission a
-regular signup would ever hold. See [ADR 0006](adrs/0006-endpoint-permission-enforcement-rollout.md)
-for the planned, sequenced fix (default role + backfill + signup assignment, before any endpoint
-starts requiring a permission a normal user wouldn't have).
+Two triggers in
+[`20250712210345_add_service_account_support.sql`](../database/migrations/20250712210345_add_service_account_support.sql)
+do the work:
+
+- `trigger_assign_default_roles_to_account` — `AFTER INSERT ON accounts`, assigns every role flagged
+  `is_default = true`.
+- `trigger_assign_default_role_to_all_accounts` — `AFTER INSERT ON roles`, backfills a newly created
+  default role onto every existing account.
+
+The same migration seeds `user` with `is_default = true`.
+
+**Practical consequence:** a user-facing endpoint *can* be gated on a permission, provided that
+permission is attached to the `user` role in the same migration:
+
+```sql
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r, permissions p
+WHERE r.name = 'user' AND p.name = 'your:new:permission'
+ON CONFLICT DO NOTHING;
+```
+
+No `user_roles` backfill is needed — the triggers already guarantee coverage. The
+`AFTER INSERT ON permissions` auto-grant triggers cover only `system` and `Administrator`, so any
+other role (including `bot`) needs an explicit grant like the one above.
+
+Verify the invariant before relying on it:
+
+```sql
+SELECT count(*) FROM accounts a WHERE NOT EXISTS (
+  SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id
+  WHERE ur.user_id = a.id AND r.name = 'user');
+-- expect 0
+```
+
+[ADR 0006](adrs/0006-endpoint-permission-enforcement-rollout.md) predates this understanding and
+describes a default-role rollout that the triggers already provide.

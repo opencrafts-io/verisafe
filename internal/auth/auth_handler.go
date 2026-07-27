@@ -24,7 +24,9 @@ import (
 	"github.com/opencrafts-io/verisafe/internal/geo"
 	"github.com/opencrafts-io/verisafe/internal/handlers"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
+	"github.com/opencrafts-io/verisafe/internal/providers"
 	"github.com/opencrafts-io/verisafe/internal/repository"
+	"github.com/opencrafts-io/verisafe/internal/secrets"
 	"github.com/opencrafts-io/verisafe/internal/service"
 	"github.com/opencrafts-io/verisafe/internal/tokens"
 )
@@ -74,6 +76,12 @@ type AuthHandler struct {
 	cacher     core.Cacher
 	eventBus   *eventbus.UserEventBus
 	logger     *slog.Logger
+
+	// grants builds a GrantService bound to the caller's transaction, so a
+	// login can mirror provider credentials into oauth_grants. Nil disables
+	// the mirroring, which keeps the handler constructible in tests that do
+	// not care about it.
+	grants func(repository.Querier) service.GrantService
 }
 
 func NewAuthHandler(
@@ -92,6 +100,27 @@ func NewAuthHandler(
 		logger:     logger,
 		geoLocator: geoLocator,
 	}
+}
+
+// WithGrantRecording enables mirroring provider credentials into oauth_grants
+// on every login.
+func (h *AuthHandler) WithGrantRecording(
+	registry *providers.Registry,
+	sealer *secrets.Sealer,
+	exchanger providers.TokenExchanger,
+) *AuthHandler {
+	h.grants = func(repo repository.Querier) service.GrantService {
+		return service.NewGrantService(
+			repo,
+			h.cacher,
+			registry,
+			sealer,
+			exchanger,
+			h.auth.config,
+			h.logger,
+		)
+	}
+	return h
 }
 
 func (h *AuthHandler) RegisterHandlers(router *http.ServeMux) {
@@ -216,7 +245,7 @@ func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	q.Set("state", state)
 	r.URL.RawQuery = q.Encode()
 
-	url, err := gothic.GetAuthURL(w, r)
+	authURL, err := gothic.GetAuthURL(w, r)
 	if err != nil {
 		h.logger.Error("failed to get auth URL from provider", "error", err)
 		core.WriteError(
@@ -227,7 +256,31 @@ func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, url, http.StatusFound)
+	// goth binds its auth-code options at provider construction and exposes no
+	// generic setter, so include_granted_scopes has to be applied to the URL
+	// it produced.
+	//
+	// This matters most once logins request only identity scopes: without it,
+	// a returning user who already granted Calendar would complete a new,
+	// narrower authorization and could be silently downgraded. With it, the
+	// tokens Google issues carry the union of previously granted and newly
+	// requested scopes.
+	if descriptor, ok := h.auth.registry.Get(provider); ok {
+		decorated, err := providers.DecorateAuthURL(descriptor, authURL)
+		if err != nil {
+			// Never fail a login over a decoration failure — the undecorated
+			// URL is still a valid authorization request.
+			h.logger.Error(
+				"failed to decorate auth URL, continuing undecorated",
+				slog.String("provider", provider),
+				slog.Any("error", err),
+			)
+		} else {
+			authURL = decorated
+		}
+	}
+
+	http.Redirect(w, r, authURL, http.StatusFound)
 }
 
 // CallbackHandler godoc
@@ -304,6 +357,36 @@ func (h *AuthHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 			provider,
 		); err != nil {
 			return err
+		}
+
+		// Mirror the provider credentials into oauth_grants, which is what the
+		// broker and the incremental flow read. Scopes are marked unverified:
+		// goth discards the token response's scope field, so what we have here
+		// is what we *asked* for, not what the provider confirmed. The first
+		// broker call refreshes and learns the truth.
+		if h.grants != nil {
+			if err := h.grants(repo).RecordGrant(
+				r.Context(),
+				service.RecordGrantInput{
+					AccountID:      account.ID,
+					Provider:       provider,
+					ExternalUserID: gothUser.UserID,
+					AccessToken:    gothUser.AccessToken,
+					RefreshToken:   gothUser.RefreshToken,
+					ExpiresAt:      gothUser.ExpiresAt,
+					GrantedScopes:  h.auth.registry.LoginScopesFor(provider),
+					ScopesVerified: false,
+				},
+			); err != nil {
+				// Non-fatal: failing a login because the grant mirror failed
+				// would trade a working sign-in for a feature nobody has asked
+				// for yet at this point in the request.
+				h.logger.Error(
+					"failed to record oauth grant at login",
+					slog.String("provider", provider),
+					slog.Any("error", err),
+				)
+			}
 		}
 
 		// Parse IP from request. net.SplitHostPort (not a naive strings.Split
@@ -647,6 +730,8 @@ func (h *AuthHandler) upsertSocialConnection(
 		return fmt.Errorf("lookup social connection: %w", err)
 	}
 
+	expiresAt := providerTokenExpiry(user.ExpiresAt)
+
 	if errors.Is(err, pgx.ErrNoRows) {
 		_, err = repo.CreateSocial(r.Context(), repository.CreateSocialParams{
 			UserID:            user.UserID,
@@ -663,7 +748,7 @@ func (h *AuthHandler) upsertSocialConnection(
 			AccessToken:       &user.AccessToken,
 			AccessTokenSecret: &user.AccessTokenSecret,
 			RefreshToken:      &user.RefreshToken,
-			ExpiresAt:         pgtype.Timestamp{Time: user.ExpiresAt},
+			ExpiresAt:         expiresAt,
 		})
 		if err != nil {
 			return fmt.Errorf("create social connection: %w", err)
@@ -685,7 +770,7 @@ func (h *AuthHandler) upsertSocialConnection(
 		AccessToken:       user.AccessToken,
 		AccessTokenSecret: user.AccessTokenSecret,
 		RefreshToken:      user.RefreshToken,
-		ExpiresAt:         pgtype.Timestamp{Time: user.ExpiresAt},
+		ExpiresAt:         expiresAt,
 	})
 	if err != nil {
 		return fmt.Errorf("update social connection: %w", err)
@@ -700,6 +785,29 @@ func (h *AuthHandler) upsertSocialConnection(
 	}, "publish user updated event")
 
 	return nil
+}
+
+// providerTokenExpiry converts a provider-reported access token expiry into
+// the pgtype value the socials queries expect.
+//
+// Two traps live here. The first is that pgtype.Timestamp zero-values to
+// Valid:false, which encodes as SQL NULL — the original code built the value
+// without setting Valid, so socials.expires_at was silently NULL on every
+// login since the column was introduced.
+//
+// The second is why this cannot simply set Valid:true unconditionally: goth
+// reports a zero time for providers and flows that return no expiry, and
+// UpdateSocial does `expires_at = COALESCE($3, expires_at)`. Writing a valid
+// zero time would overwrite a previously-good expiry with year 1. Leaving it
+// invalid keeps NULL flowing into COALESCE, which preserves the stored value.
+//
+// The column is TIMESTAMP without a zone, so the value is normalized to UTC
+// rather than stored in whatever zone the process happens to run in.
+func providerTokenExpiry(expiresAt time.Time) pgtype.Timestamp {
+	if expiresAt.IsZero() {
+		return pgtype.Timestamp{}
+	}
+	return pgtype.Timestamp{Time: expiresAt.UTC(), Valid: true}
 }
 
 func (h *AuthHandler) handleMobileCallback(

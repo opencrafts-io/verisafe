@@ -15,6 +15,17 @@ type Cacher interface {
 	// Pass 0 for ttl to store indefinitely.
 	Set(ctx context.Context, key string, value any, ttl time.Duration) error
 
+	// SetNX stores value under key only if the key does not already exist,
+	// and reports whether it stored. Unlike Exists followed by Set, this is
+	// atomic, which is what makes it usable as a short-lived distributed lock
+	// — the TTL is the lock lease.
+	SetNX(
+		ctx context.Context,
+		key string,
+		value any,
+		ttl time.Duration,
+	) (bool, error)
+
 	// Get retrieves a value by key into dest.
 	// Returns ErrCacheMiss if the key does not exist.
 	Get(ctx context.Context, key string, dest any) error

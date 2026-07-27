@@ -30,6 +30,12 @@ func HandleError(w http.ResponseWriter, err error) {
 		WriteError(w, http.StatusNotFound, err.Error())
 	case errors.Is(err, ErrUnauthorized):
 		WriteError(w, http.StatusUnauthorized, err.Error())
+	case errors.Is(err, ErrForbidden):
+		WriteError(w, http.StatusForbidden, err.Error())
+	case errors.Is(err, ErrConflict):
+		WriteError(w, http.StatusConflict, err.Error())
+	case errors.Is(err, ErrUnavailable):
+		WriteError(w, http.StatusServiceUnavailable, err.Error())
 	case errors.Is(err, ErrInternal):
 		WriteError(w, http.StatusInternalServerError, "something went wrong")
 	default:

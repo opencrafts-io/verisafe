@@ -6,6 +6,11 @@ endpoints in `internal/auth`, and token issuance/rotation/revocation in `interna
 decision and [ADR 0004](adrs/0004-apple-client-secret-lifecycle.md) for the Apple-specific
 operational caveat referenced below.
 
+> **Third-party scopes are a separate concern.** What a user granted at Google or Spotify, how another
+> service obtains a token on their behalf, and how a user grants more without signing in again are all
+> covered in [OAUTH_SCOPES.md](OAUTH_SCOPES.md) — the `/oauth/*` endpoints. This document is only about
+> signing in to Verisafe and the tokens Verisafe itself issues.
+
 ## Overview
 
 Verisafe supports three OAuth2 providers via [goth](https://github.com/markbates/goth): **Google**,
@@ -134,4 +139,8 @@ security incident.
 
 - Proactive Apple client secret rotation/alerting before the 6-month expiry, instead of relying on
   incidental server restarts (tracked in ADR 0004).
-- Escape or otherwise structure the login state payload instead of raw pipe-delimited fields.
+- Move the login state payload onto the opaque server-side handle the incremental-scope flow already
+  uses (`internal/handlers/oauth_scope_state.go`), which removes the pipe-delimiting problem, the
+  replayability, and the dependency on gothic's cookie session in one step. Larger blast radius than
+  it looks — this is the path every login takes — so do it deliberately, not as a rider on another
+  change.

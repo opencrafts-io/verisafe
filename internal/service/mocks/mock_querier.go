@@ -116,6 +116,21 @@ func (mr *MockQuerierMockRecorder) CleanupExpiredServiceTokens(ctx any) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CleanupExpiredServiceTokens", reflect.TypeOf((*MockQuerier)(nil).CleanupExpiredServiceTokens), ctx)
 }
 
+// CountOAuthGrantsWithPlaintext mocks base method.
+func (m *MockQuerier) CountOAuthGrantsWithPlaintext(ctx context.Context) (int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CountOAuthGrantsWithPlaintext", ctx)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CountOAuthGrantsWithPlaintext indicates an expected call of CountOAuthGrantsWithPlaintext.
+func (mr *MockQuerierMockRecorder) CountOAuthGrantsWithPlaintext(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CountOAuthGrantsWithPlaintext", reflect.TypeOf((*MockQuerier)(nil).CountOAuthGrantsWithPlaintext), ctx)
+}
+
 // CreateAccount mocks base method.
 func (m *MockQuerier) CreateAccount(ctx context.Context, arg repository.CreateAccountParams) (repository.Account, error) {
 	m.ctrl.T.Helper()
@@ -712,6 +727,36 @@ func (mr *MockQuerierMockRecorder) GetLeaderboard(ctx, arg any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLeaderboard", reflect.TypeOf((*MockQuerier)(nil).GetLeaderboard), ctx, arg)
 }
 
+// GetOAuthGrant mocks base method.
+func (m *MockQuerier) GetOAuthGrant(ctx context.Context, arg repository.GetOAuthGrantParams) (repository.OauthGrant, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOAuthGrant", ctx, arg)
+	ret0, _ := ret[0].(repository.OauthGrant)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOAuthGrant indicates an expected call of GetOAuthGrant.
+func (mr *MockQuerierMockRecorder) GetOAuthGrant(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOAuthGrant", reflect.TypeOf((*MockQuerier)(nil).GetOAuthGrant), ctx, arg)
+}
+
+// GetOAuthGrantByID mocks base method.
+func (m *MockQuerier) GetOAuthGrantByID(ctx context.Context, id uuid.UUID) (repository.OauthGrant, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOAuthGrantByID", ctx, id)
+	ret0, _ := ret[0].(repository.OauthGrant)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOAuthGrantByID indicates an expected call of GetOAuthGrantByID.
+func (mr *MockQuerierMockRecorder) GetOAuthGrantByID(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOAuthGrantByID", reflect.TypeOf((*MockQuerier)(nil).GetOAuthGrantByID), ctx, id)
+}
+
 // GetPermissionByID mocks base method.
 func (m *MockQuerier) GetPermissionByID(ctx context.Context, id uuid.UUID) (repository.Permission, error) {
 	m.ctrl.T.Helper()
@@ -982,6 +1027,21 @@ func (mr *MockQuerierMockRecorder) ListInstitutionsForAccount(ctx, arg any) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListInstitutionsForAccount", reflect.TypeOf((*MockQuerier)(nil).ListInstitutionsForAccount), ctx, arg)
 }
 
+// ListOAuthGrantsByAccount mocks base method.
+func (m *MockQuerier) ListOAuthGrantsByAccount(ctx context.Context, accountID uuid.UUID) ([]repository.OauthGrant, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListOAuthGrantsByAccount", ctx, accountID)
+	ret0, _ := ret[0].([]repository.OauthGrant)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListOAuthGrantsByAccount indicates an expected call of ListOAuthGrantsByAccount.
+func (mr *MockQuerierMockRecorder) ListOAuthGrantsByAccount(ctx, accountID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListOAuthGrantsByAccount", reflect.TypeOf((*MockQuerier)(nil).ListOAuthGrantsByAccount), ctx, accountID)
+}
+
 // ListServiceTokensByAccount mocks base method.
 func (m *MockQuerier) ListServiceTokensByAccount(ctx context.Context, accountID uuid.UUID) ([]repository.ServiceToken, error) {
 	m.ctrl.T.Helper()
@@ -1012,6 +1072,21 @@ func (mr *MockQuerierMockRecorder) ListServiceTokensNeedingRotation(ctx any) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServiceTokensNeedingRotation", reflect.TypeOf((*MockQuerier)(nil).ListServiceTokensNeedingRotation), ctx)
 }
 
+// ListUnverifiedOAuthGrants mocks base method.
+func (m *MockQuerier) ListUnverifiedOAuthGrants(ctx context.Context, limit int32) ([]repository.OauthGrant, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListUnverifiedOAuthGrants", ctx, limit)
+	ret0, _ := ret[0].([]repository.OauthGrant)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListUnverifiedOAuthGrants indicates an expected call of ListUnverifiedOAuthGrants.
+func (mr *MockQuerierMockRecorder) ListUnverifiedOAuthGrants(ctx, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListUnverifiedOAuthGrants", reflect.TypeOf((*MockQuerier)(nil).ListUnverifiedOAuthGrants), ctx, limit)
+}
+
 // MarkAccountForDeletion mocks base method.
 func (m *MockQuerier) MarkAccountForDeletion(ctx context.Context, id uuid.UUID) error {
 	m.ctrl.T.Helper()
@@ -1038,6 +1113,20 @@ func (m *MockQuerier) MarkAccountForRecovery(ctx context.Context, id uuid.UUID) 
 func (mr *MockQuerierMockRecorder) MarkAccountForRecovery(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkAccountForRecovery", reflect.TypeOf((*MockQuerier)(nil).MarkAccountForRecovery), ctx, id)
+}
+
+// MarkOAuthGrantRevoked mocks base method.
+func (m *MockQuerier) MarkOAuthGrantRevoked(ctx context.Context, arg repository.MarkOAuthGrantRevokedParams) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MarkOAuthGrantRevoked", ctx, arg)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// MarkOAuthGrantRevoked indicates an expected call of MarkOAuthGrantRevoked.
+func (mr *MockQuerierMockRecorder) MarkOAuthGrantRevoked(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkOAuthGrantRevoked", reflect.TypeOf((*MockQuerier)(nil).MarkOAuthGrantRevoked), ctx, arg)
 }
 
 // MarkRefreshTokenUsed mocks base method.
@@ -1111,6 +1200,20 @@ func (m *MockQuerier) RecordIssuedToken(ctx context.Context, arg repository.Reco
 func (mr *MockQuerierMockRecorder) RecordIssuedToken(ctx, arg any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecordIssuedToken", reflect.TypeOf((*MockQuerier)(nil).RecordIssuedToken), ctx, arg)
+}
+
+// RecordOAuthGrantRefreshFailure mocks base method.
+func (m *MockQuerier) RecordOAuthGrantRefreshFailure(ctx context.Context, arg repository.RecordOAuthGrantRefreshFailureParams) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RecordOAuthGrantRefreshFailure", ctx, arg)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RecordOAuthGrantRefreshFailure indicates an expected call of RecordOAuthGrantRefreshFailure.
+func (mr *MockQuerierMockRecorder) RecordOAuthGrantRefreshFailure(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecordOAuthGrantRefreshFailure", reflect.TypeOf((*MockQuerier)(nil).RecordOAuthGrantRefreshFailure), ctx, arg)
 }
 
 // RecordUserDevice mocks base method.
@@ -1401,4 +1504,19 @@ func (m *MockQuerier) UpdateSocial(ctx context.Context, arg repository.UpdateSoc
 func (mr *MockQuerierMockRecorder) UpdateSocial(ctx, arg any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSocial", reflect.TypeOf((*MockQuerier)(nil).UpdateSocial), ctx, arg)
+}
+
+// UpsertOAuthGrant mocks base method.
+func (m *MockQuerier) UpsertOAuthGrant(ctx context.Context, arg repository.UpsertOAuthGrantParams) (repository.OauthGrant, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpsertOAuthGrant", ctx, arg)
+	ret0, _ := ret[0].(repository.OauthGrant)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpsertOAuthGrant indicates an expected call of UpsertOAuthGrant.
+func (mr *MockQuerierMockRecorder) UpsertOAuthGrant(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertOAuthGrant", reflect.TypeOf((*MockQuerier)(nil).UpsertOAuthGrant), ctx, arg)
 }

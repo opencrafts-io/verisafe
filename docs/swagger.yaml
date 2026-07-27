@@ -122,6 +122,88 @@ definitions:
             type: string
         type: object
     type: object
+  handlers.InsufficientScopeResponse:
+    properties:
+      account_id:
+        type: string
+      authorization_body:
+        additionalProperties:
+          items:
+            type: string
+          type: array
+        type: object
+      authorization_method:
+        type: string
+      authorization_url:
+        description: |-
+          AuthorizationURL points at Verisafe's own scope-upgrade endpoint, not at
+          the provider. It cannot be a directly openable provider URL: starting an
+          authorization requires the *user's* JWT, which a service token holder
+          does not have. The service relays this to its own client, which calls
+          the endpoint with the user's token and opens the URL it returns.
+        type: string
+      error:
+        type: string
+      granted_capabilities:
+        items:
+          type: string
+        type: array
+      missing_capabilities:
+        items:
+          type: string
+        type: array
+      missing_scopes:
+        items:
+          type: string
+        type: array
+      provider:
+        type: string
+    type: object
+  handlers.ProviderTokenRequest:
+    properties:
+      account_id:
+        type: string
+      capabilities:
+        description: |-
+          Capabilities are abstract names ("calendar"), not raw provider scopes.
+          There is deliberately no raw-scope escape hatch: a caller needing
+          something unmapped adds it to the provider registry, which keeps the
+          registry authoritative and the insufficient_scope response meaningful.
+        items:
+          type: string
+        type: array
+    type: object
+  handlers.ProviderTokenResponse:
+    properties:
+      access_token:
+        type: string
+      account_id:
+        type: string
+      expires_at:
+        type: string
+      expires_in:
+        type: integer
+      from_cache:
+        type: boolean
+      granted_scopes:
+        items:
+          type: string
+        type: array
+      provider:
+        type: string
+      refreshed:
+        type: boolean
+      scopes_verified:
+        description: |-
+          ScopesVerified is false when the scope list is still what Verisafe
+          presumed from historical logins rather than what the provider confirmed.
+          A caller that gets a 403 from the provider despite this being false
+          should simply re-call the broker: the failed attempt will have converted
+          the grant to verified.
+        type: boolean
+      token_type:
+        type: string
+    type: object
   handlers.RotationPolicy:
     properties:
       auto_rotate:
@@ -134,6 +216,60 @@ definitions:
         maximum: 365
         minimum: 1
         type: integer
+    type: object
+  handlers.ScopeAuthorizeRequest:
+    properties:
+      capabilities:
+        description: |-
+          Capabilities are abstract names ("calendar"), resolved to provider
+          scopes by the registry.
+        items:
+          type: string
+        type: array
+      deep_link:
+        description: DeepLink is where to return a mobile user. Must be allowlisted.
+        type: string
+      platform:
+        description: Platform is "web" or "mobile"; mobile returns to a deep link.
+        type: string
+      redirect_uri:
+        description: RedirectURI is where to return a web user. Must be allowlisted.
+        type: string
+    type: object
+  handlers.ScopeAuthorizeResponse:
+    properties:
+      already_granted:
+        description: |-
+          AlreadyGranted short-circuits the round trip when the user has already
+          granted everything asked for and the provider has confirmed it.
+        type: boolean
+      authorization_url:
+        description: AuthorizationURL is empty when AlreadyGranted is true.
+        type: string
+      expires_at:
+        type: string
+      requested_scopes:
+        items:
+          type: string
+        type: array
+      state:
+        type: string
+    type: object
+  handlers.ScopesResponse:
+    properties:
+      available_capabilities:
+        additionalProperties:
+          items:
+            $ref: '#/definitions/providers.Capability'
+          type: array
+        description: |-
+          AvailableCapabilities lets a settings UI render connect-this toggles
+          generically, so adding a provider grows the UI with no client change.
+        type: object
+      grants:
+        items:
+          $ref: '#/definitions/service.GrantView'
+        type: array
     type: object
   handlers.ServiceTokenRequest:
     properties:
@@ -242,6 +378,46 @@ definitions:
       user_agent_pattern:
         type: string
     type: object
+  handlers.socialResponse:
+    properties:
+      access_token:
+        description: Always null. See the type comment.
+        type: string
+      access_token_secret:
+        type: string
+      account_id:
+        type: string
+      avatar_url:
+        type: string
+      created_at:
+        $ref: '#/definitions/pgtype.Timestamp'
+      description:
+        type: string
+      email:
+        type: string
+      expires_at:
+        $ref: '#/definitions/pgtype.Timestamp'
+      first_name:
+        type: string
+      id_token:
+        type: string
+      last_name:
+        type: string
+      location:
+        type: string
+      name:
+        type: string
+      nick_name:
+        type: string
+      provider:
+        type: string
+      refresh_token:
+        type: string
+      updated_at:
+        $ref: '#/definitions/pgtype.Timestamp'
+      user_id:
+        type: string
+    type: object
   pagination.PaginatedResponse:
     properties:
       count:
@@ -273,6 +449,22 @@ definitions:
       valid:
         type: boolean
     type: object
+  providers.Capability:
+    enum:
+    - identity
+    - calendar
+    - tasks
+    - playback
+    - playlist
+    - library
+    type: string
+    x-enum-varnames:
+    - CapabilityIdentity
+    - CapabilityCalendar
+    - CapabilityTasks
+    - CapabilityPlayback
+    - CapabilityPlaylist
+    - CapabilityLibrary
   repository.Account:
     properties:
       avatar_url:
@@ -519,45 +711,6 @@ definitions:
       role_name:
         type: string
     type: object
-  repository.Social:
-    properties:
-      access_token:
-        type: string
-      access_token_secret:
-        type: string
-      account_id:
-        type: string
-      avatar_url:
-        type: string
-      created_at:
-        $ref: '#/definitions/pgtype.Timestamp'
-      description:
-        type: string
-      email:
-        type: string
-      expires_at:
-        $ref: '#/definitions/pgtype.Timestamp'
-      first_name:
-        type: string
-      id_token:
-        type: string
-      last_name:
-        type: string
-      location:
-        type: string
-      name:
-        type: string
-      nick_name:
-        type: string
-      provider:
-        type: string
-      refresh_token:
-        type: string
-      updated_at:
-        $ref: '#/definitions/pgtype.Timestamp'
-      user_id:
-        type: string
-    type: object
   repository.StreakMilestone:
     properties:
       activity_id:
@@ -711,6 +864,41 @@ definitions:
         type: string
       user_id:
         type: string
+    type: object
+  service.GrantView:
+    properties:
+      available_capabilities:
+        items:
+          $ref: '#/definitions/providers.Capability'
+        type: array
+      connected_at:
+        type: string
+      expires_at:
+        type: string
+      external_user_id:
+        type: string
+      granted_capabilities:
+        items:
+          $ref: '#/definitions/providers.Capability'
+        type: array
+      granted_scopes:
+        items:
+          type: string
+        type: array
+      last_refreshed_at:
+        type: string
+      provider:
+        type: string
+      refresh_available:
+        type: boolean
+      revoked:
+        type: boolean
+      revoked_reason:
+        type: string
+      scopes_verified:
+        type: boolean
+      supports_incremental:
+        type: boolean
     type: object
 externalDocs:
   description: OpenAPI
@@ -2270,6 +2458,294 @@ paths:
       summary: Get a given user's global leaderboard rank
       tags:
       - leaderboard
+  /oauth/{provider}/authorize:
+    post:
+      consumes:
+      - application/json
+      description: Starts incremental authorization for the signed-in user and returns
+        a provider URL to open. The user's session, devices and tokens are untouched
+        — this grants a capability, it does not sign anyone in again. Returns already_granted
+        when the user has already granted everything asked for. A URL is returned
+        rather than a redirect because this endpoint needs the caller's Bearer token,
+        which a browser navigation cannot supply and which mobile clients must hand
+        to a Custom Tab or ASWebAuthenticationSession themselves.
+      parameters:
+      - description: OAuth2 provider
+        enum:
+        - google
+        - spotify
+        in: path
+        name: provider
+        required: true
+        type: string
+      - description: Capabilities to request and where to return the user
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.ScopeAuthorizeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.ScopeAuthorizeResponse'
+        "400":
+          description: Unknown capability, provider without incremental support, or
+            a redirect target that is not allowlisted
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Unknown provider
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      summary: Begin authorizing additional provider capabilities
+      tags:
+      - oauth
+  /oauth/{provider}/callback:
+    get:
+      description: 'Completes a scope upgrade started by the authorize endpoint. Not
+        called by clients — the provider redirects the user''s browser here. Records
+        the scopes the provider reports as granted and returns the user to the app.
+        Deliberately issues no session: no token family, no device registration, no
+        cookies, so the caller''s existing session survives the round trip.'
+      parameters:
+      - description: OAuth2 provider
+        enum:
+        - google
+        - spotify
+        in: path
+        name: provider
+        required: true
+        type: string
+      - description: Opaque state handle issued by the authorize endpoint
+        in: query
+        name: state
+        required: true
+        type: string
+      - description: Authorization code from the provider
+        in: query
+        name: code
+        type: string
+      - description: Set when the user declined
+        in: query
+        name: error
+        type: string
+      responses:
+        "302":
+          description: Redirects to the originating app with scope_upgrade=success
+            or =denied
+        "400":
+          description: Missing, expired, replayed, or mismatched state
+          schema:
+            $ref: '#/definitions/core.APIError'
+      summary: Provider callback for incremental authorization
+      tags:
+      - oauth
+  /oauth/{provider}/grant:
+    delete:
+      description: Revokes the signed-in user's grant and destroys the stored credentials.
+        Does not sign the user out; it only ends Verisafe's access to that provider
+        on their behalf.
+      parameters:
+      - description: OAuth2 provider
+        enum:
+        - google
+        - spotify
+        - apple
+        in: path
+        name: provider
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: No grant for this provider
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      summary: Disconnect a third-party provider
+      tags:
+      - oauth
+  /oauth/{provider}/reconcile:
+    post:
+      consumes:
+      - application/json
+      description: Refreshes an account's grant purely to learn the scopes the provider
+        reports, converting a presumed scope list into a verified one. Operational
+        endpoint; the background reconciler does this automatically.
+      parameters:
+      - description: OAuth2 provider
+        enum:
+        - google
+        - spotify
+        in: path
+        name: provider
+        required: true
+        type: string
+      - description: Account to reconcile (capabilities ignored)
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.ProviderTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Malformed body or bad account_id
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "403":
+          description: Lacks manage:provider_token:any
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: No grant for this account and provider
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "503":
+          description: Provider is temporarily unavailable
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - ApiKey: []
+      summary: Force a grant to be re-verified against the provider
+      tags:
+      - oauth
+  /oauth/{provider}/token:
+    post:
+      consumes:
+      - application/json
+      description: Returns a usable provider access token for the given account, refreshing
+        it against the provider if the stored one is stale. Requires a service token
+        (X-API-Key) and the read:provider_token:any permission — a human Bearer JWT
+        is rejected even if it holds the permission. Refresh tokens are never returned.
+        When the user has not granted the requested capabilities, responds 403 with
+        a machine-readable insufficient_scope body naming what is missing and where
+        to send the user.
+      parameters:
+      - description: OAuth2 provider
+        enum:
+        - google
+        - spotify
+        in: path
+        name: provider
+        required: true
+        type: string
+      - description: Account and capabilities required
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.ProviderTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.ProviderTokenResponse'
+        "400":
+          description: Malformed body, bad account_id, or unknown capability
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Missing or invalid credentials
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "403":
+          description: Caller is not a service token, lacks the permission, or the
+            user has not granted the capability
+          schema:
+            $ref: '#/definitions/handlers.InsufficientScopeResponse'
+        "404":
+          description: Unknown provider, or the account has never connected it
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "409":
+          description: Provider cannot refresh tokens and the stored one has expired
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "503":
+          description: Provider is temporarily unavailable
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - ApiKey: []
+      summary: Obtain a third-party OAuth access token on behalf of a user
+      tags:
+      - oauth
+  /oauth/grants:
+    get:
+      description: 'Pre-flight for the broker: which providers an account has connected
+        and what each grant covers. Never includes tokens.'
+      parameters:
+      - description: Account ID
+        in: query
+        name: account_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.GrantView'
+            type: array
+        "400":
+          description: Missing or malformed account_id
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "403":
+          description: Caller is not a service token or lacks the permission
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - ApiKey: []
+      summary: List an account's third-party connections
+      tags:
+      - oauth
+  /oauth/scopes:
+    get:
+      description: What each connected provider covers, plus every capability each
+        provider could offer, so a settings UI can render connect toggles without
+        knowing the provider list. Never includes tokens.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.ScopesResponse'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      summary: List the signed-in user's third-party connections
+      tags:
+      - oauth
   /permissions:
     get:
       parameters:
@@ -2766,6 +3242,8 @@ paths:
       - roles
   /socials/me:
     get:
+      description: Provider access and refresh tokens are never included; those are
+        brokered through /oauth/{provider}/token instead.
       produces:
       - application/json
       responses:
@@ -2773,7 +3251,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/repository.Social'
+              $ref: '#/definitions/handlers.socialResponse'
             type: array
         "401":
           description: Missing or invalid claims
@@ -2791,6 +3269,8 @@ paths:
       - socials
   /socials/user/{user_id}:
     get:
+      description: Provider access and refresh tokens are never included; those are
+        brokered through /oauth/{provider}/token instead.
       parameters:
       - description: Account ID
         in: path
@@ -2804,7 +3284,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/repository.Social'
+              $ref: '#/definitions/handlers.socialResponse'
             type: array
         "400":
           description: Invalid user_id

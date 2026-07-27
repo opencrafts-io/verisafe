@@ -26,4 +26,18 @@ var (
 	ErrUnauthorized = errors.New(
 		"authentication is required to access this resource",
 	)
+
+	// ErrForbidden indicates the caller is authenticated but not allowed to
+	// perform this action. Distinct from ErrUnauthorized: re-authenticating
+	// would not help.
+	ErrForbidden = errors.New(
+		"you do not have permission to perform this action",
+	)
+
+	// ErrUnavailable indicates an upstream dependency (an OAuth provider, say)
+	// failed transiently. Callers should retry rather than treat the resource
+	// as broken.
+	ErrUnavailable = errors.New(
+		"an upstream dependency is temporarily unavailable",
+	)
 )
