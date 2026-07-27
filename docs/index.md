@@ -40,6 +40,25 @@ Verisafe has three primary roles of operation
 
  > More about the environments will be discussed later
 
+## Documentation
+
+New to the codebase? Start with **[How auth works](HOW_AUTH_WORKS.md)** — it explains logging in,
+tokens, permissions, and third-party access end to end, in plain language.
+
+Reference material, once you know your way around:
+
+| Document | Covers |
+|---|---|
+| [HOW_AUTH_WORKS.md](HOW_AUTH_WORKS.md) | Guided walkthrough of the whole auth system |
+| [AUTHENTICATION.md](AUTHENTICATION.md) | Login endpoints and the JWT/refresh-token lifecycle |
+| [OAUTH_SCOPES.md](OAUTH_SCOPES.md) | Third-party grants, the token broker, incremental scopes |
+| [RBAC.md](RBAC.md) | Roles, permissions, and how they are assigned |
+| [SERVICE_TOKENS.md](SERVICE_TOKENS.md) | Service-to-service API keys |
+| [BOT_ACCOUNT_CREATION.md](BOT_ACCOUNT_CREATION.md) | Creating bot accounts |
+| [RABBITMQ_INTEGRATION.md](RABBITMQ_INTEGRATION.md) | Event publishing and consumption |
+| [setup.md](setup.md) | Getting the service running locally |
+| [adrs/](adrs/) | Why things are the way they are |
+
 
 
 
