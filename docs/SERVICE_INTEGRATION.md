@@ -92,8 +92,12 @@ That's the whole setup. Your service now holds one long-lived API key and no use
 ## Making the call
 
 ```bash
+# Read the token from your secret store rather than pasting it — a token on
+# the command line ends up in your shell history and your process list.
+export VERISAFE_TOKEN="$(read-my-secret calendar-svc-token)"
+
 curl -X POST https://verisafe.opencrafts.io/oauth/google/token \
-  -H "X-API-Key: vst_abc123..." \
+  -H "X-API-Key: $VERISAFE_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "account_id": "9f1c8b2e-0000-4000-8000-000000000001",
@@ -475,7 +479,7 @@ attempt converts the record to verified, so the second call gives you a definiti
 
 ```bash
 curl "https://verisafe.opencrafts.io/oauth/grants?account_id=9f1c8b2e-..." \
-  -H "X-API-Key: vst_..."
+  -H "X-API-Key: $VERISAFE_TOKEN"
 ```
 
 Returns what's connected and what each grant covers. Issues no token.

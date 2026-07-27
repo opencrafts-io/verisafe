@@ -229,8 +229,10 @@ curl -X POST http://localhost:8080/accounts/bot/create \
 Once you have created a bot account and received the service token, you can use it to authenticate API requests:
 
 ```bash
+export VERISAFE_TOKEN="$(read-my-secret my-bot-token)"
+
 curl -X GET http://localhost:8080/api/v1/some-endpoint \
-  -H "X-API-Key: vst_abc123def456ghi789jkl012mno345pqr678stu901vwx234yz"
+  -H "X-API-Key: $VERISAFE_TOKEN"
 ```
 
 ## Security Best Practices
