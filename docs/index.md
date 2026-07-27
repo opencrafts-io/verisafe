@@ -52,6 +52,7 @@ Reference material, once you know your way around:
 | [HOW_AUTH_WORKS.md](HOW_AUTH_WORKS.md) | Guided walkthrough of the whole auth system |
 | [AUTHENTICATION.md](AUTHENTICATION.md) | Login endpoints and the JWT/refresh-token lifecycle |
 | [OAUTH_SCOPES.md](OAUTH_SCOPES.md) | Third-party grants, the token broker, incremental scopes |
+| [SERVICE_INTEGRATION.md](SERVICE_INTEGRATION.md) | Build guide: getting a Google/Spotify token from another service |
 | [RBAC.md](RBAC.md) | Roles, permissions, and how they are assigned |
 | [SERVICE_TOKENS.md](SERVICE_TOKENS.md) | Service-to-service API keys |
 | [BOT_ACCOUNT_CREATION.md](BOT_ACCOUNT_CREATION.md) | Creating bot accounts |

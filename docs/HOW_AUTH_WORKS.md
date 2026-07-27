@@ -377,6 +377,9 @@ Forget the second block and you've locked every normal user out of your new endp
 
 Now the other half. Say the calendar service wants to read a user's Google Calendar.
 
+> If you're actually building that service, [SERVICE_INTEGRATION.md](SERVICE_INTEGRATION.md) has the
+> setup steps and a working client. This section explains the idea.
+
 ### Capabilities, not scopes
 
 You ask for `"calendar"`, not `https://www.googleapis.com/auth/calendar`. The mapping lives in one
@@ -544,6 +547,7 @@ If false, call again; the first call converts the guess into fact.
 
 ## Next
 
+- [SERVICE_INTEGRATION.md](SERVICE_INTEGRATION.md) — building a service that needs a Google or Spotify token
 - [AUTHENTICATION.md](AUTHENTICATION.md) — exact endpoints and payloads for login and tokens
 - [OAUTH_SCOPES.md](OAUTH_SCOPES.md) — the `/oauth/*` API and how to operate it
 - [RBAC.md](RBAC.md) — the full permission list

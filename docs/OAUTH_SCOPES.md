@@ -37,6 +37,9 @@ depends on it.
 
 ## For other services
 
+> Building a service against this? [SERVICE_INTEGRATION.md](SERVICE_INTEGRATION.md) is the step-by-step
+> version — setup, a working client, error handling and testing. This section is the reference.
+
 ### Get a usable provider token
 
 ```http
