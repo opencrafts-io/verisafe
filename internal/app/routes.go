@@ -24,6 +24,7 @@ import (
 	permsvc "github.com/opencrafts-io/verisafe/internal/service/permission"
 	rolesvc "github.com/opencrafts-io/verisafe/internal/service/role"
 	socialsvc "github.com/opencrafts-io/verisafe/internal/service/social"
+	streaksvc "github.com/opencrafts-io/verisafe/internal/service/streak"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
@@ -115,6 +116,7 @@ func (a *App) loadRoutes() http.Handler {
 		},
 		&streak.StreakHandler{
 			DB:                   db,
+			Service:              streaksvc.NewService,
 			Cacher:               a.cacher,
 			Cfg:                  a.config,
 			Logger:               a.logger,
