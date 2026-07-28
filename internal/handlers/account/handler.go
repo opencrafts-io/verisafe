@@ -31,7 +31,7 @@ type AccountHandler struct {
 	UserEventBus *eventbus.UserEventBus
 }
 
-func (ah *AccountHandler) RegisterHandlers(router *http.ServeMux) {
+func (ah *AccountHandler) RegisterHandlers(router core.Router) {
 	router.Handle("POST /accounts/bot/create",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
@@ -205,7 +205,7 @@ func (ah *AccountHandler) CreateBotAccount(
 		return
 	}
 
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := ah.DB.Acquire(r.Context())
 	if err != nil {
 		ah.Logger.Error(
 			"Error while processing request",
@@ -217,6 +217,7 @@ func (ah *AccountHandler) CreateBotAccount(
 		})
 		return
 	}
+	defer conn.Release()
 
 	tx, err := conn.Begin(r.Context())
 	if err != nil {
@@ -453,7 +454,7 @@ func (ah *AccountHandler) FanoutAccouts(
 	r *http.Request,
 ) {
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := ah.DB.Acquire(r.Context())
 	if err != nil {
 		ah.Logger.Error(
 			"Error while processing request",
@@ -465,6 +466,7 @@ func (ah *AccountHandler) FanoutAccouts(
 		})
 		return
 	}
+	defer conn.Release()
 
 	repo := repository.New(conn)
 	userCount, err := repo.GetAccountsCount(r.Context())
@@ -579,7 +581,7 @@ func (ah *AccountHandler) GetPersonalAccount(
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := ah.DB.Acquire(r.Context())
 	if err != nil {
 		ah.Logger.Error(
 			"Error while processing request",
@@ -591,6 +593,7 @@ func (ah *AccountHandler) GetPersonalAccount(
 		})
 		return
 	}
+	defer conn.Release()
 
 	tx, _ := conn.Begin(r.Context())
 	defer tx.Rollback(r.Context())
@@ -680,7 +683,7 @@ func (ah *AccountHandler) UpdatePersonalAccount(
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := ah.DB.Acquire(r.Context())
 	if err != nil {
 		ah.Logger.Error(
 			"Error while processing request",
@@ -692,6 +695,7 @@ func (ah *AccountHandler) UpdatePersonalAccount(
 		})
 		return
 	}
+	defer conn.Release()
 
 	tx, _ := conn.Begin(r.Context())
 	defer tx.Rollback(r.Context())
@@ -800,7 +804,7 @@ func (ah *AccountHandler) VerifyPhone(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := ah.DB.Acquire(r.Context())
 	if err != nil {
 		ah.Logger.Error(
 			"Error while processing request",
@@ -812,6 +816,7 @@ func (ah *AccountHandler) VerifyPhone(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	defer conn.Release()
 
 	tx, _ := conn.Begin(r.Context())
 	defer tx.Rollback(r.Context())
@@ -905,7 +910,7 @@ func (ah *AccountHandler) SearchAccountsByEmail(
 	pagination := middleware.GetPagination(r.Context())
 
 	// Get database connection
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := ah.DB.Acquire(r.Context())
 	if err != nil {
 		ah.Logger.Error(
 			"Error while processing request",
@@ -917,6 +922,7 @@ func (ah *AccountHandler) SearchAccountsByEmail(
 		})
 		return
 	}
+	defer conn.Release()
 
 	// Begin transaction
 	tx, err := conn.Begin(r.Context())
@@ -1022,7 +1028,7 @@ func (ah *AccountHandler) SearchAccountsByName(
 	pagination := middleware.GetPagination(r.Context())
 
 	// Get database connection
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := ah.DB.Acquire(r.Context())
 	if err != nil {
 		ah.Logger.Error(
 			"Error while processing request",
@@ -1034,6 +1040,7 @@ func (ah *AccountHandler) SearchAccountsByName(
 		})
 		return
 	}
+	defer conn.Release()
 
 	// Begin transaction
 	tx, err := conn.Begin(r.Context())
@@ -1121,7 +1128,7 @@ func (ah *AccountHandler) GetAllUserAccounts(
 	// Get pagination from context
 	pagination := middleware.GetPagination(r.Context())
 	// Get database connection
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := ah.DB.Acquire(r.Context())
 	if err != nil {
 		ah.Logger.Error(
 			"Error while processing request",
@@ -1133,6 +1140,7 @@ func (ah *AccountHandler) GetAllUserAccounts(
 		})
 		return
 	}
+	defer conn.Release()
 
 	// Begin transaction
 	tx, err := conn.Begin(r.Context())
@@ -1222,7 +1230,7 @@ func (ah *AccountHandler) SearchAccountsByUsername(
 	pagination := middleware.GetPagination(r.Context())
 
 	// Get database connection
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := ah.DB.Acquire(r.Context())
 	if err != nil {
 		ah.Logger.Error(
 			"Error while processing request",
@@ -1234,6 +1242,7 @@ func (ah *AccountHandler) SearchAccountsByUsername(
 		})
 		return
 	}
+	defer conn.Release()
 
 	// Begin transaction
 	tx, err := conn.Begin(r.Context())
@@ -1325,7 +1334,7 @@ func (ah *AccountHandler) MarkAccountForDeletion(
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := ah.DB.Acquire(r.Context())
 	if err != nil {
 		ah.Logger.Error(
 			"Error while processing request",
@@ -1337,6 +1346,7 @@ func (ah *AccountHandler) MarkAccountForDeletion(
 		})
 		return
 	}
+	defer conn.Release()
 
 	tx, err := conn.Begin(r.Context())
 	if err != nil {
@@ -1423,7 +1433,7 @@ func (ah *AccountHandler) RecoverAccountFromDeletion(
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := ah.DB.Acquire(r.Context())
 	if err != nil {
 		ah.Logger.Error(
 			"Error while processing request",
@@ -1435,6 +1445,7 @@ func (ah *AccountHandler) RecoverAccountFromDeletion(
 		})
 		return
 	}
+	defer conn.Release()
 
 	tx, err := conn.Begin(r.Context())
 	if err != nil {

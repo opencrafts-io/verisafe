@@ -23,12 +23,10 @@ import (
 )
 
 type VerisafeHandler interface {
-	RegisterHandlers(router *http.ServeMux)
+	RegisterHandlers(router core.Router)
 }
 
 func (a *App) loadRoutes() http.Handler {
-	router := http.NewServeMux()
-
 	authenticator, err := auth.NewAuthenticator(
 		a.config,
 		a.logger,
@@ -86,6 +84,7 @@ func (a *App) loadRoutes() http.Handler {
 		},
 		&institution.InstitutionHandler{
 			DB:                  db,
+			Pool:                a.pool,
 			Cacher:              a.cacher,
 			Cfg:                 a.config,
 			Logger:              a.logger,
@@ -138,12 +137,28 @@ func (a *App) loadRoutes() http.Handler {
 		},
 	}
 
-	for _, handler := range verisafeHandlers {
+	return buildRouter(verisafeHandlers)
+}
+
+// buildRouter is the part of route loading that depends only on the handler
+// set, split out from loadRoutes so a test can drive it with zero-valued
+// handlers and assert the full route table without a live pool, Redis or
+// RabbitMQ. Registration only closes over its dependencies, so nil ones are
+// fine here — nothing is dereferenced until a request arrives.
+func buildRouter(handlers []VerisafeHandler) *http.ServeMux {
+	router := http.NewServeMux()
+	registerAll(router, handlers)
+	return router
+}
+
+// registerAll is every registration the service performs, expressed against
+// core.Router so a test can replay it into a recorder and read back the
+// complete route table.
+func registerAll(router core.Router, handlers []VerisafeHandler) {
+	for _, handler := range handlers {
 		handler.RegisterHandlers(router)
 	}
 
 	router.HandleFunc("GET /ping", health.PingHandler)
 	router.Handle("GET /docs/", httpSwagger.WrapHandler)
-
-	return router
 }

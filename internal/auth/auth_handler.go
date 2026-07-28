@@ -123,7 +123,7 @@ func (h *AuthHandler) WithGrantRecording(
 	return h
 }
 
-func (h *AuthHandler) RegisterHandlers(router *http.ServeMux) {
+func (h *AuthHandler) RegisterHandlers(router core.Router) {
 	router.HandleFunc("GET /auth/{provider}", h.LoginHandler)
 	router.HandleFunc("/auth/{provider}/callback", h.CallbackHandler)
 	router.Handle(

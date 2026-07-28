@@ -23,9 +23,7 @@ type DeviceHandler struct {
 	Cfg        *config.Config
 }
 
-func (dh *DeviceHandler) RegisterHandlers(
-	router *http.ServeMux,
-) {
+func (dh *DeviceHandler) RegisterHandlers(router core.Router) {
 	router.Handle(
 		"GET /devices/mine",
 		middleware.CreateStack(

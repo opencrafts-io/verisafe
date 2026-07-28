@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/opencrafts-io/verisafe/internal/broker"
 	"github.com/opencrafts-io/verisafe/internal/config"
 	"github.com/opencrafts-io/verisafe/internal/core"
@@ -28,11 +29,16 @@ type InstitutionHandler struct {
 	Cfg                 *config.Config
 	InstitutionEventBus *eventbus.InstitutionEventBus
 	Publisher           *broker.Publisher
+
+	// Pool is used only by FanoutInstitutions, an admin backfill that runs a
+	// worker pool and so needs to acquire a connection per worker rather than
+	// share the single one every other method uses. It is the one place in
+	// this package that holds a concrete pgx type instead of core.IDBProvider,
+	// and consequently the one method that cannot be driven by a mock.
+	Pool *pgxpool.Pool
 }
 
-func (ih *InstitutionHandler) RegisterHandlers(
-	router *http.ServeMux,
-) {
+func (ih *InstitutionHandler) RegisterHandlers(router core.Router) {
 	// Register endpoints using the new pattern
 	router.Handle("POST /institutions/register", middleware.CreateStack(
 		middleware.IsAuthenticated(ih.Cfg, ih.DB, ih.Cacher, ih.Logger),
@@ -121,7 +127,7 @@ func (ih *InstitutionHandler) RegisterInstitution(
 	r *http.Request,
 ) {
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := ih.DB.Acquire(r.Context())
 	if err != nil {
 		ih.Logger.Error(
 			"Error while processing request",
@@ -134,6 +140,7 @@ func (ih *InstitutionHandler) RegisterInstitution(
 		)
 		return
 	}
+	defer conn.Release()
 
 	tx, _ := conn.Begin(r.Context())
 	defer tx.Rollback(r.Context())
@@ -200,7 +207,7 @@ func (ih *InstitutionHandler) UpdateInstitutionDetails(
 	r *http.Request,
 ) {
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := ih.DB.Acquire(r.Context())
 	if err != nil {
 		ih.Logger.Error(
 			"Error while processing request",
@@ -213,6 +220,7 @@ func (ih *InstitutionHandler) UpdateInstitutionDetails(
 		)
 		return
 	}
+	defer conn.Release()
 
 	tx, _ := conn.Begin(r.Context())
 	defer tx.Rollback(r.Context())
@@ -289,7 +297,7 @@ func (ih *InstitutionHandler) GetInstitutionByID(
 	r *http.Request,
 ) {
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := ih.DB.Acquire(r.Context())
 	if err != nil {
 		ih.Logger.Error(
 			"Error while processing request",
@@ -302,6 +310,7 @@ func (ih *InstitutionHandler) GetInstitutionByID(
 		)
 		return
 	}
+	defer conn.Release()
 	repo := repository.New(conn)
 
 	idStr := r.PathValue("id")
@@ -345,7 +354,7 @@ func (ih *InstitutionHandler) GetAllInstitutions(
 	r *http.Request,
 ) {
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := ih.DB.Acquire(r.Context())
 	if err != nil {
 		ih.Logger.Error(
 			"Error while processing request",
@@ -358,6 +367,7 @@ func (ih *InstitutionHandler) GetAllInstitutions(
 		)
 		return
 	}
+	defer conn.Release()
 	repo := repository.New(conn)
 
 	p := middleware.GetPagination(r.Context())
@@ -403,7 +413,7 @@ func (ih *InstitutionHandler) DeleteInstitution(
 	r *http.Request,
 ) {
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := ih.DB.Acquire(r.Context())
 	if err != nil {
 		ih.Logger.Error(
 			"Error while processing request",
@@ -416,6 +426,7 @@ func (ih *InstitutionHandler) DeleteInstitution(
 		)
 		return
 	}
+	defer conn.Release()
 
 	tx, _ := conn.Begin(r.Context())
 	defer tx.Rollback(r.Context())
@@ -493,7 +504,7 @@ func (ih *InstitutionHandler) SearchInstitutions(
 ) {
 	w.Header().Set("Content-Type", "application/json")
 
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := ih.DB.Acquire(r.Context())
 	if err != nil {
 		ih.Logger.Error("DB connection missing", slog.Any("error", err))
 		http.Error(
@@ -503,6 +514,7 @@ func (ih *InstitutionHandler) SearchInstitutions(
 		)
 		return
 	}
+	defer conn.Release()
 	repo := repository.New(conn)
 
 	// Extract query param `q`
@@ -562,7 +574,7 @@ func (ih *InstitutionHandler) AddAcountInstitution(
 	r *http.Request,
 ) {
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := ih.DB.Acquire(r.Context())
 	if err != nil {
 		ih.Logger.Error(
 			"Error while processing request",
@@ -575,6 +587,7 @@ func (ih *InstitutionHandler) AddAcountInstitution(
 		)
 		return
 	}
+	defer conn.Release()
 
 	tx, _ := conn.Begin(r.Context())
 	defer tx.Rollback(r.Context())
@@ -669,7 +682,7 @@ func (ih *InstitutionHandler) ListInstitutionForAccount(
 	r *http.Request,
 ) {
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := ih.DB.Acquire(r.Context())
 	if err != nil {
 		ih.Logger.Error(
 			"Error while processing request",
@@ -682,6 +695,7 @@ func (ih *InstitutionHandler) ListInstitutionForAccount(
 		)
 		return
 	}
+	defer conn.Release()
 	repo := repository.New(conn)
 
 	// Extract query param `q`
@@ -750,7 +764,7 @@ func (ih *InstitutionHandler) ListAccountsForInstitution(
 	r *http.Request,
 ) {
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := ih.DB.Acquire(r.Context())
 	if err != nil {
 		ih.Logger.Error(
 			"Error while processing request",
@@ -763,6 +777,7 @@ func (ih *InstitutionHandler) ListAccountsForInstitution(
 		)
 		return
 	}
+	defer conn.Release()
 	repo := repository.New(conn)
 
 	// Extract query param `q`
@@ -829,7 +844,7 @@ func (ih *InstitutionHandler) RemoveAccountInstitution(
 	r *http.Request,
 ) {
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := ih.DB.Acquire(r.Context())
 	if err != nil {
 		ih.Logger.Error(
 			"Error while processing request",
@@ -842,6 +857,7 @@ func (ih *InstitutionHandler) RemoveAccountInstitution(
 		)
 		return
 	}
+	defer conn.Release()
 
 	tx, _ := conn.Begin(r.Context())
 	defer tx.Rollback(r.Context())
@@ -933,7 +949,7 @@ func (ih *InstitutionHandler) FanoutInstitutionConnections(
 	r *http.Request,
 ) {
 	ctx := r.Context()
-	conn, err := middleware.GetDBConnFromContext(ctx)
+	conn, err := ih.DB.Acquire(ctx)
 	if err != nil {
 		ih.Logger.Error("DB connection missing", slog.Any("error", err))
 		http.Error(
@@ -943,6 +959,7 @@ func (ih *InstitutionHandler) FanoutInstitutionConnections(
 		)
 		return
 	}
+	defer conn.Release()
 
 	repo := repository.New(conn)
 
@@ -1060,12 +1077,13 @@ func (ih *InstitutionHandler) FanoutInstitutions(
 ) {
 	w.Header().Set("Content-Type", "application/json")
 
-	// Get the pool for concurrent operations
-	pool, err := middleware.GetDBPoolFromContext(r.Context())
-	if err != nil {
+	// This backfill fans out across a worker pool, so unlike every other
+	// handler it needs the pool itself rather than one acquired connection.
+	pool := ih.Pool
+	if pool == nil {
 		ih.Logger.Error(
 			"Error while processing request",
-			slog.Any("error", err),
+			slog.String("error", "institution handler has no pool configured"),
 		)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{

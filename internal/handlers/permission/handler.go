@@ -22,9 +22,7 @@ type PermissionHandler struct {
 }
 
 // Registers all the necessary routes associated with this handler group
-func (ph *PermissionHandler) RegisterHandlers(
-	router *http.ServeMux,
-) {
+func (ph *PermissionHandler) RegisterHandlers(router core.Router) {
 	router.Handle("POST /permissions/create",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(ph.Cfg, ph.DB, ph.Cacher, ph.Logger),
@@ -95,7 +93,7 @@ func (ph *PermissionHandler) CreatePermission(
 	r *http.Request,
 ) {
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := ph.DB.Acquire(r.Context())
 	if err != nil {
 		ph.Logger.Error(
 			"Error while processing request",
@@ -107,6 +105,7 @@ func (ph *PermissionHandler) CreatePermission(
 		})
 		return
 	}
+	defer conn.Release()
 
 	tx, _ := conn.Begin(r.Context())
 	defer tx.Rollback(r.Context())
@@ -184,7 +183,7 @@ func (ph *PermissionHandler) GetPermissionByID(
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := ph.DB.Acquire(r.Context())
 	if err != nil {
 		ph.Logger.Error(
 			"Error while processing request",
@@ -196,6 +195,7 @@ func (ph *PermissionHandler) GetPermissionByID(
 		})
 		return
 	}
+	defer conn.Release()
 
 	tx, _ := conn.Begin(r.Context())
 	defer tx.Rollback(r.Context())
@@ -247,7 +247,7 @@ func (ph *PermissionHandler) GetAllPermissions(
 	pagination := middleware.GetPagination(r.Context())
 
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := ph.DB.Acquire(r.Context())
 	if err != nil {
 		ph.Logger.Error(
 			"Error while processing request",
@@ -259,6 +259,7 @@ func (ph *PermissionHandler) GetAllPermissions(
 		})
 		return
 	}
+	defer conn.Release()
 
 	tx, _ := conn.Begin(r.Context())
 	defer tx.Rollback(r.Context())
@@ -319,7 +320,7 @@ func (ph *PermissionHandler) GetAllUserPermissions(
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := ph.DB.Acquire(r.Context())
 	if err != nil {
 		ph.Logger.Error(
 			"Error while processing request",
@@ -331,6 +332,7 @@ func (ph *PermissionHandler) GetAllUserPermissions(
 		})
 		return
 	}
+	defer conn.Release()
 
 	tx, _ := conn.Begin(r.Context())
 	defer tx.Rollback(r.Context())
@@ -374,7 +376,7 @@ func (ph *PermissionHandler) UpdatePermission(
 	r *http.Request,
 ) {
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := ph.DB.Acquire(r.Context())
 	if err != nil {
 		ph.Logger.Error(
 			"Error while processing request",
@@ -386,6 +388,7 @@ func (ph *PermissionHandler) UpdatePermission(
 		})
 		return
 	}
+	defer conn.Release()
 
 	tx, _ := conn.Begin(r.Context())
 	defer tx.Rollback(r.Context())
@@ -476,7 +479,7 @@ func (ph *PermissionHandler) AssignRolePermission(
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := ph.DB.Acquire(r.Context())
 	if err != nil {
 		ph.Logger.Error(
 			"Error while processing request",
@@ -488,6 +491,7 @@ func (ph *PermissionHandler) AssignRolePermission(
 		})
 		return
 	}
+	defer conn.Release()
 
 	tx, _ := conn.Begin(r.Context())
 	defer tx.Rollback(r.Context())
@@ -574,7 +578,7 @@ func (ph *PermissionHandler) RevokeRolePermission(
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := ph.DB.Acquire(r.Context())
 	if err != nil {
 		ph.Logger.Error(
 			"Error while processing request",
@@ -586,6 +590,7 @@ func (ph *PermissionHandler) RevokeRolePermission(
 		})
 		return
 	}
+	defer conn.Release()
 
 	tx, _ := conn.Begin(r.Context())
 	defer tx.Rollback(r.Context())

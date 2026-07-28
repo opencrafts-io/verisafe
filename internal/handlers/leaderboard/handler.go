@@ -20,9 +20,7 @@ type LeaderBoardHandler struct {
 	Logger *slog.Logger
 }
 
-func (lh *LeaderBoardHandler) RegisterHandlers(
-	router *http.ServeMux,
-) {
+func (lh *LeaderBoardHandler) RegisterHandlers(router core.Router) {
 	router.Handle("GET /leaderboard/global", middleware.CreateStack(
 		middleware.IsAuthenticated(lh.Cfg, lh.DB, lh.Cacher, lh.Logger),
 	)(http.HandlerFunc(lh.GetGlobalLeaderBoard)))
@@ -49,7 +47,7 @@ func (lh *LeaderBoardHandler) GetGlobalUserRank(
 	r *http.Request,
 ) {
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := lh.DB.Acquire(r.Context())
 	if err != nil {
 		lh.Logger.Error(
 			"Error while processing request",
@@ -62,6 +60,7 @@ func (lh *LeaderBoardHandler) GetGlobalUserRank(
 		)
 		return
 	}
+	defer conn.Release()
 
 	tx, err := conn.Begin(r.Context())
 	if err != nil {
@@ -118,7 +117,7 @@ func (lh *LeaderBoardHandler) GetGlobalLeaderBoard(
 	r *http.Request,
 ) {
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := lh.DB.Acquire(r.Context())
 	if err != nil {
 		lh.Logger.Error(
 			"Error while processing request",
@@ -131,6 +130,7 @@ func (lh *LeaderBoardHandler) GetGlobalLeaderBoard(
 		)
 		return
 	}
+	defer conn.Release()
 
 	tx, err := conn.Begin(r.Context())
 	if err != nil {

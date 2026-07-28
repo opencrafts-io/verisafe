@@ -25,9 +25,7 @@ type StreakHandler struct {
 	NotificationEventBus *eventbus.NotificationEventBus
 }
 
-func (sh *StreakHandler) RegisterHandlers(
-	router *http.ServeMux,
-) {
+func (sh *StreakHandler) RegisterHandlers(router core.Router) {
 	router.Handle("POST /users/activity/complete", middleware.CreateStack(
 		middleware.IsAuthenticated(sh.Cfg, sh.DB, sh.Cacher, sh.Logger),
 	)(http.HandlerFunc(sh.RecordUserActivity)))
@@ -79,7 +77,7 @@ func (sh *StreakHandler) RecordUserActivity(
 		return
 	}
 
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := sh.DB.Acquire(r.Context())
 	if err != nil {
 		sh.Logger.Error(
 			"Error while processing request",
@@ -92,6 +90,7 @@ func (sh *StreakHandler) RecordUserActivity(
 		)
 		return
 	}
+	defer conn.Release()
 
 	tx, err := conn.Begin(r.Context())
 	if err != nil {
@@ -172,7 +171,7 @@ func (sh *StreakHandler) CreateStreakMilestone(
 		return
 	}
 
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := sh.DB.Acquire(r.Context())
 	if err != nil {
 		sh.Logger.Error(
 			"Error while processing request",
@@ -185,6 +184,7 @@ func (sh *StreakHandler) CreateStreakMilestone(
 		)
 		return
 	}
+	defer conn.Release()
 
 	tx, err := conn.Begin(r.Context())
 	if err != nil {
@@ -250,7 +250,7 @@ func (sh *StreakHandler) GetAllActiveStreakAchievements(
 	r *http.Request,
 ) {
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := sh.DB.Acquire(r.Context())
 	if err != nil {
 		sh.Logger.Error(
 			"Error while processing request",
@@ -263,6 +263,7 @@ func (sh *StreakHandler) GetAllActiveStreakAchievements(
 		)
 		return
 	}
+	defer conn.Release()
 
 	tx, err := conn.Begin(r.Context())
 	if err != nil {
@@ -357,7 +358,7 @@ func (sh *StreakHandler) DeleteStreakMilestone(
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := sh.DB.Acquire(r.Context())
 	if err != nil {
 		sh.Logger.Error(
 			"Error while processing request",
@@ -370,6 +371,7 @@ func (sh *StreakHandler) DeleteStreakMilestone(
 		)
 		return
 	}
+	defer conn.Release()
 
 	tx, err := conn.Begin(r.Context())
 	if err != nil {

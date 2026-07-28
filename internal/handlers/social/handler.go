@@ -19,9 +19,7 @@ type SocialHandler struct {
 	Logger *slog.Logger
 }
 
-func (sh *SocialHandler) RegisterHandlers(
-	router *http.ServeMux,
-) {
+func (sh *SocialHandler) RegisterHandlers(router core.Router) {
 	router.Handle("GET /socials/me",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(sh.Cfg, sh.DB, sh.Cacher, sh.Logger),
@@ -66,7 +64,7 @@ func (sh *SocialHandler) GetUserIDSocials(
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := sh.DB.Acquire(r.Context())
 	if err != nil {
 		sh.Logger.Error(
 			"Error while processing request",
@@ -78,6 +76,7 @@ func (sh *SocialHandler) GetUserIDSocials(
 		})
 		return
 	}
+	defer conn.Release()
 
 	tx, _ := conn.Begin(r.Context())
 	defer tx.Rollback(r.Context())
@@ -150,7 +149,7 @@ func (sh *SocialHandler) GetAllUserSocials(
 		return
 	}
 
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := sh.DB.Acquire(r.Context())
 	if err != nil {
 		sh.Logger.Error(
 			"Error while processing request",
@@ -162,6 +161,7 @@ func (sh *SocialHandler) GetAllUserSocials(
 		})
 		return
 	}
+	defer conn.Release()
 
 	tx, _ := conn.Begin(r.Context())
 	defer tx.Rollback(r.Context())

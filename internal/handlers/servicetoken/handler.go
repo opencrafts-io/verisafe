@@ -88,7 +88,7 @@ type ServiceTokenStats struct {
 	RecentlyUsedTokens int `json:"recently_used_tokens"`
 }
 
-func (sth *ServiceTokenHandler) RegisterHandlers(router *http.ServeMux) {
+func (sth *ServiceTokenHandler) RegisterHandlers(router core.Router) {
 	// Service token management routes
 	router.Handle("POST /api/v1/service-tokens",
 		middleware.CreateStack(
@@ -181,7 +181,7 @@ func (sth *ServiceTokenHandler) CreateServiceToken(
 	}
 
 	// Verify the account is a bot account
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := sth.DB.Acquire(r.Context())
 	if err != nil {
 		sth.Logger.Error(
 			"Failed to get database connection",
@@ -190,6 +190,7 @@ func (sth *ServiceTokenHandler) CreateServiceToken(
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
+	defer conn.Release()
 
 	tx, err := conn.Begin(r.Context())
 	if err != nil {
@@ -403,7 +404,7 @@ func (sth *ServiceTokenHandler) ListServiceTokens(
 		return
 	}
 
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := sth.DB.Acquire(r.Context())
 	if err != nil {
 		sth.Logger.Error(
 			"Failed to get database connection",
@@ -412,6 +413,7 @@ func (sth *ServiceTokenHandler) ListServiceTokens(
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
+	defer conn.Release()
 
 	repo := repository.New(conn)
 	tokens, err := repo.ListServiceTokensByAccount(r.Context(), accountID)
@@ -484,7 +486,7 @@ func (sth *ServiceTokenHandler) GetServiceToken(
 		return
 	}
 
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := sth.DB.Acquire(r.Context())
 	if err != nil {
 		sth.Logger.Error(
 			"Failed to get database connection",
@@ -493,6 +495,7 @@ func (sth *ServiceTokenHandler) GetServiceToken(
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
+	defer conn.Release()
 
 	repo := repository.New(conn)
 	token, err := repo.GetServiceTokenByID(r.Context(), tokenID)
@@ -578,7 +581,7 @@ func (sth *ServiceTokenHandler) UpdateServiceToken(
 		return
 	}
 
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := sth.DB.Acquire(r.Context())
 	if err != nil {
 		sth.Logger.Error(
 			"Failed to get database connection",
@@ -587,6 +590,7 @@ func (sth *ServiceTokenHandler) UpdateServiceToken(
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
+	defer conn.Release()
 
 	tx, err := conn.Begin(r.Context())
 	if err != nil {
@@ -764,7 +768,7 @@ func (sth *ServiceTokenHandler) RotateServiceToken(
 		return
 	}
 
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := sth.DB.Acquire(r.Context())
 	if err != nil {
 		sth.Logger.Error(
 			"Failed to get database connection",
@@ -773,6 +777,7 @@ func (sth *ServiceTokenHandler) RotateServiceToken(
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
+	defer conn.Release()
 
 	tx, err := conn.Begin(r.Context())
 	if err != nil {
@@ -928,7 +933,7 @@ func (sth *ServiceTokenHandler) RevokeServiceToken(
 		return
 	}
 
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := sth.DB.Acquire(r.Context())
 	if err != nil {
 		sth.Logger.Error(
 			"Failed to get database connection",
@@ -937,6 +942,7 @@ func (sth *ServiceTokenHandler) RevokeServiceToken(
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
+	defer conn.Release()
 
 	tx, err := conn.Begin(r.Context())
 	if err != nil {
@@ -1036,7 +1042,7 @@ func (sth *ServiceTokenHandler) GetServiceTokenStats(
 		return
 	}
 
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := sth.DB.Acquire(r.Context())
 	if err != nil {
 		sth.Logger.Error(
 			"Failed to get database connection",
@@ -1045,6 +1051,7 @@ func (sth *ServiceTokenHandler) GetServiceTokenStats(
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
+	defer conn.Release()
 
 	repo := repository.New(conn)
 	stats, err := repo.GetServiceTokenUsageStats(r.Context(), accountID)
@@ -1089,7 +1096,7 @@ func (sth *ServiceTokenHandler) ListAllServiceTokens(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := sth.DB.Acquire(r.Context())
 	if err != nil {
 		sth.Logger.Error(
 			"Failed to get database connection",
@@ -1098,6 +1105,7 @@ func (sth *ServiceTokenHandler) ListAllServiceTokens(
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
+	defer conn.Release()
 
 	repo := repository.New(conn)
 	tokens, err := repo.ListActiveServiceTokens(r.Context())
@@ -1139,7 +1147,7 @@ func (sth *ServiceTokenHandler) CleanupExpiredTokens(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := sth.DB.Acquire(r.Context())
 	if err != nil {
 		sth.Logger.Error(
 			"Failed to get database connection",
@@ -1148,6 +1156,7 @@ func (sth *ServiceTokenHandler) CleanupExpiredTokens(
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
+	defer conn.Release()
 
 	repo := repository.New(conn)
 	err = repo.CleanupExpiredServiceTokens(r.Context())

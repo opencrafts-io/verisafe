@@ -76,7 +76,7 @@ type ScopesResponse struct {
 	AvailableCapabilities map[string][]providers.Capability `json:"available_capabilities"`
 }
 
-func (h *OAuthScopeHandler) RegisterHandlers(router *http.ServeMux) {
+func (h *OAuthScopeHandler) RegisterHandlers(router core.Router) {
 	router.Handle("POST /oauth/{provider}/authorize",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(h.Cfg, h.DB, h.Cacher, h.Logger),

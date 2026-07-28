@@ -20,9 +20,7 @@ type ActivityHandler struct {
 	Cfg    *config.Config
 }
 
-func (ah *ActivityHandler) RegisterHandlers(
-	router *http.ServeMux,
-) {
+func (ah *ActivityHandler) RegisterHandlers(router core.Router) {
 	router.Handle("POST /activity/add", middleware.CreateStack(
 		middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 	)(http.HandlerFunc(ah.CreateActivity)))
@@ -83,7 +81,7 @@ func (ah *ActivityHandler) GetAllUserActivityCompletions(
 			Encode(map[string]any{"error": "Please check your request body and try that again"})
 		return
 	}
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := ah.DB.Acquire(r.Context())
 	if err != nil {
 		ah.Logger.Error(
 			"Error while processing request",
@@ -96,6 +94,7 @@ func (ah *ActivityHandler) GetAllUserActivityCompletions(
 		)
 		return
 	}
+	defer conn.Release()
 
 	tx, err := conn.Begin(r.Context())
 	if err != nil {
@@ -194,7 +193,7 @@ func (ah *ActivityHandler) DeleteActivity(
 		return
 	}
 
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := ah.DB.Acquire(r.Context())
 	if err != nil {
 		ah.Logger.Error(
 			"Error while processing request",
@@ -207,6 +206,7 @@ func (ah *ActivityHandler) DeleteActivity(
 		)
 		return
 	}
+	defer conn.Release()
 
 	tx, err := conn.Begin(r.Context())
 	if err != nil {
@@ -301,7 +301,7 @@ func (ah *ActivityHandler) UpdateActivity(
 	}
 	requestBody.ID = id
 
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := ah.DB.Acquire(r.Context())
 	if err != nil {
 		ah.Logger.Error(
 			"Error while processing request",
@@ -314,6 +314,7 @@ func (ah *ActivityHandler) UpdateActivity(
 		)
 		return
 	}
+	defer conn.Release()
 
 	tx, err := conn.Begin(r.Context())
 	if err != nil {
@@ -379,7 +380,7 @@ func (ah *ActivityHandler) GetAllInactiveActivities(
 	r *http.Request,
 ) {
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := ah.DB.Acquire(r.Context())
 	if err != nil {
 		ah.Logger.Error(
 			"Error while processing request",
@@ -392,6 +393,7 @@ func (ah *ActivityHandler) GetAllInactiveActivities(
 		)
 		return
 	}
+	defer conn.Release()
 
 	tx, err := conn.Begin(r.Context())
 	if err != nil {
@@ -476,7 +478,7 @@ func (ah *ActivityHandler) GetAllActiveActivities(
 	r *http.Request,
 ) {
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := ah.DB.Acquire(r.Context())
 	if err != nil {
 		ah.Logger.Error(
 			"Error while processing request",
@@ -489,6 +491,7 @@ func (ah *ActivityHandler) GetAllActiveActivities(
 		)
 		return
 	}
+	defer conn.Release()
 
 	tx, err := conn.Begin(r.Context())
 	if err != nil {
@@ -573,7 +576,7 @@ func (ah *ActivityHandler) GetAllActivities(
 	r *http.Request,
 ) {
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := ah.DB.Acquire(r.Context())
 	if err != nil {
 		ah.Logger.Error(
 			"Error while processing request",
@@ -586,6 +589,7 @@ func (ah *ActivityHandler) GetAllActivities(
 		)
 		return
 	}
+	defer conn.Release()
 
 	tx, err := conn.Begin(r.Context())
 	if err != nil {
@@ -681,7 +685,7 @@ func (ah *ActivityHandler) CreateActivity(
 		return
 	}
 
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := ah.DB.Acquire(r.Context())
 	if err != nil {
 		ah.Logger.Error(
 			"Error while processing request",
@@ -694,6 +698,7 @@ func (ah *ActivityHandler) CreateActivity(
 		)
 		return
 	}
+	defer conn.Release()
 
 	tx, err := conn.Begin(r.Context())
 	if err != nil {

@@ -22,9 +22,7 @@ type RoleHandler struct {
 }
 
 // Registers all the necessary routes associated with this handler group
-func (rh *RoleHandler) RegisterHandlers(
-	router *http.ServeMux,
-) {
+func (rh *RoleHandler) RegisterHandlers(router core.Router) {
 	router.Handle("POST /roles/create",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(rh.Cfg, rh.DB, rh.Cacher, rh.Logger),
@@ -103,7 +101,7 @@ func (rh *RoleHandler) RegisterHandlers(
 // @Router       /roles/create [post]
 func (rh *RoleHandler) CreateRole(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := rh.DB.Acquire(r.Context())
 	if err != nil {
 		rh.Logger.Error(
 			"Error while processing request",
@@ -115,6 +113,7 @@ func (rh *RoleHandler) CreateRole(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	defer conn.Release()
 
 	tx, _ := conn.Begin(r.Context())
 	defer tx.Rollback(r.Context())
@@ -186,7 +185,7 @@ func (rh *RoleHandler) GetRoleByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := rh.DB.Acquire(r.Context())
 	if err != nil {
 		rh.Logger.Error(
 			"Error while processing request",
@@ -198,6 +197,7 @@ func (rh *RoleHandler) GetRoleByID(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	defer conn.Release()
 
 	tx, _ := conn.Begin(r.Context())
 	defer tx.Rollback(r.Context())
@@ -248,7 +248,7 @@ func (rh *RoleHandler) GetAllRoles(w http.ResponseWriter, r *http.Request) {
 	pagination := middleware.GetPagination(r.Context())
 
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := rh.DB.Acquire(r.Context())
 	if err != nil {
 		rh.Logger.Error(
 			"Error while processing request",
@@ -260,6 +260,7 @@ func (rh *RoleHandler) GetAllRoles(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	defer conn.Release()
 
 	tx, _ := conn.Begin(r.Context())
 	defer tx.Rollback(r.Context())
@@ -309,7 +310,7 @@ func (rh *RoleHandler) GetAllUserRoles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := rh.DB.Acquire(r.Context())
 	if err != nil {
 		rh.Logger.Error(
 			"Error while processing request",
@@ -321,6 +322,7 @@ func (rh *RoleHandler) GetAllUserRoles(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	defer conn.Release()
 
 	tx, _ := conn.Begin(r.Context())
 	defer tx.Rollback(r.Context())
@@ -365,7 +367,7 @@ func (rh *RoleHandler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := rh.DB.Acquire(r.Context())
 	if err != nil {
 		rh.Logger.Error(
 			"Error while processing request",
@@ -377,6 +379,7 @@ func (rh *RoleHandler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	defer conn.Release()
 
 	tx, _ := conn.Begin(r.Context())
 	defer tx.Rollback(r.Context())
@@ -455,7 +458,7 @@ func (rh *RoleHandler) GetRolePermissions(
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := rh.DB.Acquire(r.Context())
 	if err != nil {
 		rh.Logger.Error(
 			"Error while processing request",
@@ -467,6 +470,7 @@ func (rh *RoleHandler) GetRolePermissions(
 		})
 		return
 	}
+	defer conn.Release()
 
 	tx, _ := conn.Begin(r.Context())
 	defer tx.Rollback(r.Context())
@@ -532,7 +536,7 @@ func (rh *RoleHandler) AssignUserRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := rh.DB.Acquire(r.Context())
 	if err != nil {
 		rh.Logger.Error(
 			"Error while processing request",
@@ -544,6 +548,7 @@ func (rh *RoleHandler) AssignUserRole(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	defer conn.Release()
 
 	tx, _ := conn.Begin(r.Context())
 	defer tx.Rollback(r.Context())
@@ -624,7 +629,7 @@ func (rh *RoleHandler) RevokeUserRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	conn, err := middleware.GetDBConnFromContext(r.Context())
+	conn, err := rh.DB.Acquire(r.Context())
 	if err != nil {
 		rh.Logger.Error(
 			"Error while processing request",
@@ -636,6 +641,7 @@ func (rh *RoleHandler) RevokeUserRole(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	defer conn.Release()
 
 	tx, _ := conn.Begin(r.Context())
 	defer tx.Rollback(r.Context())

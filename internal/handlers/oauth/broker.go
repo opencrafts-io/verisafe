@@ -95,7 +95,7 @@ type ReauthorizationRequiredResponse struct {
 	AuthorizationMethod string `json:"authorization_method"`
 }
 
-func (h *OAuthBrokerHandler) RegisterHandlers(router *http.ServeMux) {
+func (h *OAuthBrokerHandler) RegisterHandlers(router core.Router) {
 	router.Handle("POST /oauth/{provider}/token",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(h.Cfg, h.DB, h.Cacher, h.Logger),
