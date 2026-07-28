@@ -994,6 +994,9 @@ func (ah *AccountHandler) SearchAccountsByEmail(
 // SearchAccountsByName godoc
 //
 // @Summary      Search accounts by name
+// @Description  Returns accounts whose name matches the query, paginated with
+// @Description  limit/offset. Matching is on the account's display name; use
+// @Description  the username or email search endpoints for those fields.
 // @Tags         accounts
 // @Produce      json
 // @Param        q       query  string  true   "Name search query"
@@ -1191,6 +1194,9 @@ func (ah *AccountHandler) GetAllUserAccounts(
 // SearchAccountsByUsername godoc
 //
 // @Summary      Search accounts by username
+// @Description  Returns accounts whose username matches the query, paginated
+// @Description  with limit/offset. Usernames are unique, so a full-value query
+// @Description  yields at most one result.
 // @Tags         accounts
 // @Produce      json
 // @Param        q       query  string  true   "Username search query"

@@ -87,6 +87,10 @@ func (rh *RoleHandler) RegisterHandlers(
 // CreateRole godoc
 //
 // @Summary      Create a role
+// @Description  Creates a new role. Roles are the unit RBAC permissions attach
+// @Description  to: assigning a role to an account grants that account every
+// @Description  permission the role holds.
+// @Description  Requires the create:role permission.
 // @Tags         roles
 // @Accept       json
 // @Produce      json
@@ -156,6 +160,9 @@ func (rh *RoleHandler) CreateRole(w http.ResponseWriter, r *http.Request) {
 // GetRoleByID godoc
 //
 // @Summary      Get a role by id
+// @Description  Returns a single role by its UUID. Responds 404 when no role
+// @Description  carries that id.
+// @Description  Requires the read:role:any permission.
 // @Tags         roles
 // @Produce      json
 // @Param        id  path  string  true  "Role ID"
@@ -224,6 +231,10 @@ func (rh *RoleHandler) GetRoleByID(w http.ResponseWriter, r *http.Request) {
 // GetAllRoles godoc
 //
 // @Summary      List roles
+// @Description  Returns a paginated list of every role defined in the system.
+// @Description  Paginated with limit/offset; the response is a bare array, not
+// @Description  an envelope.
+// @Description  Requires the read:role:any permission.
 // @Tags         roles
 // @Produce      json
 // @Param        limit   query  int  false  "Page size (default 10, max 100)"
@@ -274,6 +285,8 @@ func (rh *RoleHandler) GetAllRoles(w http.ResponseWriter, r *http.Request) {
 // GetAllUserRoles godoc
 //
 // @Summary      List a given user's roles
+// @Description  Returns every role currently assigned to the given account.
+// @Description  Requires the read:role:any permission.
 // @Tags         roles
 // @Produce      json
 // @Param        id  path  string  true  "Account ID"
@@ -413,6 +426,10 @@ func (rh *RoleHandler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 // GetRolePermissions godoc
 //
 // @Summary      List permissions granted to a role
+// @Description  Returns every permission attached to the given role. These are
+// @Description  the permissions an account inherits when the role is assigned
+// @Description  to it.
+// @Description  Requires the read:role:permissions permission.
 // @Tags         roles
 // @Produce      json
 // @Param        id  path  string  true  "Role ID"
@@ -476,6 +493,11 @@ func (rh *RoleHandler) GetRolePermissions(
 // AssignUserRole godoc
 //
 // @Summary      Assign a role to a user
+// @Description  Grants a role to an account, transitively granting the account
+// @Description  every permission that role holds. Not idempotent: user_roles is
+// @Description  keyed on (user_id, role_id), so re-assigning a role the account
+// @Description  already holds fails the primary key and returns 500.
+// @Description  Requires the assign:role:any permission.
 // @Tags         roles
 // @Produce      json
 // @Param        user_id  path  string  true  "Account ID"
@@ -564,6 +586,10 @@ func (rh *RoleHandler) AssignUserRole(w http.ResponseWriter, r *http.Request) {
 // RevokeUserRole godoc
 //
 // @Summary      Revoke a role from a user
+// @Description  Removes a role from an account, withdrawing every permission
+// @Description  the account held only through that role. Permissions the
+// @Description  account also holds via another role are unaffected.
+// @Description  Requires the revoke:role:any permission.
 // @Tags         roles
 // @Produce      json
 // @Param        user_id  path  string  true  "Account ID"

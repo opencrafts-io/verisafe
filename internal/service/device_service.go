@@ -12,7 +12,7 @@ import (
 	"github.com/opencrafts-io/verisafe/internal/repository"
 )
 
-//go:generate mockgen -source=../repository/querier.go -destination=mocks/mock_querier.go -package=mockservice
+//go:generate go tool mockgen -source=../repository/querier.go -destination=mocks/mock_querier.go -package=mockservice
 
 // DeviceRegistrationInput is the input coming from the transport layer.
 type DeviceRegistrationInput struct {

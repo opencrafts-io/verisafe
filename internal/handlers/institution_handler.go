@@ -103,6 +103,9 @@ func (ih *InstitutionHandler) RegisterHandlers(
 // RegisterInstitution godoc
 //
 // @Summary      Register a new institution
+// @Description  Creates an institution record. Institutions are the entities
+// @Description  accounts are linked to; creating one does not link anybody to
+// @Description  it. Publishes an institution-created event.
 // @Tags         institutions
 // @Accept       json
 // @Produce      json
@@ -179,6 +182,8 @@ func (ih *InstitutionHandler) RegisterInstitution(
 // UpdateInstitutionDetails godoc
 //
 // @Summary      Update an institution's details
+// @Description  Updates an institution in place. Existing account links are
+// @Description  preserved. Publishes an institution-updated event.
 // @Tags         institutions
 // @Accept       json
 // @Produce      json
@@ -268,6 +273,8 @@ func (ih *InstitutionHandler) UpdateInstitutionDetails(
 // GetInstitutionByID godoc
 //
 // @Summary      Get an institution by id
+// @Description  Returns a single institution by its UUID. Responds 404 when no
+// @Description  institution carries that id.
 // @Tags         institutions
 // @Produce      json
 // @Param        id  path  int  true  "Institution ID"
@@ -321,6 +328,9 @@ func (ih *InstitutionHandler) GetInstitutionByID(
 // GetAllInstitutions godoc
 //
 // @Summary      List institutions
+// @Description  Returns a paginated list of every registered institution.
+// @Description  Paginated with limit/offset; the response is a bare array, not
+// @Description  an envelope.
 // @Tags         institutions
 // @Produce      json
 // @Param        limit   query  int  false  "Page size (default 10, max 100)"
@@ -375,7 +385,11 @@ func (ih *InstitutionHandler) GetAllInstitutions(
 // DeleteInstitution godoc
 //
 // @Summary      Delete an institution
+// @Description  Permanently deletes an institution. Account links to it are
+// @Description  removed by the cascade on account_institutions. Publishes an
+// @Description  institution-deleted event. Returns 204 with no body on success.
 // @Tags         institutions
+// @Produce      json
 // @Param        id  path  int  true  "Institution ID"
 // @Success      204  "No Content"
 // @Failure      400  {object}  core.APIError  "Invalid id"
@@ -460,6 +474,8 @@ func (ih *InstitutionHandler) DeleteInstitution(
 // SearchInstitutions godoc
 //
 // @Summary      Search institutions by name
+// @Description  Returns institutions whose name matches the query, paginated
+// @Description  with limit/offset.
 // @Tags         institutions
 // @Produce      json
 // @Param        q       query  string  true   "Name search query"
@@ -715,6 +731,9 @@ func (ih *InstitutionHandler) ListInstitutionForAccount(
 // ListAccountsForInstitution godoc
 //
 // @Summary      List accounts linked to a given institution
+// @Description  Returns the accounts linked to the institution, paginated with
+// @Description  limit/offset. This is the inverse of listing an account's
+// @Description  institutions.
 // @Tags         institutions
 // @Produce      json
 // @Param        institution_id  query  int  true   "Institution ID"

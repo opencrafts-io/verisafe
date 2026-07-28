@@ -361,6 +361,10 @@ func (ah *ActivityHandler) UpdateActivity(
 // GetAllInactiveActivities godoc
 //
 // @Summary      List inactive activity definitions
+// @Description  Returns activity definitions that are currently disabled, so
+// @Description  completions against them are no longer accepted. Paginated with
+// @Description  page/page_size; the response is a count/next/previous/results
+// @Description  envelope.
 // @Tags         activities
 // @Produce      json
 // @Param        page       query  int  false  "Page number (default 1)"
@@ -455,6 +459,9 @@ func (ah *ActivityHandler) GetAllInactiveActivities(
 // GetAllActiveActivities godoc
 //
 // @Summary      List active activity definitions
+// @Description  Returns activity definitions users can currently earn
+// @Description  completions against. Paginated with page/page_size; the
+// @Description  response is a count/next/previous/results envelope.
 // @Tags         activities
 // @Produce      json
 // @Param        page       query  int  false  "Page number (default 1)"
@@ -549,6 +556,9 @@ func (ah *ActivityHandler) GetAllActiveActivities(
 // GetAllActivities godoc
 //
 // @Summary      List all activity definitions
+// @Description  Returns every activity definition regardless of active state.
+// @Description  Paginated with page/page_size; the response is a
+// @Description  count/next/previous/results envelope.
 // @Tags         activities
 // @Produce      json
 // @Param        page       query  int  false  "Page number (default 1)"

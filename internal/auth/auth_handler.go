@@ -185,6 +185,7 @@ func (h *AuthHandler) storeAuthCode(
 // @Summary      Start OAuth2 login
 // @Description  Redirects the client to the given OAuth2 provider to begin a login. Omit "platform" (or pass anything other than "web") for the mobile flow. Pass platform=web with a redirect_uri that's in the server-side allowlist for the web flow.
 // @Tags         auth
+// @Produce      json
 // @Param        provider      path   string  true   "OAuth2 provider"  Enums(google, spotify, apple)
 // @Param        platform      query  string  false  "Set to 'web' for the web flow; omitted defaults to mobile"
 // @Param        redirect_uri  query  string  false  "Required when platform=web; must be in the configured allowlist"
@@ -288,6 +289,7 @@ func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 // @Summary      OAuth2 provider callback
 // @Description  Completes an OAuth2 login started by LoginHandler. Not called directly by clients — the provider redirects here (Apple posts via application/x-www-form-urlencoded). On success, redirects to redirect_uri with cookies set (web) or to the deep link with a one-time opaque code (mobile).
 // @Tags         auth
+// @Produce      json
 // @Param        provider  path  string  true  "OAuth2 provider"  Enums(google, spotify, apple)
 // @Success      302  "Redirects to redirect_uri (web) or the deep link (mobile)"
 // @Failure      400  {object}  core.APIError  "Missing provider or malformed/missing state"
@@ -597,6 +599,7 @@ func (h *AuthHandler) RevokeTokenHandler(
 // @Summary      Log out of the OAuth2 provider session
 // @Description  Clears the goth/gothic OAuth2 session for the given provider. This is not the same as token revocation — call RevokeTokenHandler too if the client also wants to invalidate its JWT/refresh token.
 // @Tags         auth
+// @Produce      json
 // @Param        provider  path  string  true  "OAuth2 provider"  Enums(google, spotify, apple)
 // @Success      307  "Redirects to /"
 // @Failure      400  {object}  core.APIError  "Missing provider"

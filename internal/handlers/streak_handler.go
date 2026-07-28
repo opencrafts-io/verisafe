@@ -233,6 +233,9 @@ func (sh *StreakHandler) CreateStreakMilestone(
 // GetAllActiveStreakAchievements godoc
 //
 // @Summary      List active streak milestones
+// @Description  Returns the streak milestones users can currently reach.
+// @Description  Paginated with page/page_size; the response is a
+// @Description  count/next/previous/results envelope.
 // @Tags         streaks
 // @Produce      json
 // @Param        page       query  int  false  "Page number (default 1)"

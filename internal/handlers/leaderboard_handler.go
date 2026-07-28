@@ -101,6 +101,9 @@ func (lh *LeaderBoardHandler) GetGlobalUserRank(
 // GetGlobalLeaderBoard godoc
 //
 // @Summary      Get the global leaderboard
+// @Description  Returns the global vibepoint ranking across all accounts.
+// @Description  Paginated with page/page_size; the response is a
+// @Description  count/next/previous/results envelope.
 // @Tags         leaderboard
 // @Produce      json
 // @Param        page       query  int  false  "Page number (default 1)"

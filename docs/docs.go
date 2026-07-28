@@ -462,6 +462,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
+                "description": "Returns accounts whose name matches the query, paginated with\nlimit/offset. Matching is on the account's display name; use\nthe username or email search endpoints for those fields.",
                 "produces": [
                     "application/json"
                 ],
@@ -523,6 +524,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
+                "description": "Returns accounts whose username matches the query, paginated\nwith limit/offset. Usernames are unique, so a full-value query\nyields at most one result.",
                 "produces": [
                     "application/json"
                 ],
@@ -584,6 +586,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
+                "description": "Returns activity definitions users can currently earn\ncompletions against. Paginated with page/page_size; the\nresponse is a count/next/previous/results envelope.",
                 "produces": [
                     "application/json"
                 ],
@@ -685,6 +688,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
+                "description": "Returns every activity definition regardless of active state.\nPaginated with page/page_size; the response is a\ncount/next/previous/results envelope.",
                 "produces": [
                     "application/json"
                 ],
@@ -732,6 +736,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
+                "description": "Returns activity definitions that are currently disabled, so\ncompletions against them are no longer accepted. Paginated with\npage/page_size; the response is a count/next/previous/results\nenvelope.",
                 "produces": [
                     "application/json"
                 ],
@@ -888,6 +893,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
+                "description": "Returns active service tokens across every account, as metadata only. Unlike the per-account listing this is not scoped to the caller, so it requires an admin permission.",
                 "produces": [
                     "application/json"
                 ],
@@ -924,6 +930,10 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
+                "description": "Sweeps expired service tokens across all accounts. Despite the name this is a soft delete: rows are retained and stamped with revoked_at, not removed. Housekeeping only, since an expired token already fails authentication before this runs. Returns 204 with no body on success.",
+                "produces": [
+                    "application/json"
+                ],
                 "tags": [
                     "service-tokens"
                 ],
@@ -951,6 +961,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
+                "description": "Returns the caller's service tokens as metadata only. Raw token values are never returned here, only at creation and rotation.",
                 "produces": [
                     "application/json"
                 ],
@@ -991,6 +1002,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
+                "description": "Mints a service token for machine-to-machine calls, presented as X-Api-Key rather than a Bearer JWT. The raw token value is returned only in this response and is not recoverable afterwards; only its hash is stored.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1050,6 +1062,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
+                "description": "Returns aggregate counts over the caller's own service tokens, such as how many are active, expired, or revoked.",
                 "produces": [
                     "application/json"
                 ],
@@ -1220,6 +1233,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Requires revoke:service_token:own for the caller's own tokens, or revoke:service_token:any for any account's token.",
+                "produces": [
+                    "application/json"
+                ],
                 "tags": [
                     "service-tokens"
                 ],
@@ -1473,6 +1489,9 @@ const docTemplate = `{
         "/auth/{provider}": {
             "get": {
                 "description": "Redirects the client to the given OAuth2 provider to begin a login. Omit \"platform\" (or pass anything other than \"web\") for the mobile flow. Pass platform=web with a redirect_uri that's in the server-side allowlist for the web flow.",
+                "produces": [
+                    "application/json"
+                ],
                 "tags": [
                     "auth"
                 ],
@@ -1543,6 +1562,9 @@ const docTemplate = `{
         "/auth/{provider}/callback": {
             "get": {
                 "description": "Completes an OAuth2 login started by LoginHandler. Not called directly by clients — the provider redirects here (Apple posts via application/x-www-form-urlencoded). On success, redirects to redirect_uri with cookies set (web) or to the deep link with a one-time opaque code (mobile).",
+                "produces": [
+                    "application/json"
+                ],
                 "tags": [
                     "auth"
                 ],
@@ -1581,6 +1603,9 @@ const docTemplate = `{
             },
             "post": {
                 "description": "Completes an OAuth2 login started by LoginHandler. Not called directly by clients — the provider redirects here (Apple posts via application/x-www-form-urlencoded). On success, redirects to redirect_uri with cookies set (web) or to the deep link with a one-time opaque code (mobile).",
+                "produces": [
+                    "application/json"
+                ],
                 "tags": [
                     "auth"
                 ],
@@ -1626,6 +1651,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Clears the goth/gothic OAuth2 session for the given provider. This is not the same as token revocation — call RevokeTokenHandler too if the client also wants to invalidate its JWT/refresh token.",
+                "produces": [
+                    "application/json"
+                ],
                 "tags": [
                     "auth"
                 ],
@@ -1835,6 +1863,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
+                "description": "Returns the accounts linked to the institution, paginated with\nlimit/offset. This is the inverse of listing an account's\ninstitutions.",
                 "produces": [
                     "application/json"
                 ],
@@ -1935,6 +1964,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
+                "description": "Returns a paginated list of every registered institution.\nPaginated with limit/offset; the response is a bare array, not\nan envelope.",
                 "produces": [
                     "application/json"
                 ],
@@ -1984,6 +2014,10 @@ const docTemplate = `{
                     {
                         "ApiKey": []
                     }
+                ],
+                "description": "Permanently deletes an institution. Account links to it are\nremoved by the cascade on account_institutions. Publishes an\ninstitution-deleted event. Returns 204 with no body on success.",
+                "produces": [
+                    "application/json"
                 ],
                 "tags": [
                     "institutions"
@@ -2068,6 +2102,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
+                "description": "Returns a single institution by its UUID. Responds 404 when no\ninstitution carries that id.",
                 "produces": [
                     "application/json"
                 ],
@@ -2180,6 +2215,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
+                "description": "Creates an institution record. Institutions are the entities\naccounts are linked to; creating one does not link anybody to\nit. Publishes an institution-created event.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2233,6 +2269,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
+                "description": "Returns institutions whose name matches the query, paginated\nwith limit/offset.",
                 "produces": [
                     "application/json"
                 ],
@@ -2296,6 +2333,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
+                "description": "Updates an institution in place. Existing account links are\npreserved. Publishes an institution-updated event.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2356,6 +2394,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
+                "description": "Returns the global vibepoint ranking across all accounts.\nPaginated with page/page_size; the response is a\ncount/next/previous/results envelope.",
                 "produces": [
                     "application/json"
                 ],
@@ -2593,6 +2632,9 @@ const docTemplate = `{
         "/oauth/{provider}/callback": {
             "get": {
                 "description": "Completes a scope upgrade started by the authorize endpoint. Not called by clients — the provider redirects the user's browser here. Records the scopes the provider reports as granted and returns the user to the app. Deliberately issues no session: no token family, no device registration, no cookies, so the caller's existing session survives the round trip.",
+                "produces": [
+                    "application/json"
+                ],
                 "tags": [
                     "oauth"
                 ],
@@ -2857,6 +2899,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
+                "description": "Returns a paginated list of every permission defined in the\nsystem. Paginated with limit/offset; the response is a bare\narray, not an envelope.\nRequires the read:permission:any permission.",
                 "produces": [
                     "application/json"
                 ],
@@ -2907,6 +2950,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
+                "description": "Attaches a permission to a role, granting it to every account\nthat holds the role. Not idempotent: role_permissions is keyed\non (role_id, permission_id), so re-granting a permission the\nrole already holds fails the primary key and returns 500.\nRequires the assign:permission:role permission.",
                 "produces": [
                     "application/json"
                 ],
@@ -3017,6 +3061,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
+                "description": "Detaches a permission from a role, withdrawing it from every\naccount that held it only through this role. Accounts holding\nthe same permission via another role keep it.\nRequires the revoke:permission:role permission.",
                 "produces": [
                     "application/json"
                 ],
@@ -3073,6 +3118,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
+                "description": "Returns the permissions the account effectively holds, resolved\nthrough every role assigned to it. Permissions are never\nattached to an account directly, only via a role.\nRequires the read:permission:user permission.",
                 "produces": [
                     "application/json"
                 ],
@@ -3124,6 +3170,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
+                "description": "Returns a single permission by its UUID. Responds 404 when no\npermission carries that id.\nRequires the read:permission:any permission.",
                 "produces": [
                     "application/json"
                 ],
@@ -3176,6 +3223,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
+                "description": "Updates a permission in place. Every role holding it, and every\naccount holding those roles, sees the change immediately.\nRequires the update:permission:any permission.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3219,6 +3267,27 @@ const docTemplate = `{
                 }
             }
         },
+        "/ping": {
+            "get": {
+                "description": "Returns 200 with a fixed message whenever the process is\nserving. This is a liveness check only: it does not touch the\ndatabase, Redis, or RabbitMQ, so a 200 here does not imply any\ndependency is reachable. Unauthenticated by design.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "health"
+                ],
+                "summary": "Liveness probe",
+                "responses": {
+                    "200": {
+                        "description": "Fixed liveness message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/roles": {
             "get": {
                 "security": [
@@ -3229,6 +3298,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
+                "description": "Returns a paginated list of every role defined in the system.\nPaginated with limit/offset; the response is a bare array, not\nan envelope.\nRequires the read:role:any permission.",
                 "produces": [
                     "application/json"
                 ],
@@ -3279,6 +3349,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
+                "description": "Grants a role to an account, transitively granting the account\nevery permission that role holds. Not idempotent: user_roles is\nkeyed on (user_id, role_id), so re-assigning a role the account\nalready holds fails the primary key and returns 500.\nRequires the assign:role:any permission.",
                 "produces": [
                     "application/json"
                 ],
@@ -3335,6 +3406,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
+                "description": "Creates a new role. Roles are the unit RBAC permissions attach\nto: assigning a role to an account grants that account every\npermission the role holds.\nRequires the create:role permission.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3388,6 +3460,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
+                "description": "Returns every permission attached to the given role. These are\nthe permissions an account inherits when the role is assigned\nto it.\nRequires the read:role:permissions permission.",
                 "produces": [
                     "application/json"
                 ],
@@ -3439,6 +3512,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
+                "description": "Removes a role from an account, withdrawing every permission\nthe account held only through that role. Permissions the\naccount also holds via another role are unaffected.\nRequires the revoke:role:any permission.",
                 "produces": [
                     "application/json"
                 ],
@@ -3495,6 +3569,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
+                "description": "Returns every role currently assigned to the given account.\nRequires the read:role:any permission.",
                 "produces": [
                     "application/json"
                 ],
@@ -3546,6 +3621,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
+                "description": "Returns a single role by its UUID. Responds 404 when no role\ncarries that id.\nRequires the read:role:any permission.",
                 "produces": [
                     "application/json"
                 ],
@@ -3754,6 +3830,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
+                "description": "Returns the streak milestones users can currently reach.\nPaginated with page/page_size; the response is a\ncount/next/previous/results envelope.",
                 "produces": [
                     "application/json"
                 ],

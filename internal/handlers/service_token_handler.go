@@ -139,6 +139,7 @@ func (sth *ServiceTokenHandler) RegisterHandlers(router *http.ServeMux) {
 // CreateServiceToken godoc
 //
 // @Summary      Create a service token for the authenticated account
+// @Description  Mints a service token for machine-to-machine calls, presented as X-Api-Key rather than a Bearer JWT. The raw token value is returned only in this response and is not recoverable afterwards; only its hash is stored.
 // @Tags         service-tokens
 // @Accept       json
 // @Produce      json
@@ -364,6 +365,7 @@ func (sth *ServiceTokenHandler) CreateServiceToken(
 // ListServiceTokens godoc
 //
 // @Summary      List the authenticated account's own service tokens
+// @Description  Returns the caller's service tokens as metadata only. Raw token values are never returned here, only at creation and rotation.
 // @Tags         service-tokens
 // @Produce      json
 // @Success      200  {array}   handlers.ServiceTokenResponse
@@ -721,7 +723,6 @@ func (sth *ServiceTokenHandler) UpdateServiceToken(
 // @Security     BearerToken
 // @Security     ApiKey
 // @Router       /api/v1/service-tokens/{id}/rotate [post]
-// RotateServiceToken rotates a service token
 func (sth *ServiceTokenHandler) RotateServiceToken(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -873,6 +874,7 @@ func (sth *ServiceTokenHandler) RotateServiceToken(
 // RevokeServiceToken godoc
 //
 // @Summary      Revoke a service token
+// @Produce      json
 // @Description  Requires revoke:service_token:own for the caller's own tokens, or revoke:service_token:any for any account's token.
 // @Tags         service-tokens
 // @Param        id  path  string  true  "Service token ID"
@@ -995,6 +997,7 @@ func (sth *ServiceTokenHandler) RevokeServiceToken(
 // GetServiceTokenStats godoc
 //
 // @Summary      Get usage statistics for the authenticated account's service tokens
+// @Description  Returns aggregate counts over the caller's own service tokens, such as how many are active, expired, or revoked.
 // @Tags         service-tokens
 // @Produce      json
 // @Success      200  {object}  handlers.ServiceTokenStats
@@ -1063,6 +1066,7 @@ func (sth *ServiceTokenHandler) GetServiceTokenStats(
 // ListAllServiceTokens godoc
 //
 // @Summary      List all active service tokens (admin)
+// @Description  Returns active service tokens across every account, as metadata only. Unlike the per-account listing this is not scoped to the caller, so it requires an admin permission.
 // @Tags         service-tokens
 // @Produce      json
 // @Success      200  {array}   handlers.ServiceTokenResponse
@@ -1113,13 +1117,14 @@ func (sth *ServiceTokenHandler) ListAllServiceTokens(
 // CleanupExpiredTokens godoc
 //
 // @Summary      Delete expired service tokens (admin)
+// @Description  Sweeps expired service tokens across all accounts. Despite the name this is a soft delete: rows are retained and stamped with revoked_at, not removed. Housekeeping only, since an expired token already fails authentication before this runs. Returns 204 with no body on success.
 // @Tags         service-tokens
+// @Produce      json
 // @Success      204  "No Content"
 // @Failure      500  {object}  core.APIError  "Failed to clean up expired tokens"
 // @Security     BearerToken
 // @Security     ApiKey
 // @Router       /api/v1/admin/service-tokens/cleanup [post]
-// CleanupExpiredTokens cleans up expired tokens (admin only)
 func (sth *ServiceTokenHandler) CleanupExpiredTokens(
 	w http.ResponseWriter,
 	r *http.Request,

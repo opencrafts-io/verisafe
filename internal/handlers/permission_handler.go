@@ -155,6 +155,9 @@ func (ph *PermissionHandler) CreatePermission(
 // GetPermissionByID godoc
 //
 // @Summary      Get a permission by id
+// @Description  Returns a single permission by its UUID. Responds 404 when no
+// @Description  permission carries that id.
+// @Description  Requires the read:permission:any permission.
 // @Tags         permissions
 // @Produce      json
 // @Param        id  path  string  true  "Permission ID"
@@ -224,6 +227,10 @@ func (ph *PermissionHandler) GetPermissionByID(
 // GetAllPermissions godoc
 //
 // @Summary      List permissions
+// @Description  Returns a paginated list of every permission defined in the
+// @Description  system. Paginated with limit/offset; the response is a bare
+// @Description  array, not an envelope.
+// @Description  Requires the read:permission:any permission.
 // @Tags         permissions
 // @Produce      json
 // @Param        limit   query  int  false  "Page size (default 10, max 100)"
@@ -283,6 +290,10 @@ func (ph *PermissionHandler) GetAllPermissions(
 // GetAllUserPermissions godoc
 //
 // @Summary      List a given user's effective permissions
+// @Description  Returns the permissions the account effectively holds, resolved
+// @Description  through every role assigned to it. Permissions are never
+// @Description  attached to an account directly, only via a role.
+// @Description  Requires the read:permission:user permission.
 // @Tags         permissions
 // @Produce      json
 // @Param        id  path  string  true  "Account ID"
@@ -345,6 +356,9 @@ func (ph *PermissionHandler) GetAllUserPermissions(
 // UpdatePermission godoc
 //
 // @Summary      Update a permission
+// @Description  Updates a permission in place. Every role holding it, and every
+// @Description  account holding those roles, sees the change immediately.
+// @Description  Requires the update:permission:any permission.
 // @Tags         permissions
 // @Accept       json
 // @Produce      json
@@ -420,6 +434,11 @@ func (ph *PermissionHandler) UpdatePermission(
 // AssignRolePermission godoc
 //
 // @Summary      Grant a permission to a role
+// @Description  Attaches a permission to a role, granting it to every account
+// @Description  that holds the role. Not idempotent: role_permissions is keyed
+// @Description  on (role_id, permission_id), so re-granting a permission the
+// @Description  role already holds fails the primary key and returns 500.
+// @Description  Requires the assign:permission:role permission.
 // @Tags         permissions
 // @Produce      json
 // @Param        perm_id  path  string  true  "Permission ID"
@@ -514,6 +533,10 @@ func (ph *PermissionHandler) AssignRolePermission(
 // RevokeRolePermission godoc
 //
 // @Summary      Revoke a permission from a role
+// @Description  Detaches a permission from a role, withdrawing it from every
+// @Description  account that held it only through this role. Accounts holding
+// @Description  the same permission via another role keep it.
+// @Description  Requires the revoke:permission:role permission.
 // @Tags         permissions
 // @Produce      json
 // @Param        perm_id  path  string  true  "Permission ID"

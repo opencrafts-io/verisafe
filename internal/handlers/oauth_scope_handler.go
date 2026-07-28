@@ -261,6 +261,7 @@ func (h *OAuthScopeHandler) StartScopeUpgrade(
 // @Summary      Provider callback for incremental authorization
 // @Description  Completes a scope upgrade started by the authorize endpoint. Not called by clients — the provider redirects the user's browser here. Records the scopes the provider reports as granted and returns the user to the app. Deliberately issues no session: no token family, no device registration, no cookies, so the caller's existing session survives the round trip.
 // @Tags         oauth
+// @Produce      json
 // @Param        provider  path   string  true   "OAuth2 provider"  Enums(google, spotify)
 // @Param        state     query  string  true   "Opaque state handle issued by the authorize endpoint"
 // @Param        code      query  string  false  "Authorization code from the provider"
