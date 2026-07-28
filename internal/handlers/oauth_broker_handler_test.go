@@ -1,7 +1,6 @@
 package handlers_test
 
 import (
-	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -42,7 +41,7 @@ func newBrokerRequest(
 	req.SetPathValue("provider", provider)
 	if asService {
 		req = req.WithContext(
-			context.WithValue(req.Context(), middleware.AuthIsServiceToken, true),
+			middleware.WithServiceToken(req.Context(), true),
 		)
 	}
 	return httptest.NewRecorder(), req
@@ -118,7 +117,7 @@ func TestListAccountGrants_BadAccountID(t *testing.T) {
 	h := brokerHandler()
 	req := httptest.NewRequest("GET", "/oauth/grants?account_id=nope", nil)
 	req = req.WithContext(
-		context.WithValue(req.Context(), middleware.AuthIsServiceToken, true),
+		middleware.WithServiceToken(req.Context(), true),
 	)
 	rr := httptest.NewRecorder()
 

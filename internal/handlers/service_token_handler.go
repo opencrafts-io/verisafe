@@ -492,7 +492,7 @@ func (sth *ServiceTokenHandler) GetServiceToken(
 	}
 
 	// Verify ownership (unless admin)
-	perms := r.Context().Value(middleware.AuthUserPerms).([]string)
+	perms := middleware.PermissionsFromContext(r.Context())
 	isAdmin := false
 	for _, perm := range perms {
 		if perm == "read:service_token:any" {
@@ -599,7 +599,7 @@ func (sth *ServiceTokenHandler) UpdateServiceToken(
 	}
 
 	// Verify ownership (unless admin)
-	perms := r.Context().Value(middleware.AuthUserPerms).([]string)
+	perms := middleware.PermissionsFromContext(r.Context())
 	isAdmin := false
 	for _, perm := range perms {
 		if perm == "update:service_token:any" {
@@ -785,7 +785,7 @@ func (sth *ServiceTokenHandler) RotateServiceToken(
 	}
 
 	// Verify ownership (unless admin)
-	perms := r.Context().Value(middleware.AuthUserPerms).([]string)
+	perms := middleware.PermissionsFromContext(r.Context())
 	isAdmin := false
 	for _, perm := range perms {
 		if perm == "rotate:service_token:any" {
@@ -949,7 +949,7 @@ func (sth *ServiceTokenHandler) RevokeServiceToken(
 	}
 
 	// Verify ownership (unless admin)
-	perms := r.Context().Value(middleware.AuthUserPerms).([]string)
+	perms := middleware.PermissionsFromContext(r.Context())
 	isAdmin := false
 	for _, perm := range perms {
 		if perm == "revoke:service_token:any" {

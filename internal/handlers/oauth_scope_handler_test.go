@@ -153,7 +153,7 @@ func newAuthorizeRequest(t *testing.T, provider, body, subject string) (*httptes
 			RegisteredClaims: jwt.RegisteredClaims{Subject: subject},
 		}
 		req = req.WithContext(
-			context.WithValue(req.Context(), middleware.AuthUserClaims, claims),
+			middleware.WithClaims(req.Context(), claims),
 		)
 	}
 	return httptest.NewRecorder(), req
