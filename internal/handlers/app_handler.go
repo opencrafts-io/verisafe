@@ -1,20 +1,11 @@
 package handlers
 
-import (
-	"net/http"
+import "github.com/opencrafts-io/verisafe/internal/core"
 
-	"github.com/opencrafts-io/verisafe/internal/core"
-)
-
-// AppHandler is a http.HandlerFunc that can return an error.
-// Use it instead of http.HandlerFunc when you want centralised error handling.
-type AppHandler func(w http.ResponseWriter, r *http.Request) error
-
-// ServeHTTP implements http.Handler, adapting AppHandler into the standard library.
-// All error-to-HTTP mapping lives in core.HandleError — handlers never touch
-// w.WriteHeader for errors.
-func (h AppHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if err := h(w, r); err != nil {
-		core.HandleError(w, err)
-	}
-}
+// AppHandler is an alias for core.AppHandler, kept so the existing in-package
+// call sites keep reading as AppHandler(h.Something).
+//
+// This is a type alias rather than a defined type, so handlers.AppHandler and
+// core.AppHandler are the same type: a value of one satisfies a parameter of
+// the other and no conversion is needed anywhere.
+type AppHandler = core.AppHandler

@@ -22,7 +22,6 @@ import (
 	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/eventbus"
 	"github.com/opencrafts-io/verisafe/internal/geo"
-	"github.com/opencrafts-io/verisafe/internal/handlers"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/providers"
 	"github.com/opencrafts-io/verisafe/internal/repository"
@@ -128,17 +127,17 @@ func (h *AuthHandler) RegisterHandlers(router *http.ServeMux) {
 	router.HandleFunc("/auth/{provider}/callback", h.CallbackHandler)
 	router.Handle(
 		"POST /auth/token/exchange",
-		handlers.AppHandler(h.ExchangeAuthCodeHandler),
+		core.AppHandler(h.ExchangeAuthCodeHandler),
 	)
 	router.Handle(
 		"POST /auth/token/refresh",
-		handlers.AppHandler(h.RefreshTokenHandler),
+		core.AppHandler(h.RefreshTokenHandler),
 	)
 	router.Handle(
 		"POST /auth/token/revoke",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(h.auth.config, h.db, h.cacher, h.logger),
-		)(handlers.AppHandler(h.RevokeTokenHandler)),
+		)(core.AppHandler(h.RevokeTokenHandler)),
 	)
 	router.Handle(
 		"GET /auth/{provider}/logout",
