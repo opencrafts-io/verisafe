@@ -171,7 +171,6 @@ func (a *App) Start(ctx context.Context) error {
 
 	middlewares := middleware.CreateStack(
 		middleware.Logging(a.logger),
-		middleware.WithDBConnection(a.logger, a.pool),
 		middleware.CORSMiddleware(allowedOrigins),
 	)
 	router := a.loadRoutes()
