@@ -70,11 +70,11 @@ type tokenResponse struct {
 }
 
 type AuthHandler struct {
-	geoLocator *geo.GeoIPLocater
+	geoLocator geo.IPLocater
 	auth       *Auth
 	db         core.IDBProvider
 	cacher     core.Cacher
-	eventBus   *eventbus.UserEventBus
+	eventBus   eventbus.UserPublisher
 	logger     *slog.Logger
 
 	// grants builds a GrantService bound to the caller's transaction, so a
@@ -88,9 +88,9 @@ func NewAuthHandler(
 	auth *Auth,
 	db core.IDBProvider,
 	cacher core.Cacher,
-	eventBus *eventbus.UserEventBus,
+	eventBus eventbus.UserPublisher,
 	logger *slog.Logger,
-	geoLocator *geo.GeoIPLocater,
+	geoLocator geo.IPLocater,
 ) *AuthHandler {
 	return &AuthHandler{
 		auth:       auth,

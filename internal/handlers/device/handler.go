@@ -16,7 +16,7 @@ import (
 )
 
 type DeviceHandler struct {
-	GeoLocator *geo.GeoIPLocater
+	GeoLocator geo.IPLocater
 	DB         core.IDBProvider
 	Cacher     core.Cacher
 	Logger     *slog.Logger

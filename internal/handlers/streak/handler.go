@@ -22,7 +22,7 @@ type StreakHandler struct {
 	DB                   core.IDBProvider
 	Cfg                  *config.Config
 	Logger               *slog.Logger
-	NotificationEventBus *eventbus.NotificationEventBus
+	NotificationEventBus eventbus.NotificationPublisher
 }
 
 func (sh *StreakHandler) RegisterHandlers(router core.Router) {

@@ -27,7 +27,7 @@ type InstitutionHandler struct {
 	DB                  core.IDBProvider
 	Logger              *slog.Logger
 	Cfg                 *config.Config
-	InstitutionEventBus *eventbus.InstitutionEventBus
+	InstitutionEventBus eventbus.InstitutionPublisher
 	Publisher           *broker.Publisher
 
 	// Pool is used only by FanoutInstitutions, an admin backfill that runs a

@@ -28,7 +28,7 @@ type AccountHandler struct {
 	DB           core.IDBProvider
 	Logger       *slog.Logger
 	Cfg          *config.Config
-	UserEventBus *eventbus.UserEventBus
+	UserEventBus eventbus.UserPublisher
 }
 
 func (ah *AccountHandler) RegisterHandlers(router core.Router) {
