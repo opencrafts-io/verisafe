@@ -24,6 +24,7 @@ import (
 	leaderboardsvc "github.com/opencrafts-io/verisafe/internal/service/leaderboard"
 	permsvc "github.com/opencrafts-io/verisafe/internal/service/permission"
 	rolesvc "github.com/opencrafts-io/verisafe/internal/service/role"
+	servicetokensvc "github.com/opencrafts-io/verisafe/internal/service/servicetoken"
 	socialsvc "github.com/opencrafts-io/verisafe/internal/service/social"
 	streaksvc "github.com/opencrafts-io/verisafe/internal/service/streak"
 	httpSwagger "github.com/swaggo/http-swagger"
@@ -66,10 +67,11 @@ func (a *App) loadRoutes() http.Handler {
 			Cfg:          a.config,
 		},
 		&servicetoken.ServiceTokenHandler{
-			DB:     db,
-			Cacher: a.cacher,
-			Logger: a.logger,
-			Cfg:    a.config,
+			DB:      db,
+			Service: servicetokensvc.NewService,
+			Cacher:  a.cacher,
+			Logger:  a.logger,
+			Cfg:     a.config,
 		},
 		&social.SocialHandler{
 			DB:      db,

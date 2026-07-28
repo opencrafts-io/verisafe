@@ -4,19 +4,23 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/opencrafts-io/verisafe/internal/config"
 	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/repository"
+	servicetokensvc "github.com/opencrafts-io/verisafe/internal/service/servicetoken"
 	"github.com/opencrafts-io/verisafe/internal/tokens"
 )
 
@@ -25,6 +29,21 @@ type ServiceTokenHandler struct {
 	DB     core.IDBProvider
 	Cfg    *config.Config
 	Logger *slog.Logger
+
+	// Service builds a service-token service bound to the caller's connection
+	// or transaction. Left nil it falls back to the real implementation; see
+	// the role handler for why this field is the testing seam, and the
+	// institution handler for why the parameter is repository.DBTX rather
+	// than pgx.Tx -- several read methods here query the acquired connection
+	// directly with no transaction at all.
+	Service func(repository.Querier) servicetokensvc.Service
+}
+
+func (sth *ServiceTokenHandler) svc(db repository.DBTX) servicetokensvc.Service {
+	if sth.Service != nil {
+		return sth.Service(repository.New(db))
+	}
+	return servicetokensvc.NewService(repository.New(db))
 }
 
 // RotationPolicy defines token rotation behavior. It lives here rather than
@@ -94,56 +113,143 @@ func (sth *ServiceTokenHandler) RegisterHandlers(router core.Router) {
 		middleware.CreateStack(
 			middleware.IsAuthenticated(sth.Cfg, sth.DB, sth.Cacher, sth.Logger),
 			middleware.HasPermission([]string{"create:service_token:own"}),
-		)(http.HandlerFunc(sth.CreateServiceToken)))
+		)(core.AppHandler(sth.CreateServiceToken)))
 
 	router.Handle("GET /api/v1/service-tokens",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(sth.Cfg, sth.DB, sth.Cacher, sth.Logger),
 			middleware.HasPermission([]string{"list:service_token:own"}),
-		)(http.HandlerFunc(sth.ListServiceTokens)))
+		)(core.AppHandler(sth.ListServiceTokens)))
 
 	router.Handle("GET /api/v1/service-tokens/{id}",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(sth.Cfg, sth.DB, sth.Cacher, sth.Logger),
 			middleware.HasPermission([]string{"read:service_token:own"}),
-		)(http.HandlerFunc(sth.GetServiceToken)))
+		)(core.AppHandler(sth.GetServiceToken)))
 
 	router.Handle("PUT /api/v1/service-tokens/{id}",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(sth.Cfg, sth.DB, sth.Cacher, sth.Logger),
 			middleware.HasPermission([]string{"update:service_token:own"}),
-		)(http.HandlerFunc(sth.UpdateServiceToken)))
+		)(core.AppHandler(sth.UpdateServiceToken)))
 
 	router.Handle("POST /api/v1/service-tokens/{id}/rotate",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(sth.Cfg, sth.DB, sth.Cacher, sth.Logger),
 			middleware.HasPermission([]string{"rotate:service_token:own"}),
-		)(http.HandlerFunc(sth.RotateServiceToken)))
+		)(core.AppHandler(sth.RotateServiceToken)))
 
 	router.Handle("DELETE /api/v1/service-tokens/{id}",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(sth.Cfg, sth.DB, sth.Cacher, sth.Logger),
 			middleware.HasPermission([]string{"revoke:service_token:own"}),
-		)(http.HandlerFunc(sth.RevokeServiceToken)))
+		)(core.AppHandler(sth.RevokeServiceToken)))
 
 	router.Handle("GET /api/v1/service-tokens/stats",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(sth.Cfg, sth.DB, sth.Cacher, sth.Logger),
 			middleware.HasPermission([]string{"read:service_token:own"}),
-		)(http.HandlerFunc(sth.GetServiceTokenStats)))
+		)(core.AppHandler(sth.GetServiceTokenStats)))
 
 	// Admin routes for managing any service tokens
 	router.Handle("GET /api/v1/admin/service-tokens",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(sth.Cfg, sth.DB, sth.Cacher, sth.Logger),
 			middleware.HasPermission([]string{"list:service_token:any"}),
-		)(http.HandlerFunc(sth.ListAllServiceTokens)))
+		)(core.AppHandler(sth.ListAllServiceTokens)))
 
 	router.Handle("POST /api/v1/admin/service-tokens/cleanup",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(sth.Cfg, sth.DB, sth.Cacher, sth.Logger),
 			middleware.HasPermission([]string{"update:service_token:any"}),
-		)(http.HandlerFunc(sth.CleanupExpiredTokens)))
+		)(core.AppHandler(sth.CleanupExpiredTokens)))
+}
+
+// callerAccountID extracts and parses the caller's account id from the JWT
+// claims already loaded into the request context by IsAuthenticated. Shared
+// by every endpoint here, which all did this identically: missing claims is
+// 401, a subject that fails to parse as a UUID is 400.
+func (sth *ServiceTokenHandler) callerAccountID(r *http.Request) (uuid.UUID, error) {
+	claims, ok := middleware.ClaimsFromContext(r.Context())
+	if !ok {
+		return uuid.Nil, core.Public(core.ErrUnauthorized, msgUnauthorized)
+	}
+	accountID, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		sth.Logger.Error(
+			"Failed to parse account ID from claims",
+			slog.String("error", err.Error()),
+		)
+		return uuid.Nil, core.Public(core.ErrInvalidInput, msgInvalidToken)
+	}
+	return accountID, nil
+}
+
+// tokenIDFromPath extracts the {id} path segment the hard way, matching what
+// this handler did before the extraction: splitting the raw URL path rather
+// than using r.PathValue. minParts is 5 for a path ending .../{id}, 6 for the
+// rotate route, which has one more segment after the id.
+func tokenIDFromPath(r *http.Request, minParts int) (uuid.UUID, error) {
+	pathParts := strings.Split(r.URL.Path, "/")
+	if len(pathParts) < minParts {
+		return uuid.Nil, core.Public(core.ErrInvalidInput, msgInvalidTokenID)
+	}
+	id, err := uuid.Parse(pathParts[4])
+	if err != nil {
+		return uuid.Nil, core.Public(core.ErrInvalidInput, msgInvalidTokenID)
+	}
+	return id, nil
+}
+
+// isOwnerOrAdmin reports whether the caller may act on token: either they
+// hold adminPerm, or the token belongs to their own account.
+func isOwnerOrAdmin(
+	perms []string,
+	adminPerm string,
+	token repository.ServiceToken,
+	callerAccountID uuid.UUID,
+) bool {
+	return slices.Contains(perms, adminPerm) || token.AccountID == callerAccountID
+}
+
+// acquireRunAndCommit calls Acquire and WithTransaction, distinguishing a
+// commit failure from an Acquire or Begin failure. Unlike activity and
+// streak's helper of the same name, Begin failure here shares its message
+// with Acquire failure (msgInternalError, both meant "we couldn't even start
+// working on this"), while a Commit failure shares ITS message with whatever
+// repo-call failure the caller's closure would have reported -- passed in as
+// commitFailureMsg, since it differs per endpoint (create, update, rotate,
+// revoke each have their own wording). The distinction is made the same way
+// as activity and streak: by tracking whether fn reached its own success
+// return.
+func (sth *ServiceTokenHandler) acquireRunAndCommit(
+	r *http.Request,
+	commitFailureMsg string,
+	fn func(tx pgx.Tx) error,
+) error {
+	conn, err := sth.DB.Acquire(r.Context())
+	if err != nil {
+		sth.Logger.Error(
+			"Failed to get database connection", slog.String("error", err.Error()),
+		)
+		return core.Public(core.ErrInternal, msgInternalError)
+	}
+
+	var reachedSuccess bool
+	err = core.WithTransaction(r.Context(), conn, func(tx pgx.Tx) error {
+		if err := fn(tx); err != nil {
+			return err
+		}
+		reachedSuccess = true
+		return nil
+	})
+	if err == nil {
+		return nil
+	}
+	if reachedSuccess {
+		return core.Fallback(err, core.ErrInternal, commitFailureMsg)
+	}
+	return core.Fallback(err, core.ErrInternal, msgInternalError)
 }
 
 // CreateServiceToken godoc
@@ -164,142 +270,81 @@ func (sth *ServiceTokenHandler) RegisterHandlers(router core.Router) {
 func (sth *ServiceTokenHandler) CreateServiceToken(
 	w http.ResponseWriter,
 	r *http.Request,
-) {
-	claims, ok := middleware.ClaimsFromContext(r.Context())
-	if !ok {
-		http.Error(w, "unauthorized: missing claims", http.StatusUnauthorized)
-		return
-	}
-	accountID, err := uuid.Parse(claims.Subject)
+) error {
+	accountID, err := sth.callerAccountID(r)
 	if err != nil {
-		sth.Logger.Error(
-			"Failed to parse account ID from claims",
-			slog.String("error", err.Error()),
-		)
-		http.Error(w, "Invalid token", http.StatusBadRequest)
-		return
+		return err
 	}
 
-	// Verify the account is a bot account
-	conn, err := sth.DB.Acquire(r.Context())
-	if err != nil {
-		sth.Logger.Error(
-			"Failed to get database connection",
-			slog.String("error", err.Error()),
-		)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-	defer conn.Release()
-
-	tx, err := conn.Begin(r.Context())
-	if err != nil {
-		sth.Logger.Error(
-			"Failed to begin transaction",
-			slog.String("error", err.Error()),
-		)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-	defer tx.Rollback(r.Context())
-
-	repo := repository.New(tx)
-
-	// Get account and verify it's a bot
-	account, err := repo.GetAccountByID(r.Context(), accountID)
-	if err != nil {
-		sth.Logger.Error(
-			"Failed to get account",
-			slog.String("error", err.Error()),
-		)
-		http.Error(w, "Account not found", http.StatusNotFound)
-		return
-	}
-
-	if account.Type != repository.AccountTypeBot {
-		http.Error(
-			w,
-			"Only bot accounts can create service tokens",
-			http.StatusForbidden,
-		)
-		return
-	}
-
-	// Parse request
 	var req ServiceTokenRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
+	var token string
+	var serviceToken repository.ServiceToken
 
-	// Validate request
-	if err := sth.validateServiceTokenRequest(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+	if err := sth.acquireRunAndCommit(r, msgCreateFailed, func(tx pgx.Tx) error {
+		svc := sth.svc(tx)
 
-	// Generate secure token
-	token, err := sth.generateSecureToken()
-	if err != nil {
-		sth.Logger.Error(
-			"Failed to generate secure token",
-			slog.String("error", err.Error()),
-		)
-		http.Error(
-			w,
-			"Failed to generate token",
-			http.StatusInternalServerError,
-		)
-		return
-	}
+		// Verify the account is a bot account
+		if _, err := svc.VerifyBotAccount(r.Context(), accountID); err != nil {
+			sth.Logger.Error("Failed to get account", slog.String("error", err.Error()))
+			if errors.Is(err, servicetokensvc.ErrNotBotAccount) {
+				return core.Public(core.ErrForbidden, msgNotBotAccount)
+			}
+			return core.Public(core.ErrNotFound, msgAccountNotFound)
+		}
 
-	// Calculate expiry
-	var expiresAt *time.Time
-	if req.ExpiresInDays != nil {
-		expiry := time.Now().AddDate(0, 0, *req.ExpiresInDays)
-		expiresAt = &expiry
-	} else {
-		// Default to 1 year
-		expiry := time.Now().AddDate(1, 0, 0)
-		expiresAt = &expiry
-	}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			return core.Public(core.ErrInvalidInput, msgInvalidBody)
+		}
 
-	// Prepare rotation policy
-	var rotationPolicyJSON []byte
-	if req.RotationPolicy != nil {
-		rotationPolicyJSON, err = json.Marshal(req.RotationPolicy)
+		if err := sth.validateServiceTokenRequest(&req); err != nil {
+			return core.Public(core.ErrInvalidInput, err.Error())
+		}
+
+		newToken, err := sth.generateSecureToken()
 		if err != nil {
 			sth.Logger.Error(
-				"Failed to marshal rotation policy",
-				slog.String("error", err.Error()),
+				"Failed to generate secure token", slog.String("error", err.Error()),
 			)
-			http.Error(w, "Invalid rotation policy", http.StatusBadRequest)
-			return
+			return core.Public(core.ErrInternal, msgGenerateFailed)
 		}
-	}
+		token = newToken
 
-	// Prepare metadata
-	var metadataJSON []byte
-	if req.Metadata != nil {
-		metadataJSON, err = json.Marshal(req.Metadata)
-		if err != nil {
-			sth.Logger.Error(
-				"Failed to marshal metadata",
-				slog.String("error", err.Error()),
-			)
-			http.Error(w, "Invalid metadata", http.StatusBadRequest)
-			return
+		var expiresAt *time.Time
+		if req.ExpiresInDays != nil {
+			expiry := time.Now().AddDate(0, 0, *req.ExpiresInDays)
+			expiresAt = &expiry
+		} else {
+			expiry := time.Now().AddDate(1, 0, 0)
+			expiresAt = &expiry
 		}
-	}
 
-	// Create service token
-	serviceToken, err := repo.CreateServiceToken(
-		r.Context(),
-		repository.CreateServiceTokenParams{
+		var rotationPolicyJSON []byte
+		if req.RotationPolicy != nil {
+			rotationPolicyJSON, err = json.Marshal(req.RotationPolicy)
+			if err != nil {
+				sth.Logger.Error(
+					"Failed to marshal rotation policy", slog.String("error", err.Error()),
+				)
+				return core.Public(core.ErrInvalidInput, msgInvalidRotation)
+			}
+		}
+
+		var metadataJSON []byte
+		if req.Metadata != nil {
+			metadataJSON, err = json.Marshal(req.Metadata)
+			if err != nil {
+				sth.Logger.Error(
+					"Failed to marshal metadata", slog.String("error", err.Error()),
+				)
+				return core.Public(core.ErrInvalidInput, msgInvalidMetadata)
+			}
+		}
+
+		created, err := svc.Create(r.Context(), repository.CreateServiceTokenParams{
 			AccountID:   accountID,
 			Name:        req.Name,
 			Description: req.Description,
-			TokenHash:   tokens.HashToken(token),
+			TokenHash:   tokens.HashToken(newToken),
 			ExpiresAt:   expiresAt,
 			Scopes:      req.Scopes,
 			MaxUses: func() *int32 {
@@ -314,63 +359,24 @@ func (sth *ServiceTokenHandler) CreateServiceToken(
 			UserAgentPattern: req.UserAgentPattern,
 			CreatedBy:        pgtype.UUID{Bytes: accountID, Valid: true},
 			Metadata:         metadataJSON,
-		},
-	)
-	if err != nil {
-		sth.Logger.Error(
-			"Failed to create service token",
-			slog.String("error", err.Error()),
-		)
-		http.Error(
-			w,
-			"Failed to create service token",
-			http.StatusInternalServerError,
-		)
-		return
+		})
+		if err != nil {
+			sth.Logger.Error(
+				"Failed to create service token", slog.String("error", err.Error()),
+			)
+			return core.Public(core.ErrInternal, msgCreateFailed)
+		}
+		serviceToken = created
+		return nil
+	}); err != nil {
+		return err
 	}
 
-	if err := tx.Commit(r.Context()); err != nil {
-		sth.Logger.Error(
-			"Failed to commit transaction",
-			slog.String("error", err.Error()),
-		)
-		http.Error(
-			w,
-			"Failed to create service token",
-			http.StatusInternalServerError,
-		)
-		return
-	}
+	response := sth.convertToServiceTokenResponse(serviceToken)
+	response.Token = token // Only include token on creation
 
-	// Return response
-	response := ServiceTokenResponse{
-		ID:          serviceToken.ID,
-		Name:        serviceToken.Name,
-		Description: serviceToken.Description,
-		Token:       token, // Only include token on creation
-		ExpiresAt:   serviceToken.ExpiresAt,
-		Scopes:      serviceToken.Scopes,
-		MaxUses: func() *int {
-			if serviceToken.MaxUses == nil {
-				return nil
-			}
-			val := int(*serviceToken.MaxUses)
-			return &val
-		}(),
-		UseCount:   int(*serviceToken.UseCount),
-		CreatedAt:  serviceToken.CreatedAt.Time,
-		LastUsedAt: serviceToken.LastUsedAt,
-		RotatedAt:  serviceToken.RotatedAt,
-		RevokedAt:  serviceToken.RevokedAt,
-	}
-
-	if serviceToken.Metadata != nil {
-		json.Unmarshal(serviceToken.Metadata, &response.Metadata)
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(response)
+	core.WriteJSON(w, http.StatusCreated, response)
+	return nil
 }
 
 // ListServiceTokens godoc
@@ -388,56 +394,36 @@ func (sth *ServiceTokenHandler) CreateServiceToken(
 func (sth *ServiceTokenHandler) ListServiceTokens(
 	w http.ResponseWriter,
 	r *http.Request,
-) {
-	claims, ok := middleware.ClaimsFromContext(r.Context())
-	if !ok {
-		http.Error(w, "unauthorized: missing claims", http.StatusUnauthorized)
-		return
-	}
-	accountID, err := uuid.Parse(claims.Subject)
+) error {
+	accountID, err := sth.callerAccountID(r)
 	if err != nil {
-		sth.Logger.Error(
-			"Failed to parse account ID from claims",
-			slog.String("error", err.Error()),
-		)
-		http.Error(w, "Invalid token", http.StatusBadRequest)
-		return
+		return err
 	}
 
 	conn, err := sth.DB.Acquire(r.Context())
 	if err != nil {
 		sth.Logger.Error(
-			"Failed to get database connection",
-			slog.String("error", err.Error()),
+			"Failed to get database connection", slog.String("error", err.Error()),
 		)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
+		return core.Public(core.ErrInternal, msgInternalError)
 	}
 	defer conn.Release()
 
-	repo := repository.New(conn)
-	tokens, err := repo.ListServiceTokensByAccount(r.Context(), accountID)
+	tokenList, err := sth.svc(conn).List(r.Context(), accountID)
 	if err != nil {
 		sth.Logger.Error(
-			"Failed to list service tokens",
-			slog.String("error", err.Error()),
+			"Failed to list service tokens", slog.String("error", err.Error()),
 		)
-		http.Error(
-			w,
-			"Failed to list service tokens",
-			http.StatusInternalServerError,
-		)
-		return
+		return core.Public(core.ErrInternal, msgListFailed)
 	}
 
-	// Convert to response format
-	responses := make([]ServiceTokenResponse, len(tokens))
-	for i, token := range tokens {
+	responses := make([]ServiceTokenResponse, len(tokenList))
+	for i, token := range tokenList {
 		responses[i] = sth.convertToServiceTokenResponse(token)
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(responses)
+	core.WriteJSON(w, http.StatusOK, responses)
+	return nil
 }
 
 // GetServiceToken godoc
@@ -458,71 +444,41 @@ func (sth *ServiceTokenHandler) ListServiceTokens(
 func (sth *ServiceTokenHandler) GetServiceToken(
 	w http.ResponseWriter,
 	r *http.Request,
-) {
-	// Extract token ID from URL
-	pathParts := strings.Split(r.URL.Path, "/")
-	if len(pathParts) < 5 {
-		http.Error(w, "Invalid token ID", http.StatusBadRequest)
-		return
-	}
-	tokenID, err := uuid.Parse(pathParts[4])
+) error {
+	tokenID, err := tokenIDFromPath(r, 5)
 	if err != nil {
-		http.Error(w, "Invalid token ID", http.StatusBadRequest)
-		return
+		return err
 	}
 
-	claims, ok := middleware.ClaimsFromContext(r.Context())
-	if !ok {
-		http.Error(w, "unauthorized: missing claims", http.StatusUnauthorized)
-		return
-	}
-	accountID, err := uuid.Parse(claims.Subject)
+	accountID, err := sth.callerAccountID(r)
 	if err != nil {
-		sth.Logger.Error(
-			"Failed to parse account ID from claims",
-			slog.String("error", err.Error()),
-		)
-		http.Error(w, "Invalid token", http.StatusBadRequest)
-		return
+		return err
 	}
 
 	conn, err := sth.DB.Acquire(r.Context())
 	if err != nil {
 		sth.Logger.Error(
-			"Failed to get database connection",
-			slog.String("error", err.Error()),
+			"Failed to get database connection", slog.String("error", err.Error()),
 		)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
+		return core.Public(core.ErrInternal, msgInternalError)
 	}
 	defer conn.Release()
 
-	repo := repository.New(conn)
-	token, err := repo.GetServiceTokenByID(r.Context(), tokenID)
+	token, err := sth.svc(conn).GetByID(r.Context(), tokenID)
 	if err != nil {
-		http.Error(w, "Service token not found", http.StatusNotFound)
-		return
+		// Every error here becomes "token not found", not just a genuine
+		// not-found -- that is what this endpoint did before the extraction
+		// (no errors.Is check existed) and is preserved rather than tightened.
+		return core.Public(core.ErrNotFound, msgTokenNotFound)
 	}
 
-	// Verify ownership (unless admin)
 	perms := middleware.PermissionsFromContext(r.Context())
-	isAdmin := false
-	for _, perm := range perms {
-		if perm == "read:service_token:any" {
-			isAdmin = true
-			break
-		}
+	if !isOwnerOrAdmin(perms, "read:service_token:any", token, accountID) {
+		return core.Public(core.ErrForbidden, msgAccessDenied)
 	}
 
-	if !isAdmin && token.AccountID != accountID {
-		http.Error(w, "Access denied", http.StatusForbidden)
-		return
-	}
-
-	response := sth.convertToServiceTokenResponse(token)
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	core.WriteJSON(w, http.StatusOK, sth.convertToServiceTokenResponse(token))
+	return nil
 }
 
 // UpdateServiceToken godoc
@@ -542,122 +498,63 @@ func (sth *ServiceTokenHandler) GetServiceToken(
 // @Security     BearerToken
 // @Security     ApiKey
 // @Router       /api/v1/service-tokens/{id} [put]
-// UpdateServiceToken updates a service token
 func (sth *ServiceTokenHandler) UpdateServiceToken(
 	w http.ResponseWriter,
 	r *http.Request,
-) {
-	// Extract token ID from URL
-	pathParts := strings.Split(r.URL.Path, "/")
-	if len(pathParts) < 5 {
-		http.Error(w, "Invalid token ID", http.StatusBadRequest)
-		return
-	}
-	tokenID, err := uuid.Parse(pathParts[4])
+) error {
+	tokenID, err := tokenIDFromPath(r, 5)
 	if err != nil {
-		http.Error(w, "Invalid token ID", http.StatusBadRequest)
-		return
+		return err
 	}
 
-	claims, ok := middleware.ClaimsFromContext(r.Context())
-	if !ok {
-		http.Error(w, "unauthorized: missing claims", http.StatusUnauthorized)
-		return
-	}
-	accountID, err := uuid.Parse(claims.Subject)
+	accountID, err := sth.callerAccountID(r)
 	if err != nil {
-		sth.Logger.Error(
-			"Failed to parse account ID from claims",
-			slog.String("error", err.Error()),
-		)
-		http.Error(w, "Invalid token", http.StatusBadRequest)
-		return
+		return err
 	}
 
-	// Parse request
 	var req ServiceTokenUpdateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
+		return core.Public(core.ErrInvalidInput, msgInvalidBody)
 	}
 
-	conn, err := sth.DB.Acquire(r.Context())
-	if err != nil {
-		sth.Logger.Error(
-			"Failed to get database connection",
-			slog.String("error", err.Error()),
-		)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-	defer conn.Release()
+	var updatedToken repository.ServiceToken
 
-	tx, err := conn.Begin(r.Context())
-	if err != nil {
-		sth.Logger.Error(
-			"Failed to begin transaction",
-			slog.String("error", err.Error()),
-		)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-	defer tx.Rollback(r.Context())
+	if err := sth.acquireRunAndCommit(r, msgUpdateFailed, func(tx pgx.Tx) error {
+		svc := sth.svc(tx)
 
-	repo := repository.New(tx)
-
-	// Get existing token
-	token, err := repo.GetServiceTokenByID(r.Context(), tokenID)
-	if err != nil {
-		http.Error(w, "Service token not found", http.StatusNotFound)
-		return
-	}
-
-	// Verify ownership (unless admin)
-	perms := middleware.PermissionsFromContext(r.Context())
-	isAdmin := false
-	for _, perm := range perms {
-		if perm == "update:service_token:any" {
-			isAdmin = true
-			break
-		}
-	}
-
-	if !isAdmin && token.AccountID != accountID {
-		http.Error(w, "Access denied", http.StatusForbidden)
-		return
-	}
-
-	// Prepare update parameters
-	var rotationPolicyJSON []byte
-	if req.RotationPolicy != nil {
-		rotationPolicyJSON, err = json.Marshal(req.RotationPolicy)
+		token, err := svc.GetByID(r.Context(), tokenID)
 		if err != nil {
-			sth.Logger.Error(
-				"Failed to marshal rotation policy",
-				slog.String("error", err.Error()),
-			)
-			http.Error(w, "Invalid rotation policy", http.StatusBadRequest)
-			return
+			return core.Public(core.ErrNotFound, msgTokenNotFound)
 		}
-	}
 
-	var metadataJSON []byte
-	if req.Metadata != nil {
-		metadataJSON, err = json.Marshal(req.Metadata)
-		if err != nil {
-			sth.Logger.Error(
-				"Failed to marshal metadata",
-				slog.String("error", err.Error()),
-			)
-			http.Error(w, "Invalid metadata", http.StatusBadRequest)
-			return
+		perms := middleware.PermissionsFromContext(r.Context())
+		if !isOwnerOrAdmin(perms, "update:service_token:any", token, accountID) {
+			return core.Public(core.ErrForbidden, msgAccessDenied)
 		}
-	}
 
-	// Update token
-	err = repo.UpdateServiceToken(
-		r.Context(),
-		repository.UpdateServiceTokenParams{
+		var rotationPolicyJSON []byte
+		if req.RotationPolicy != nil {
+			rotationPolicyJSON, err = json.Marshal(req.RotationPolicy)
+			if err != nil {
+				sth.Logger.Error(
+					"Failed to marshal rotation policy", slog.String("error", err.Error()),
+				)
+				return core.Public(core.ErrInvalidInput, msgInvalidRotation)
+			}
+		}
+
+		var metadataJSON []byte
+		if req.Metadata != nil {
+			metadataJSON, err = json.Marshal(req.Metadata)
+			if err != nil {
+				sth.Logger.Error(
+					"Failed to marshal metadata", slog.String("error", err.Error()),
+				)
+				return core.Public(core.ErrInvalidInput, msgInvalidMetadata)
+			}
+		}
+
+		if err := svc.Update(r.Context(), repository.UpdateServiceTokenParams{
 			ID:          tokenID,
 			Name:        *req.Name,
 			Description: req.Description,
@@ -673,53 +570,36 @@ func (sth *ServiceTokenHandler) UpdateServiceToken(
 			IpWhitelist:      req.IPWhitelist,
 			UserAgentPattern: req.UserAgentPattern,
 			Metadata:         metadataJSON,
-		},
-	)
-	if err != nil {
-		sth.Logger.Error(
-			"Failed to update service token",
-			slog.String("error", err.Error()),
-		)
-		http.Error(
-			w,
-			"Failed to update service token",
-			http.StatusInternalServerError,
-		)
-		return
+		}); err != nil {
+			sth.Logger.Error(
+				"Failed to update service token", slog.String("error", err.Error()),
+			)
+			return core.Public(core.ErrInternal, msgUpdateFailed)
+		}
+
+		// Fetched inside the same transaction, before commit -- see the
+		// decision recorded in ADR 0009 for why: the original code re-fetched
+		// this AFTER tx.Commit() on the same, by-then-closed transaction,
+		// which pgx rejects with ErrTxClosed. That almost certainly meant
+		// this endpoint returned 500 on every call despite the update having
+		// already succeeded. Fetching before commit is the natural way to
+		// write this against core.InTx and is the one deliberate behaviour
+		// change in this migration.
+		updated, err := svc.GetByID(r.Context(), tokenID)
+		if err != nil {
+			sth.Logger.Error(
+				"Failed to get updated token", slog.String("error", err.Error()),
+			)
+			return core.Public(core.ErrInternal, msgRetrieveFailed)
+		}
+		updatedToken = updated
+		return nil
+	}); err != nil {
+		return err
 	}
 
-	if err := tx.Commit(r.Context()); err != nil {
-		sth.Logger.Error(
-			"Failed to commit transaction",
-			slog.String("error", err.Error()),
-		)
-		http.Error(
-			w,
-			"Failed to update service token",
-			http.StatusInternalServerError,
-		)
-		return
-	}
-
-	// Get updated token
-	updatedToken, err := repo.GetServiceTokenByID(r.Context(), tokenID)
-	if err != nil {
-		sth.Logger.Error(
-			"Failed to get updated token",
-			slog.String("error", err.Error()),
-		)
-		http.Error(
-			w,
-			"Failed to retrieve updated token",
-			http.StatusInternalServerError,
-		)
-		return
-	}
-
-	response := sth.convertToServiceTokenResponse(updatedToken)
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	core.WriteJSON(w, http.StatusOK, sth.convertToServiceTokenResponse(updatedToken))
+	return nil
 }
 
 // RotateServiceToken godoc
@@ -740,150 +620,73 @@ func (sth *ServiceTokenHandler) UpdateServiceToken(
 func (sth *ServiceTokenHandler) RotateServiceToken(
 	w http.ResponseWriter,
 	r *http.Request,
-) {
-	// Extract token ID from URL
-	pathParts := strings.Split(r.URL.Path, "/")
-	if len(pathParts) < 6 {
-		http.Error(w, "Invalid token ID", http.StatusBadRequest)
-		return
-	}
-	tokenID, err := uuid.Parse(pathParts[4])
+) error {
+	tokenID, err := tokenIDFromPath(r, 6)
 	if err != nil {
-		http.Error(w, "Invalid token ID", http.StatusBadRequest)
-		return
+		return err
 	}
 
-	claims, ok := middleware.ClaimsFromContext(r.Context())
-	if !ok {
-		http.Error(w, "unauthorized: missing claims", http.StatusUnauthorized)
-		return
-	}
-	accountID, err := uuid.Parse(claims.Subject)
+	accountID, err := sth.callerAccountID(r)
 	if err != nil {
-		sth.Logger.Error(
-			"Failed to parse account ID from claims",
-			slog.String("error", err.Error()),
-		)
-		http.Error(w, "Invalid token", http.StatusBadRequest)
-		return
+		return err
 	}
 
-	conn, err := sth.DB.Acquire(r.Context())
-	if err != nil {
-		sth.Logger.Error(
-			"Failed to get database connection",
-			slog.String("error", err.Error()),
-		)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-	defer conn.Release()
+	var newToken string
+	var updatedToken repository.ServiceToken
 
-	tx, err := conn.Begin(r.Context())
-	if err != nil {
-		sth.Logger.Error(
-			"Failed to begin transaction",
-			slog.String("error", err.Error()),
-		)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-	defer tx.Rollback(r.Context())
+	if err := sth.acquireRunAndCommit(r, msgRotateFailed, func(tx pgx.Tx) error {
+		svc := sth.svc(tx)
 
-	repo := repository.New(tx)
-
-	// Get existing token
-	token, err := repo.GetServiceTokenByID(r.Context(), tokenID)
-	if err != nil {
-		http.Error(w, "Service token not found", http.StatusNotFound)
-		return
-	}
-
-	// Verify ownership (unless admin)
-	perms := middleware.PermissionsFromContext(r.Context())
-	isAdmin := false
-	for _, perm := range perms {
-		if perm == "rotate:service_token:any" {
-			isAdmin = true
-			break
+		token, err := svc.GetByID(r.Context(), tokenID)
+		if err != nil {
+			return core.Public(core.ErrNotFound, msgTokenNotFound)
 		}
-	}
 
-	if !isAdmin && token.AccountID != accountID {
-		http.Error(w, "Access denied", http.StatusForbidden)
-		return
-	}
+		perms := middleware.PermissionsFromContext(r.Context())
+		if !isOwnerOrAdmin(perms, "rotate:service_token:any", token, accountID) {
+			return core.Public(core.ErrForbidden, msgAccessDenied)
+		}
 
-	// Generate new token
-	newToken, err := sth.generateSecureToken()
-	if err != nil {
-		sth.Logger.Error(
-			"Failed to generate secure token",
-			slog.String("error", err.Error()),
-		)
-		http.Error(
-			w,
-			"Failed to generate new token",
-			http.StatusInternalServerError,
-		)
-		return
-	}
+		generated, err := sth.generateSecureToken()
+		if err != nil {
+			sth.Logger.Error(
+				"Failed to generate secure token", slog.String("error", err.Error()),
+			)
+			return core.Public(core.ErrInternal, msgGenerateNewFailed)
+		}
+		newToken = generated
 
-	// Rotate token
-	err = repo.RotateServiceToken(
-		r.Context(),
-		repository.RotateServiceTokenParams{
+		if err := svc.Rotate(r.Context(), repository.RotateServiceTokenParams{
 			ID:        tokenID,
 			TokenHash: tokens.HashToken(newToken),
 			ExpiresAt: token.ExpiresAt,
-		},
-	)
-	if err != nil {
-		sth.Logger.Error(
-			"Failed to rotate service token",
-			slog.String("error", err.Error()),
-		)
-		http.Error(
-			w,
-			"Failed to rotate service token",
-			http.StatusInternalServerError,
-		)
-		return
-	}
+		}); err != nil {
+			sth.Logger.Error(
+				"Failed to rotate service token", slog.String("error", err.Error()),
+			)
+			return core.Public(core.ErrInternal, msgRotateFailed)
+		}
 
-	if err := tx.Commit(r.Context()); err != nil {
-		sth.Logger.Error(
-			"Failed to commit transaction",
-			slog.String("error", err.Error()),
-		)
-		http.Error(
-			w,
-			"Failed to rotate service token",
-			http.StatusInternalServerError,
-		)
-		return
-	}
-
-	// Get updated token
-	updatedToken, err := repo.GetServiceTokenByID(r.Context(), tokenID)
-	if err != nil {
-		sth.Logger.Error(
-			"Failed to get updated token",
-			slog.String("error", err.Error()),
-		)
-		http.Error(
-			w,
-			"Failed to retrieve updated token",
-			http.StatusInternalServerError,
-		)
-		return
+		// See UpdateServiceToken for why this is fetched before commit rather
+		// than after, unlike the pre-extraction code.
+		updated, err := svc.GetByID(r.Context(), tokenID)
+		if err != nil {
+			sth.Logger.Error(
+				"Failed to get updated token", slog.String("error", err.Error()),
+			)
+			return core.Public(core.ErrInternal, msgRetrieveFailed)
+		}
+		updatedToken = updated
+		return nil
+	}); err != nil {
+		return err
 	}
 
 	response := sth.convertToServiceTokenResponse(updatedToken)
 	response.Token = newToken // Include new token in response
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	core.WriteJSON(w, http.StatusOK, response)
+	return nil
 }
 
 // RevokeServiceToken godoc
@@ -901,113 +704,46 @@ func (sth *ServiceTokenHandler) RotateServiceToken(
 // @Security     BearerToken
 // @Security     ApiKey
 // @Router       /api/v1/service-tokens/{id} [delete]
-// RevokeServiceToken revokes a service token
 func (sth *ServiceTokenHandler) RevokeServiceToken(
 	w http.ResponseWriter,
 	r *http.Request,
-) {
-	// Extract token ID from URL
-	pathParts := strings.Split(r.URL.Path, "/")
-	if len(pathParts) < 5 {
-		http.Error(w, "Invalid token ID", http.StatusBadRequest)
-		return
-	}
-	tokenID, err := uuid.Parse(pathParts[4])
+) error {
+	tokenID, err := tokenIDFromPath(r, 5)
 	if err != nil {
-		http.Error(w, "Invalid token ID", http.StatusBadRequest)
-		return
+		return err
 	}
 
-	claims, ok := middleware.ClaimsFromContext(r.Context())
-	if !ok {
-		http.Error(w, "unauthorized: missing claims", http.StatusUnauthorized)
-		return
-	}
-	accountID, err := uuid.Parse(claims.Subject)
+	accountID, err := sth.callerAccountID(r)
 	if err != nil {
-		sth.Logger.Error(
-			"Failed to parse account ID from claims",
-			slog.String("error", err.Error()),
-		)
-		http.Error(w, "Invalid token", http.StatusBadRequest)
-		return
+		return err
 	}
 
-	conn, err := sth.DB.Acquire(r.Context())
-	if err != nil {
-		sth.Logger.Error(
-			"Failed to get database connection",
-			slog.String("error", err.Error()),
-		)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-	defer conn.Release()
+	if err := sth.acquireRunAndCommit(r, msgRevokeFailed, func(tx pgx.Tx) error {
+		svc := sth.svc(tx)
 
-	tx, err := conn.Begin(r.Context())
-	if err != nil {
-		sth.Logger.Error(
-			"Failed to begin transaction",
-			slog.String("error", err.Error()),
-		)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-	defer tx.Rollback(r.Context())
-
-	repo := repository.New(tx)
-
-	// Get existing token
-	token, err := repo.GetServiceTokenByID(r.Context(), tokenID)
-	if err != nil {
-		http.Error(w, "Service token not found", http.StatusNotFound)
-		return
-	}
-
-	// Verify ownership (unless admin)
-	perms := middleware.PermissionsFromContext(r.Context())
-	isAdmin := false
-	for _, perm := range perms {
-		if perm == "revoke:service_token:any" {
-			isAdmin = true
-			break
+		token, err := svc.GetByID(r.Context(), tokenID)
+		if err != nil {
+			return core.Public(core.ErrNotFound, msgTokenNotFound)
 		}
-	}
 
-	if !isAdmin && token.AccountID != accountID {
-		http.Error(w, "Access denied", http.StatusForbidden)
-		return
-	}
+		perms := middleware.PermissionsFromContext(r.Context())
+		if !isOwnerOrAdmin(perms, "revoke:service_token:any", token, accountID) {
+			return core.Public(core.ErrForbidden, msgAccessDenied)
+		}
 
-	// Revoke token
-	err = repo.RevokeServiceToken(r.Context(), tokenID)
-	if err != nil {
-		sth.Logger.Error(
-			"Failed to revoke service token",
-			slog.String("error", err.Error()),
-		)
-		http.Error(
-			w,
-			"Failed to revoke service token",
-			http.StatusInternalServerError,
-		)
-		return
-	}
-
-	if err := tx.Commit(r.Context()); err != nil {
-		sth.Logger.Error(
-			"Failed to commit transaction",
-			slog.String("error", err.Error()),
-		)
-		http.Error(
-			w,
-			"Failed to revoke service token",
-			http.StatusInternalServerError,
-		)
-		return
+		if err := svc.Revoke(r.Context(), tokenID); err != nil {
+			sth.Logger.Error(
+				"Failed to revoke service token", slog.String("error", err.Error()),
+			)
+			return core.Public(core.ErrInternal, msgRevokeFailed)
+		}
+		return nil
+	}); err != nil {
+		return err
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+	return nil
 }
 
 // GetServiceTokenStats godoc
@@ -1022,62 +758,40 @@ func (sth *ServiceTokenHandler) RevokeServiceToken(
 // @Security     BearerToken
 // @Security     ApiKey
 // @Router       /api/v1/service-tokens/stats [get]
-// GetServiceTokenStats returns usage statistics for service tokens
 func (sth *ServiceTokenHandler) GetServiceTokenStats(
 	w http.ResponseWriter,
 	r *http.Request,
-) {
-	claims, ok := middleware.ClaimsFromContext(r.Context())
-	if !ok {
-		http.Error(w, "unauthorized: missing claims", http.StatusUnauthorized)
-		return
-	}
-	accountID, err := uuid.Parse(claims.Subject)
+) error {
+	accountID, err := sth.callerAccountID(r)
 	if err != nil {
-		sth.Logger.Error(
-			"Failed to parse account ID from claims",
-			slog.String("error", err.Error()),
-		)
-		http.Error(w, "Invalid token", http.StatusBadRequest)
-		return
+		return err
 	}
 
 	conn, err := sth.DB.Acquire(r.Context())
 	if err != nil {
 		sth.Logger.Error(
-			"Failed to get database connection",
-			slog.String("error", err.Error()),
+			"Failed to get database connection", slog.String("error", err.Error()),
 		)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
+		return core.Public(core.ErrInternal, msgInternalError)
 	}
 	defer conn.Release()
 
-	repo := repository.New(conn)
-	stats, err := repo.GetServiceTokenUsageStats(r.Context(), accountID)
+	stats, err := sth.svc(conn).Stats(r.Context(), accountID)
 	if err != nil {
 		sth.Logger.Error(
-			"Failed to get service token stats",
-			slog.String("error", err.Error()),
+			"Failed to get service token stats", slog.String("error", err.Error()),
 		)
-		http.Error(
-			w,
-			"Failed to get service token stats",
-			http.StatusInternalServerError,
-		)
-		return
+		return core.Public(core.ErrInternal, msgStatsFailed)
 	}
 
-	response := ServiceTokenStats{
+	core.WriteJSON(w, http.StatusOK, ServiceTokenStats{
 		TotalTokens:        int(stats.TotalTokens),
 		ActiveTokens:       int(stats.ActiveTokens),
 		RevokedTokens:      int(stats.RevokedTokens),
 		ExpiredTokens:      int(stats.ExpiredTokens),
 		RecentlyUsedTokens: int(stats.RecentlyUsedTokens),
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	})
+	return nil
 }
 
 // ListAllServiceTokens godoc
@@ -1091,45 +805,34 @@ func (sth *ServiceTokenHandler) GetServiceTokenStats(
 // @Security     BearerToken
 // @Security     ApiKey
 // @Router       /api/v1/admin/service-tokens [get]
-// ListAllServiceTokens lists all service tokens (admin only)
 func (sth *ServiceTokenHandler) ListAllServiceTokens(
 	w http.ResponseWriter,
 	r *http.Request,
-) {
+) error {
 	conn, err := sth.DB.Acquire(r.Context())
 	if err != nil {
 		sth.Logger.Error(
-			"Failed to get database connection",
-			slog.String("error", err.Error()),
+			"Failed to get database connection", slog.String("error", err.Error()),
 		)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
+		return core.Public(core.ErrInternal, msgInternalError)
 	}
 	defer conn.Release()
 
-	repo := repository.New(conn)
-	tokens, err := repo.ListActiveServiceTokens(r.Context())
+	tokenList, err := sth.svc(conn).ListAllActive(r.Context())
 	if err != nil {
 		sth.Logger.Error(
-			"Failed to list all service tokens",
-			slog.String("error", err.Error()),
+			"Failed to list all service tokens", slog.String("error", err.Error()),
 		)
-		http.Error(
-			w,
-			"Failed to list service tokens",
-			http.StatusInternalServerError,
-		)
-		return
+		return core.Public(core.ErrInternal, msgListFailed)
 	}
 
-	// Convert to response format
-	responses := make([]ServiceTokenResponse, len(tokens))
-	for i, token := range tokens {
+	responses := make([]ServiceTokenResponse, len(tokenList))
+	for i, token := range tokenList {
 		responses[i] = sth.convertActiveServiceTokenToResponse(token)
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(responses)
+	core.WriteJSON(w, http.StatusOK, responses)
+	return nil
 }
 
 // CleanupExpiredTokens godoc
@@ -1146,47 +849,35 @@ func (sth *ServiceTokenHandler) ListAllServiceTokens(
 func (sth *ServiceTokenHandler) CleanupExpiredTokens(
 	w http.ResponseWriter,
 	r *http.Request,
-) {
+) error {
 	conn, err := sth.DB.Acquire(r.Context())
 	if err != nil {
 		sth.Logger.Error(
-			"Failed to get database connection",
-			slog.String("error", err.Error()),
+			"Failed to get database connection", slog.String("error", err.Error()),
 		)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
+		return core.Public(core.ErrInternal, msgInternalError)
 	}
 	defer conn.Release()
 
-	repo := repository.New(conn)
-	err = repo.CleanupExpiredServiceTokens(r.Context())
-	if err != nil {
+	if err := sth.svc(conn).CleanupExpired(r.Context()); err != nil {
 		sth.Logger.Error(
-			"Failed to cleanup expired tokens",
-			slog.String("error", err.Error()),
+			"Failed to cleanup expired tokens", slog.String("error", err.Error()),
 		)
-		http.Error(
-			w,
-			"Failed to cleanup expired tokens",
-			http.StatusInternalServerError,
-		)
-		return
+		return core.Public(core.ErrInternal, msgCleanupFailed)
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+	return nil
 }
 
 // Helper methods
 
 // generateSecureToken generates a cryptographically secure token
 func (sth *ServiceTokenHandler) generateSecureToken() (string, error) {
-	// Generate 32 bytes of random data
 	bytes := make([]byte, 32)
 	if _, err := rand.Read(bytes); err != nil {
 		return "", err
 	}
-
-	// Encode as base64 and add prefix for identification
 	token := "vst_" + base64.URLEncoding.EncodeToString(bytes)
 	return token, nil
 }
@@ -1195,26 +886,22 @@ func (sth *ServiceTokenHandler) generateSecureToken() (string, error) {
 func (sth *ServiceTokenHandler) validateServiceTokenRequest(
 	req *ServiceTokenRequest,
 ) error {
-	// Validate name
 	if strings.TrimSpace(req.Name) == "" {
 		return fmt.Errorf("name is required")
 	}
 
-	// Validate scopes if provided
 	for _, scope := range req.Scopes {
 		if !sth.isValidScope(scope) {
 			return fmt.Errorf("invalid scope: %s", scope)
 		}
 	}
 
-	// Validate IP whitelist if provided
 	for _, ip := range req.IPWhitelist {
 		if !sth.isValidIP(ip) {
 			return fmt.Errorf("invalid IP address: %s", ip)
 		}
 	}
 
-	// Validate user agent pattern if provided
 	if req.UserAgentPattern != nil {
 		if _, err := regexp.Compile(*req.UserAgentPattern); err != nil {
 			return fmt.Errorf("invalid user agent pattern: %s", err.Error())
@@ -1226,26 +913,20 @@ func (sth *ServiceTokenHandler) validateServiceTokenRequest(
 
 // isValidScope validates if a scope is valid
 func (sth *ServiceTokenHandler) isValidScope(scope string) bool {
-	// Add your scope validation logic here
-	// For now, just check if it's not empty and contains only valid characters
 	if strings.TrimSpace(scope) == "" {
 		return false
 	}
-
-	// Check for valid characters (alphanumeric, colon, dot, underscore, hyphen)
 	matched, _ := regexp.MatchString(`^[a-zA-Z0-9:._-]+$`, scope)
 	return matched
 }
 
 // isValidIP validates if an IP address is valid
 func (sth *ServiceTokenHandler) isValidIP(ip string) bool {
-	// Simple IP validation - you might want to use a more robust library
 	matched, _ := regexp.MatchString(`^(\d{1,3}\.){3}\d{1,3}$`, ip)
 	if !matched {
 		return false
 	}
 
-	// Check each octet
 	parts := strings.Split(ip, ".")
 	for _, part := range parts {
 		if len(part) > 3 || len(part) == 0 {
