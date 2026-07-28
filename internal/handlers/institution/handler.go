@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/opencrafts-io/verisafe/internal/broker"
 	"github.com/opencrafts-io/verisafe/internal/config"
@@ -20,6 +21,7 @@ import (
 	"github.com/opencrafts-io/verisafe/internal/eventbus"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/repository"
+	institutionsvc "github.com/opencrafts-io/verisafe/internal/service/institution"
 )
 
 type InstitutionHandler struct {
@@ -36,6 +38,23 @@ type InstitutionHandler struct {
 	// this package that holds a concrete pgx type instead of core.IDBProvider,
 	// and consequently the one method that cannot be driven by a mock.
 	Pool *pgxpool.Pool
+
+	// Service builds an institution service bound to the caller's connection
+	// or transaction. Left nil it falls back to the real implementation; see
+	// the role handler for why this field is the testing seam. Unlike other
+	// handlers' svc helpers, this one takes repository.DBTX rather than
+	// pgx.Tx, because five read methods here query the acquired connection
+	// directly with no transaction at all -- preserving that, rather than
+	// wrapping them in a transaction they never had, is why the parameter is
+	// the wider interface.
+	Service func(repository.Querier) institutionsvc.Service
+}
+
+func (ih *InstitutionHandler) svc(db repository.DBTX) institutionsvc.Service {
+	if ih.Service != nil {
+		return ih.Service(repository.New(db))
+	}
+	return institutionsvc.NewService(repository.New(db))
 }
 
 func (ih *InstitutionHandler) RegisterHandlers(router core.Router) {
@@ -43,7 +62,7 @@ func (ih *InstitutionHandler) RegisterHandlers(router core.Router) {
 	router.Handle("POST /institutions/register", middleware.CreateStack(
 		middleware.IsAuthenticated(ih.Cfg, ih.DB, ih.Cacher, ih.Logger),
 		middleware.HasPermission([]string{"create:institutions:any"}),
-	)(http.HandlerFunc(ih.RegisterInstitution)))
+	)(core.AppHandler(ih.RegisterInstitution)))
 
 	router.Handle("GET /institutions/fanout",
 		middleware.CreateStack(
@@ -55,55 +74,55 @@ func (ih *InstitutionHandler) RegisterHandlers(router core.Router) {
 		middleware.CreateStack(
 			middleware.IsAuthenticated(ih.Cfg, ih.DB, ih.Cacher, ih.Logger),
 			middleware.HasPermission([]string{"update:institutions:any"}),
-		)(http.HandlerFunc(ih.UpdateInstitutionDetails)))
+		)(core.AppHandler(ih.UpdateInstitutionDetails)))
 
 	router.Handle("GET /institutions/find/{id}",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(ih.Cfg, ih.DB, ih.Cacher, ih.Logger),
-		)(http.HandlerFunc(ih.GetInstitutionByID)))
+		)(core.AppHandler(ih.GetInstitutionByID)))
 
 	router.Handle("GET /institutions/all",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(ih.Cfg, ih.DB, ih.Cacher, ih.Logger),
 			middleware.HasPermission([]string{"list:institutions:any"}),
-		)(http.HandlerFunc(ih.GetAllInstitutions)))
+		)(core.AppHandler(ih.GetAllInstitutions)))
 
 	router.Handle("GET /institutions/search",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(ih.Cfg, ih.DB, ih.Cacher, ih.Logger),
-		)(http.HandlerFunc(ih.SearchInstitutions)))
+		)(core.AppHandler(ih.SearchInstitutions)))
 
 	router.Handle("DELETE /institutions/delete/{id}",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(ih.Cfg, ih.DB, ih.Cacher, ih.Logger),
 			middleware.HasPermission([]string{"delete:institutions:any"}),
-		)(http.HandlerFunc(ih.DeleteInstitution)))
+		)(core.AppHandler(ih.DeleteInstitution)))
 
 	// Institution account management
 	router.Handle("POST /institutions/account",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(ih.Cfg, ih.DB, ih.Cacher, ih.Logger),
-		)(http.HandlerFunc(ih.AddAcountInstitution)))
+		)(core.AppHandler(ih.AddAcountInstitution)))
 
 	router.Handle("DELETE /institutions/account",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(ih.Cfg, ih.DB, ih.Cacher, ih.Logger),
-		)(http.HandlerFunc(ih.RemoveAccountInstitution)))
+		)(core.AppHandler(ih.RemoveAccountInstitution)))
 
 	router.Handle("GET /institutions/for-account",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(ih.Cfg, ih.DB, ih.Cacher, ih.Logger),
-		)(http.HandlerFunc((ih.ListInstitutionForAccount))))
+		)(core.AppHandler(ih.ListInstitutionForAccount)))
 
 	router.Handle("GET /institutions/accounts",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(ih.Cfg, ih.DB, ih.Cacher, ih.Logger),
-		)(http.HandlerFunc(ih.ListAccountsForInstitution)))
+		)(core.AppHandler(ih.ListAccountsForInstitution)))
 
 	router.Handle("GET /institutions/accounts/fanout",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(ih.Cfg, ih.DB, ih.Cacher, ih.Logger),
-		)(http.HandlerFunc(ih.FanoutInstitutionConnections)))
+		)(core.AppHandler(ih.FanoutInstitutionConnections)))
 }
 
 // RegisterInstitution godoc
@@ -125,65 +144,40 @@ func (ih *InstitutionHandler) RegisterHandlers(router core.Router) {
 func (ih *InstitutionHandler) RegisterInstitution(
 	w http.ResponseWriter,
 	r *http.Request,
-) {
-	w.Header().Set("Content-Type", "application/json")
-	conn, err := ih.DB.Acquire(r.Context())
-	if err != nil {
-		ih.Logger.Error(
-			"Error while processing request",
-			slog.Any("error", err),
-		)
-		http.Error(
-			w,
-			`{"error":"internal server error"}`,
-			http.StatusInternalServerError,
-		)
-		return
-	}
-	defer conn.Release()
-
-	tx, _ := conn.Begin(r.Context())
-	defer tx.Rollback(r.Context())
-	repo := repository.New(tx)
-
+) error {
 	var req repository.CreateInstitutionParams
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		ih.Logger.Error("Failed to parse request body", slog.Any("error", err))
-		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
-		return
+		return core.Public(core.ErrInvalidInput, msgInvalidBody)
 	}
 
-	created, err := repo.CreateInstitution(r.Context(), req)
+	created, err := core.InTx(
+		r.Context(), ih.DB,
+		func(tx pgx.Tx) (repository.Institution, error) {
+			created, err := ih.svc(tx).Create(r.Context(), req)
+			if err != nil {
+				ih.Logger.Error(
+					"Failed to create institution", slog.Any("error", err),
+				)
+				return repository.Institution{}, core.Public(
+					core.ErrInternal, msgCreateFailed,
+				)
+			}
+			return created, nil
+		},
+	)
 	if err != nil {
-		ih.Logger.Error("Failed to create institution", slog.Any("error", err))
-		http.Error(
-			w,
-			`{"error":"failed to create institution"}`,
-			http.StatusInternalServerError,
-		)
-		return
+		return core.Fallback(err, core.ErrInternal, msgInternalServer)
 	}
 
-	if err = tx.Commit(r.Context()); err != nil {
-		ih.Logger.Error("Error committing transaction", slog.Any("error", err))
-		http.Error(
-			w,
-			`{"error":"internal server error"}`,
-			http.StatusInternalServerError,
-		)
-		return
-	}
 	if ih.InstitutionEventBus != nil {
-		requestID := eventbus.GenerateRequestID()
 		_ = ih.InstitutionEventBus.PublishInstitutionCreated(
-			r.Context(),
-			created,
-			requestID,
+			r.Context(), created, eventbus.GenerateRequestID(),
 		)
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(created)
+	core.WriteJSON(w, http.StatusCreated, created)
+	return nil
 }
 
 // UpdateInstitutionDetails godoc
@@ -205,77 +199,46 @@ func (ih *InstitutionHandler) RegisterInstitution(
 func (ih *InstitutionHandler) UpdateInstitutionDetails(
 	w http.ResponseWriter,
 	r *http.Request,
-) {
-	w.Header().Set("Content-Type", "application/json")
-	conn, err := ih.DB.Acquire(r.Context())
+) error {
+	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
-		ih.Logger.Error(
-			"Error while processing request",
-			slog.Any("error", err),
-		)
-		http.Error(
-			w,
-			`{"error":"internal server error"}`,
-			http.StatusInternalServerError,
-		)
-		return
-	}
-	defer conn.Release()
-
-	tx, _ := conn.Begin(r.Context())
-	defer tx.Rollback(r.Context())
-	repo := repository.New(tx)
-
-	// Extract ID from URL
-	idStr := r.PathValue("id")
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		http.Error(
-			w,
-			`{"error":"invalid institution id"}`,
-			http.StatusBadRequest,
-		)
-		return
+		return core.Public(core.ErrInvalidInput, msgInvalidID)
 	}
 
 	var req repository.UpdateInstitutionParams
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		ih.Logger.Error("Failed to parse request body", slog.Any("error", err))
-		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
-		return
+		return core.Public(core.ErrInvalidInput, msgInvalidBody)
 	}
 	req.InstitutionID = int32(id)
 
-	updated, err := repo.UpdateInstitution(r.Context(), req)
+	updated, err := core.InTx(
+		r.Context(), ih.DB,
+		func(tx pgx.Tx) (repository.Institution, error) {
+			updated, err := ih.svc(tx).Update(r.Context(), req)
+			if err != nil {
+				ih.Logger.Error(
+					"Failed to update institution", slog.Any("error", err),
+				)
+				return repository.Institution{}, core.Public(
+					core.ErrInternal, msgUpdateFailed,
+				)
+			}
+			return updated, nil
+		},
+	)
 	if err != nil {
-		ih.Logger.Error("Failed to update institution", slog.Any("error", err))
-		http.Error(
-			w,
-			`{"error":"failed to update institution"}`,
-			http.StatusInternalServerError,
-		)
-		return
+		return core.Fallback(err, core.ErrInternal, msgInternalServer)
 	}
 
-	if err = tx.Commit(r.Context()); err != nil {
-		ih.Logger.Error("Error committing transaction", slog.Any("error", err))
-		http.Error(
-			w,
-			`{"error":"internal server error"}`,
-			http.StatusInternalServerError,
-		)
-		return
-	}
 	if ih.InstitutionEventBus != nil {
-		requestID := eventbus.GenerateRequestID()
 		_ = ih.InstitutionEventBus.PublishInstitutionUpdated(
-			r.Context(),
-			updated,
-			requestID,
+			r.Context(), updated, eventbus.GenerateRequestID(),
 		)
 	}
 
-	json.NewEncoder(w).Encode(updated)
+	core.WriteJSON(w, http.StatusOK, updated)
+	return nil
 }
 
 // GetInstitutionByID godoc
@@ -295,43 +258,30 @@ func (ih *InstitutionHandler) UpdateInstitutionDetails(
 func (ih *InstitutionHandler) GetInstitutionByID(
 	w http.ResponseWriter,
 	r *http.Request,
-) {
-	w.Header().Set("Content-Type", "application/json")
+) error {
 	conn, err := ih.DB.Acquire(r.Context())
 	if err != nil {
-		ih.Logger.Error(
-			"Error while processing request",
-			slog.Any("error", err),
-		)
-		http.Error(
-			w,
-			`{"error":"internal server error"}`,
-			http.StatusInternalServerError,
-		)
-		return
+		ih.Logger.Error("Error while processing request", slog.Any("error", err))
+		return core.Public(core.ErrInternal, msgInternalServer)
 	}
 	defer conn.Release()
-	repo := repository.New(conn)
 
-	idStr := r.PathValue("id")
-	id, err := strconv.Atoi(idStr)
+	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
-		http.Error(
-			w,
-			`{"error":"invalid institution id"}`,
-			http.StatusBadRequest,
-		)
-		return
+		return core.Public(core.ErrInvalidInput, msgInvalidID)
 	}
 
-	institution, err := repo.GetInstitution(r.Context(), int32(id))
+	inst, err := ih.svc(conn).GetByID(r.Context(), int32(id))
 	if err != nil {
+		// Every error here becomes 404, not just a genuine not-found -- that
+		// is what this endpoint did before the extraction (no errors.Is
+		// check existed) and is preserved rather than tightened.
 		ih.Logger.Error("Failed to get institution", slog.Any("error", err))
-		http.Error(w, `{"error":"institution not found"}`, http.StatusNotFound)
-		return
+		return core.Public(core.ErrNotFound, msgNotFound)
 	}
 
-	json.NewEncoder(w).Encode(institution)
+	core.WriteJSON(w, http.StatusOK, inst)
+	return nil
 }
 
 // GetAllInstitutions godoc
@@ -352,44 +302,24 @@ func (ih *InstitutionHandler) GetInstitutionByID(
 func (ih *InstitutionHandler) GetAllInstitutions(
 	w http.ResponseWriter,
 	r *http.Request,
-) {
-	w.Header().Set("Content-Type", "application/json")
+) error {
 	conn, err := ih.DB.Acquire(r.Context())
 	if err != nil {
-		ih.Logger.Error(
-			"Error while processing request",
-			slog.Any("error", err),
-		)
-		http.Error(
-			w,
-			`{"error":"internal server error"}`,
-			http.StatusInternalServerError,
-		)
-		return
+		ih.Logger.Error("Error while processing request", slog.Any("error", err))
+		return core.Public(core.ErrInternal, msgInternalServer)
 	}
 	defer conn.Release()
-	repo := repository.New(conn)
 
 	p := middleware.GetPagination(r.Context())
 
-	institutions, err := repo.ListInstitutions(
-		r.Context(),
-		repository.ListInstitutionsParams{
-			Limit:  int32(p.Limit),
-			Offset: int32(p.Offset),
-		},
-	)
+	insts, err := ih.svc(conn).List(r.Context(), int32(p.Limit), int32(p.Offset))
 	if err != nil {
 		ih.Logger.Error("Failed to list institutions", slog.Any("error", err))
-		http.Error(
-			w,
-			`{"error":"failed to fetch institutions"}`,
-			http.StatusInternalServerError,
-		)
-		return
+		return core.Public(core.ErrInternal, msgFetchFailed)
 	}
 
-	json.NewEncoder(w).Encode(institutions)
+	core.WriteJSON(w, http.StatusOK, insts)
+	return nil
 }
 
 // DeleteInstitution godoc
@@ -411,75 +341,43 @@ func (ih *InstitutionHandler) GetAllInstitutions(
 func (ih *InstitutionHandler) DeleteInstitution(
 	w http.ResponseWriter,
 	r *http.Request,
-) {
-	w.Header().Set("Content-Type", "application/json")
-	conn, err := ih.DB.Acquire(r.Context())
+) error {
+	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
-		ih.Logger.Error(
-			"Error while processing request",
-			slog.Any("error", err),
-		)
-		http.Error(
-			w,
-			`{"error":"internal server error"}`,
-			http.StatusInternalServerError,
-		)
-		return
-	}
-	defer conn.Release()
-
-	tx, _ := conn.Begin(r.Context())
-	defer tx.Rollback(r.Context())
-	repo := repository.New(tx)
-
-	idStr := r.PathValue("id")
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		http.Error(
-			w,
-			`{"error":"invalid institution id"}`,
-			http.StatusBadRequest,
-		)
-		return
+		return core.Public(core.ErrInvalidInput, msgInvalidID)
 	}
 
-	institution, err := repo.GetInstitution(r.Context(), int32(id))
-	if err != nil {
-		ih.Logger.Error("Failed to get institution", slog.Any("error", err))
-		http.Error(w, `{"error":"institution not found"}`, http.StatusNotFound)
-		return
-	}
+	var deleted repository.Institution
+	if err := core.InTxDo(r.Context(), ih.DB, func(tx pgx.Tx) error {
+		svc := ih.svc(tx)
 
-	if err := repo.DeleteInstitution(r.Context(), int32(id)); err != nil {
-		ih.Logger.Error("Failed to delete institution", slog.Any("error", err))
-		http.Error(
-			w,
-			`{"error":"failed to delete institution"}`,
-			http.StatusInternalServerError,
-		)
-		return
-	}
+		inst, err := svc.GetByID(r.Context(), int32(id))
+		if err != nil {
+			// Same always-404 behaviour as GetInstitutionByID.
+			ih.Logger.Error("Failed to get institution", slog.Any("error", err))
+			return core.Public(core.ErrNotFound, msgNotFound)
+		}
+		deleted = inst
 
-	if err = tx.Commit(r.Context()); err != nil {
-		ih.Logger.Error("Error committing transaction", slog.Any("error", err))
-		http.Error(
-			w,
-			`{"error":"internal server error"}`,
-			http.StatusInternalServerError,
-		)
-		return
+		if err := svc.Delete(r.Context(), int32(id)); err != nil {
+			ih.Logger.Error(
+				"Failed to delete institution", slog.Any("error", err),
+			)
+			return core.Public(core.ErrInternal, msgDeleteFailed)
+		}
+		return nil
+	}); err != nil {
+		return core.Fallback(err, core.ErrInternal, msgInternalServer)
 	}
 
 	if ih.InstitutionEventBus != nil {
-		requestID := eventbus.GenerateRequestID()
 		_ = ih.InstitutionEventBus.PublishInstitutionDeleted(
-			r.Context(),
-			institution,
-			requestID,
+			r.Context(), deleted, eventbus.GenerateRequestID(),
 		)
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+	return nil
 }
 
 // SearchInstitutions godoc
@@ -501,57 +399,30 @@ func (ih *InstitutionHandler) DeleteInstitution(
 func (ih *InstitutionHandler) SearchInstitutions(
 	w http.ResponseWriter,
 	r *http.Request,
-) {
-	w.Header().Set("Content-Type", "application/json")
-
+) error {
 	conn, err := ih.DB.Acquire(r.Context())
 	if err != nil {
 		ih.Logger.Error("DB connection missing", slog.Any("error", err))
-		http.Error(
-			w,
-			`{"error":"internal server error"}`,
-			http.StatusInternalServerError,
-		)
-		return
+		return core.Public(core.ErrInternal, msgInternalServer)
 	}
 	defer conn.Release()
-	repo := repository.New(conn)
 
-	// Extract query param `q`
 	q := r.URL.Query().Get("q")
 	if q == "" {
-		http.Error(
-			w,
-			`{"error":"missing search query param 'q'"}`,
-			http.StatusBadRequest,
-		)
-		return
+		return core.Public(core.ErrInvalidInput, msgMissingQuery)
 	}
 
-	// Get pagination values from middleware
 	p := middleware.GetPagination(r.Context())
-
-	institutions, err := repo.SearchInstitutionsByName(
-		r.Context(),
-		repository.SearchInstitutionsByNameParams{
-			Name:   q,
-			Limit:  int32(p.Limit),
-			Offset: int32(p.Offset),
-		},
+	insts, err := ih.svc(conn).SearchByName(
+		r.Context(), q, int32(p.Limit), int32(p.Offset),
 	)
 	if err != nil {
 		ih.Logger.Error("Search failed", slog.Any("error", err))
-		http.Error(
-			w,
-			`{"error":"failed to search institutions"}`,
-			http.StatusInternalServerError,
-		)
-		return
+		return core.Public(core.ErrInternal, msgSearchFailed)
 	}
 
-	if err := json.NewEncoder(w).Encode(institutions); err != nil {
-		ih.Logger.Error("Failed to encode response", slog.Any("error", err))
-	}
+	core.WriteJSON(w, http.StatusOK, insts)
+	return nil
 }
 
 // AddAcountInstitution godoc
@@ -572,94 +443,48 @@ func (ih *InstitutionHandler) SearchInstitutions(
 func (ih *InstitutionHandler) AddAcountInstitution(
 	w http.ResponseWriter,
 	r *http.Request,
-) {
-	w.Header().Set("Content-Type", "application/json")
-	conn, err := ih.DB.Acquire(r.Context())
-	if err != nil {
-		ih.Logger.Error(
-			"Error while processing request",
-			slog.Any("error", err),
-		)
-		http.Error(
-			w,
-			`{"error":"internal server error"}`,
-			http.StatusInternalServerError,
-		)
-		return
-	}
-	defer conn.Release()
-
-	tx, _ := conn.Begin(r.Context())
-	defer tx.Rollback(r.Context())
-	repo := repository.New(tx)
-
+) error {
 	var req repository.AddAccountInstitutionParams
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		ih.Logger.Error("Failed to parse request body", slog.Any("error", err))
-		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
-		return
+		return core.Public(core.ErrInvalidInput, msgInvalidBody)
 	}
 
 	claims, ok := middleware.ClaimsFromContext(r.Context())
 	perms := middleware.PermissionsFromContext(r.Context())
 	isAdmin := slices.Contains(perms, "manage:institutions:accounts:any")
 	if !ok || (!isAdmin && req.AccountID.String() != claims.Subject) {
-		core.WriteError(w, http.StatusForbidden, "you can only manage your own institution memberships")
-		return
+		return core.Public(core.ErrForbidden, msgOwnMembership)
 	}
 
-	created, err := repo.AddAccountInstitution(r.Context(), req)
+	created, err := core.InTx(
+		r.Context(), ih.DB,
+		func(tx pgx.Tx) (repository.AddAccountInstitutionRow, error) {
+			created, err := ih.svc(tx).AddAccount(r.Context(), req)
+			if err != nil {
+				ih.Logger.Error(
+					"Failed to create institution", slog.Any("error", err),
+				)
+				return repository.AddAccountInstitutionRow{}, core.Public(
+					core.ErrInternal, msgLinkFailed,
+				)
+			}
+			return created, nil
+		},
+	)
 	if err != nil {
-		ih.Logger.Error("Failed to create institution", slog.Any("error", err))
-		http.Error(
-			w,
-			`{"error":"failed to link you to that organization"}`,
-			http.StatusInternalServerError,
-		)
-		return
-	}
-
-	if err = tx.Commit(r.Context()); err != nil {
-		ih.Logger.Error("Error committing transaction", slog.Any("error", err))
-		http.Error(
-			w,
-			`{"error":"internal server error"}`,
-			http.StatusInternalServerError,
-		)
-		return
+		return core.Fallback(err, core.ErrInternal, msgInternalServer)
 	}
 
 	if ih.Publisher != nil {
-		eventPayload := map[string]any{
-			"meta": map[string]any{
-				"event_type":        "user.institution.connected",
-				"timestamp":         time.Now().UTC().Format(time.RFC3339),
-				"source_service_id": "io.opencrafts.verisafe",
-				"request_id":        uuid.New().String(),
-			},
-			"institution_connection": map[string]any{
-				"account_id":     req.AccountID,
-				"institution_id": req.InstitutionID,
-			},
-		}
-		err := ih.Publisher.Publish(
-			r.Context(),
-			"verisafe.events.topic",
-			broker.TopicExchangeType,
-			"user.institution.connected",
-			eventPayload,
+		publishConnectionEventPayload(
+			r.Context(), ih.Publisher, ih.Logger,
+			"user.institution.connected", req.AccountID, req.InstitutionID,
 		)
-		if err != nil {
-			ih.Logger.Error(
-				"failed to publish institution connection event",
-				"error",
-				err,
-			)
-		}
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(created)
+	core.WriteJSON(w, http.StatusCreated, created)
+	return nil
 }
 
 // ListInstitutionForAccount godoc
@@ -680,66 +505,35 @@ func (ih *InstitutionHandler) AddAcountInstitution(
 func (ih *InstitutionHandler) ListInstitutionForAccount(
 	w http.ResponseWriter,
 	r *http.Request,
-) {
-	w.Header().Set("Content-Type", "application/json")
+) error {
 	conn, err := ih.DB.Acquire(r.Context())
 	if err != nil {
-		ih.Logger.Error(
-			"Error while processing request",
-			slog.Any("error", err),
-		)
-		http.Error(
-			w,
-			`{"error":"internal server error"}`,
-			http.StatusInternalServerError,
-		)
-		return
+		ih.Logger.Error("Error while processing request", slog.Any("error", err))
+		return core.Public(core.ErrInternal, msgInternalServer)
 	}
 	defer conn.Release()
-	repo := repository.New(conn)
 
-	// Extract query param `q`
 	q := r.URL.Query().Get("account_id")
 	if q == "" {
-		http.Error(
-			w,
-			`{"error":"missing search query param 'q'"}`,
-			http.StatusBadRequest,
-		)
-		return
+		return core.Public(core.ErrInvalidInput, msgMissingQuery)
 	}
 
-	// parse the uuid
 	id, err := uuid.Parse(q)
 	if err != nil {
-		http.Error(
-			w,
-			`{"error":"Could not parse the uuid parameter"}`,
-			http.StatusBadRequest,
-		)
-		return
+		return core.Public(core.ErrInvalidInput, msgInvalidUUIDParam)
 	}
 
 	p := middleware.GetPagination(r.Context())
-	institutions, err := repo.ListInstitutionsForAccount(
-		r.Context(),
-		repository.ListInstitutionsForAccountParams{
-			AccountID: id,
-			Limit:     int32(p.Limit),
-			Offset:    int32(p.Offset),
-		},
+	insts, err := ih.svc(conn).ListForAccount(
+		r.Context(), id, int32(p.Limit), int32(p.Offset),
 	)
 	if err != nil {
 		ih.Logger.Error("Failed to list institutions", slog.Any("error", err))
-		http.Error(
-			w,
-			`{"error":"failed to fetch institutions"}`,
-			http.StatusInternalServerError,
-		)
-		return
+		return core.Public(core.ErrInternal, msgFetchFailed)
 	}
 
-	json.NewEncoder(w).Encode(institutions)
+	core.WriteJSON(w, http.StatusOK, insts)
+	return nil
 }
 
 // ListAccountsForInstitution godoc
@@ -762,66 +556,35 @@ func (ih *InstitutionHandler) ListInstitutionForAccount(
 func (ih *InstitutionHandler) ListAccountsForInstitution(
 	w http.ResponseWriter,
 	r *http.Request,
-) {
-	w.Header().Set("Content-Type", "application/json")
+) error {
 	conn, err := ih.DB.Acquire(r.Context())
 	if err != nil {
-		ih.Logger.Error(
-			"Error while processing request",
-			slog.Any("error", err),
-		)
-		http.Error(
-			w,
-			`{"error":"internal server error"}`,
-			http.StatusInternalServerError,
-		)
-		return
+		ih.Logger.Error("Error while processing request", slog.Any("error", err))
+		return core.Public(core.ErrInternal, msgInternalServer)
 	}
 	defer conn.Release()
-	repo := repository.New(conn)
 
-	// Extract query param `q`
 	q := r.URL.Query().Get("institution_id")
 	if q == "" {
-		http.Error(
-			w,
-			`{"error":"missing search query param 'q'"}`,
-			http.StatusBadRequest,
-		)
-		return
+		return core.Public(core.ErrInvalidInput, msgMissingQuery)
 	}
 
-	// parse the uuid
 	id, err := strconv.Atoi(q)
 	if err != nil {
-		http.Error(
-			w,
-			`{"error":"Could not parse the institution id parameter"}`,
-			http.StatusBadRequest,
-		)
-		return
+		return core.Public(core.ErrInvalidInput, msgInvalidInstIDParam)
 	}
 
 	p := middleware.GetPagination(r.Context())
-	institutions, err := repo.ListAccountsForInstitution(
-		r.Context(),
-		repository.ListAccountsForInstitutionParams{
-			InstitutionID: int32(id),
-			Limit:         int32(p.Limit),
-			Offset:        int32(p.Offset),
-		},
+	accounts, err := ih.svc(conn).ListAccountsForInstitution(
+		r.Context(), int32(id), int32(p.Limit), int32(p.Offset),
 	)
 	if err != nil {
 		ih.Logger.Error("Failed to list institutions", slog.Any("error", err))
-		http.Error(
-			w,
-			`{"error":"failed to fetch institutions"}`,
-			http.StatusInternalServerError,
-		)
-		return
+		return core.Public(core.ErrInternal, msgFetchFailed)
 	}
 
-	json.NewEncoder(w).Encode(institutions)
+	core.WriteJSON(w, http.StatusOK, accounts)
+	return nil
 }
 
 // RemoveAccountInstitution godoc
@@ -842,95 +605,81 @@ func (ih *InstitutionHandler) ListAccountsForInstitution(
 func (ih *InstitutionHandler) RemoveAccountInstitution(
 	w http.ResponseWriter,
 	r *http.Request,
-) {
-	w.Header().Set("Content-Type", "application/json")
-	conn, err := ih.DB.Acquire(r.Context())
-	if err != nil {
-		ih.Logger.Error(
-			"Error while processing request",
-			slog.Any("error", err),
-		)
-		http.Error(
-			w,
-			`{"error":"internal server error"}`,
-			http.StatusInternalServerError,
-		)
-		return
-	}
-	defer conn.Release()
-
-	tx, _ := conn.Begin(r.Context())
-	defer tx.Rollback(r.Context())
-	repo := repository.New(tx)
-
+) error {
 	var req repository.RemoveAccountInstitutionParams
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		ih.Logger.Error("Failed to parse request body", slog.Any("error", err))
-		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
-		return
+		return core.Public(core.ErrInvalidInput, msgInvalidBody)
 	}
 
 	claims, ok := middleware.ClaimsFromContext(r.Context())
 	perms := middleware.PermissionsFromContext(r.Context())
 	isAdmin := slices.Contains(perms, "manage:institutions:accounts:any")
 	if !ok || (!isAdmin && req.AccountID.String() != claims.Subject) {
-		core.WriteError(w, http.StatusForbidden, "you can only manage your own institution memberships")
-		return
+		return core.Public(core.ErrForbidden, msgOwnMembership)
 	}
 
-	err = repo.RemoveAccountInstitution(r.Context(), req)
-	if err != nil {
-		ih.Logger.Error("Failed to create institution", slog.Any("error", err))
-		http.Error(
-			w,
-			`{"error":"failed to create institution"}`,
-			http.StatusInternalServerError,
-		)
-		return
-	}
-
-	if err = tx.Commit(r.Context()); err != nil {
-		ih.Logger.Error("Error committing transaction", slog.Any("error", err))
-		http.Error(
-			w,
-			`{"error":"internal server error"}`,
-			http.StatusInternalServerError,
-		)
-		return
+	if err := core.InTxDo(r.Context(), ih.DB, func(tx pgx.Tx) error {
+		if err := ih.svc(tx).RemoveAccount(r.Context(), req); err != nil {
+			// msgCreateFailed here reproduces a wording bug in the original
+			// handler: the repo-call failure for this endpoint reused
+			// RegisterInstitution's "failed to create institution" message
+			// rather than one about removal. Kept exactly as it shipped.
+			ih.Logger.Error(
+				"Failed to create institution", slog.Any("error", err),
+			)
+			return core.Public(core.ErrInternal, msgCreateFailed)
+		}
+		return nil
+	}); err != nil {
+		return core.Fallback(err, core.ErrInternal, msgInternalServer)
 	}
 
 	if ih.Publisher != nil {
-		eventPayload := map[string]any{
-			"meta": map[string]any{
-				"event_type":        "user.institution.disconnected",
-				"timestamp":         time.Now().UTC().Format(time.RFC3339),
-				"source_service_id": "io.opencrafts.verisafe",
-				"request_id":        uuid.New().String(),
-			},
-			"institution_connection": map[string]any{
-				"account_id":     req.AccountID,
-				"institution_id": req.InstitutionID,
-			},
-		}
-		err := ih.Publisher.Publish(
-			r.Context(),
-			"verisafe.events.topic",
-			broker.TopicExchangeType,
-			"user.institution.disconnected",
-			eventPayload,
+		publishConnectionEventPayload(
+			r.Context(), ih.Publisher, ih.Logger,
+			"user.institution.disconnected", req.AccountID, req.InstitutionID,
 		)
-		if err != nil {
-			ih.Logger.Error(
-				"failed to publish institution connection event",
-				"error",
-				err,
-			)
-		}
 	}
 
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).
-		Encode(map[string]any{"message": "Successfully removed from institution"})
+	core.WriteJSON(w, http.StatusOK, map[string]any{
+		"message": "Successfully removed from institution",
+	})
+	return nil
+}
+
+// publishConnectionEventPayload builds and sends the raw broker.Publisher
+// event both AddAcountInstitution and RemoveAccountInstitution emit. It is
+// unchanged from before this extraction other than being a shared helper
+// instead of two duplicated inline blocks: same exchange, same topic
+// exchange type, same payload shape.
+func publishConnectionEventPayload(
+	ctx context.Context,
+	pub *broker.Publisher,
+	logger *slog.Logger,
+	eventType string,
+	accountID uuid.UUID,
+	institutionID int32,
+) {
+	payload := map[string]any{
+		"meta": map[string]any{
+			"event_type":        eventType,
+			"timestamp":         time.Now().UTC().Format(time.RFC3339),
+			"source_service_id": "io.opencrafts.verisafe",
+			"request_id":        uuid.New().String(),
+		},
+		"institution_connection": map[string]any{
+			"account_id":     accountID,
+			"institution_id": institutionID,
+		},
+	}
+	if err := pub.Publish(
+		ctx, "verisafe.events.topic", broker.TopicExchangeType, eventType, payload,
+	); err != nil {
+		logger.Error(
+			"failed to publish institution connection event", "error", err,
+		)
+	}
 }
 
 // FanoutInstitutionConnections godoc
@@ -947,21 +696,16 @@ func (ih *InstitutionHandler) RemoveAccountInstitution(
 func (ih *InstitutionHandler) FanoutInstitutionConnections(
 	w http.ResponseWriter,
 	r *http.Request,
-) {
+) error {
 	ctx := r.Context()
 	conn, err := ih.DB.Acquire(ctx)
 	if err != nil {
 		ih.Logger.Error("DB connection missing", slog.Any("error", err))
-		http.Error(
-			w,
-			`{"error":"internal server error"}`,
-			http.StatusInternalServerError,
-		)
-		return
+		return core.Public(core.ErrInternal, msgInternalServer)
 	}
 	defer conn.Release()
 
-	repo := repository.New(conn)
+	svc := ih.svc(conn)
 
 	const batchSize = 500
 	const workerCount = 10
@@ -974,7 +718,13 @@ func (ih *InstitutionHandler) FanoutInstitutionConnections(
 		go func() {
 			defer wg.Done()
 			for connection := range jobChan {
-				ih.publishConnectionEvent(ctx, connection)
+				if ih.Publisher == nil {
+					continue
+				}
+				publishConnectionEventPayload(
+					ctx, ih.Publisher, ih.Logger, "user.institution.connected",
+					connection.AccountID, connection.InstitutionID,
+				)
 			}
 		}()
 	}
@@ -983,20 +733,12 @@ func (ih *InstitutionHandler) FanoutInstitutionConnections(
 		defer close(jobChan)
 		offset := 0
 		for {
-			connections, err := repo.ListInstitutionConnections(
-				ctx,
-				repository.ListInstitutionConnectionsParams{
-					Limit:  int32(batchSize),
-					Offset: int32(offset),
-				},
+			connections, err := svc.ListConnectionsBatch(
+				ctx, int32(batchSize), int32(offset),
 			)
 			if err != nil {
 				ih.Logger.Error(
-					"Batch fetch failed",
-					"offset",
-					offset,
-					"error",
-					err,
+					"Batch fetch failed", "offset", offset, "error", err,
 				)
 				break
 			}
@@ -1015,49 +757,8 @@ func (ih *InstitutionHandler) FanoutInstitutionConnections(
 
 	wg.Wait()
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "fanout complete"})
-}
-
-// Helper to keep the handler clean
-func (ih *InstitutionHandler) publishConnectionEvent(
-	ctx context.Context,
-	conn repository.AccountInstitution,
-) {
-	if ih.Publisher == nil {
-		return
-	}
-
-	payload := map[string]any{
-		"meta": map[string]any{
-			"event_type":        "user.institution.connected",
-			"timestamp":         time.Now().UTC().Format(time.RFC3339),
-			"source_service_id": "io.opencrafts.verisafe",
-			"request_id":        uuid.New().String(),
-		},
-		"institution_connection": map[string]any{
-			"account_id":     conn.AccountID,
-			"institution_id": conn.InstitutionID,
-		},
-	}
-
-	err := ih.Publisher.Publish(
-		ctx,
-		"verisafe.events.topic",
-		broker.TopicExchangeType,
-		"user.institution.connected",
-		payload,
-	)
-	if err != nil {
-		ih.Logger.Error(
-			"Institution fanout publish failed",
-			"account_id",
-			conn.AccountID,
-			"error",
-			err,
-		)
-	}
+	core.WriteJSON(w, http.StatusOK, map[string]string{"status": "fanout complete"})
+	return nil
 }
 
 // FanoutInstitutions godoc

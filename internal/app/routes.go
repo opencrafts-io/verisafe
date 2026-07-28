@@ -20,6 +20,7 @@ import (
 	"github.com/opencrafts-io/verisafe/internal/handlers/social"
 	"github.com/opencrafts-io/verisafe/internal/handlers/streak"
 	activitysvc "github.com/opencrafts-io/verisafe/internal/service/activity"
+	institutionsvc "github.com/opencrafts-io/verisafe/internal/service/institution"
 	leaderboardsvc "github.com/opencrafts-io/verisafe/internal/service/leaderboard"
 	permsvc "github.com/opencrafts-io/verisafe/internal/service/permission"
 	rolesvc "github.com/opencrafts-io/verisafe/internal/service/role"
@@ -94,6 +95,7 @@ func (a *App) loadRoutes() http.Handler {
 		&institution.InstitutionHandler{
 			DB:                  db,
 			Pool:                a.pool,
+			Service:             institutionsvc.NewService,
 			Cacher:              a.cacher,
 			Cfg:                 a.config,
 			Logger:              a.logger,
