@@ -3,7 +3,6 @@ package account
 import (
 	"context"
 	"crypto/rand"
-	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -14,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/opencrafts-io/verisafe/internal/config"
 	"github.com/opencrafts-io/verisafe/internal/core"
@@ -21,6 +21,7 @@ import (
 	"github.com/opencrafts-io/verisafe/internal/handlers/servicetoken"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/repository"
+	accountsvc "github.com/opencrafts-io/verisafe/internal/service/account"
 )
 
 type AccountHandler struct {
@@ -29,6 +30,21 @@ type AccountHandler struct {
 	Logger       *slog.Logger
 	Cfg          *config.Config
 	UserEventBus eventbus.UserPublisher
+
+	// Service builds an account service bound to the caller's connection or
+	// transaction. Left nil it falls back to the real implementation; see the
+	// role handler for why this field is the testing seam, and the
+	// institution handler for why the parameter is repository.DBTX rather
+	// than pgx.Tx -- FanoutAccouts queries the acquired connection directly
+	// with no transaction at all.
+	Service func(repository.Querier) accountsvc.Service
+}
+
+func (ah *AccountHandler) svc(db repository.DBTX) accountsvc.Service {
+	if ah.Service != nil {
+		return ah.Service(repository.New(db))
+	}
+	return accountsvc.NewService(repository.New(db))
 }
 
 func (ah *AccountHandler) RegisterHandlers(router core.Router) {
@@ -36,55 +52,55 @@ func (ah *AccountHandler) RegisterHandlers(router core.Router) {
 		middleware.CreateStack(
 			middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 			middleware.HasPermission([]string{"create:account:any"}),
-		)(http.HandlerFunc(ah.CreateBotAccount)),
+		)(core.AppHandler(ah.CreateBotAccount)),
 	)
 
 	router.Handle("GET /accounts/fanout",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 			middleware.HasPermission([]string{"create:account:any"}),
-		)(http.HandlerFunc(ah.FanoutAccouts)),
+		)(core.AppHandler(ah.FanoutAccouts)),
 	)
 
 	router.Handle("GET /accounts/me",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 			middleware.HasPermission([]string{"read:account:own"}),
-		)(http.HandlerFunc(ah.GetPersonalAccount)),
+		)(core.AppHandler(ah.GetPersonalAccount)),
 	)
 
 	router.Handle("GET /accounts/all",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 			middleware.HasPermission([]string{"read:account:any"}),
-		)(http.HandlerFunc(ah.GetAllUserAccounts)),
+		)(core.AppHandler(ah.GetAllUserAccounts)),
 	)
 
 	router.Handle("PATCH /accounts/me",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 			middleware.HasPermission([]string{"update:account:own"}),
-		)(http.HandlerFunc(ah.UpdatePersonalAccount)),
+		)(core.AppHandler(ah.UpdatePersonalAccount)),
 	)
 
 	router.Handle("POST /accounts/deletion-request",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 			middleware.HasPermission([]string{"update:account:own"}),
-		)(http.HandlerFunc(ah.MarkAccountForDeletion)),
+		)(core.AppHandler(ah.MarkAccountForDeletion)),
 	)
 	router.Handle("POST /accounts/recovery",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 			middleware.HasPermission([]string{"update:account:own"}),
-		)(http.HandlerFunc(ah.RecoverAccountFromDeletion)),
+		)(core.AppHandler(ah.RecoverAccountFromDeletion)),
 	)
 
 	router.Handle("PATCH /accounts/me/phone",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 			middleware.HasPermission([]string{"update:account:own"}),
-		)(http.HandlerFunc(ah.VerifyPhone)),
+		)(core.AppHandler(ah.VerifyPhone)),
 	)
 
 	router.Handle("GET /accounts/search/email",
@@ -92,7 +108,7 @@ func (ah *AccountHandler) RegisterHandlers(router core.Router) {
 			middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 			middleware.HasPermission([]string{"read:account:any"}),
 			middleware.PaginationMiddleware(10, 100),
-		)(http.HandlerFunc(ah.SearchAccountsByEmail)),
+		)(core.AppHandler(ah.SearchAccountsByEmail)),
 	)
 
 	router.Handle("GET /accounts/search/name",
@@ -100,7 +116,7 @@ func (ah *AccountHandler) RegisterHandlers(router core.Router) {
 			middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 			middleware.HasPermission([]string{"read:account:any"}),
 			middleware.PaginationMiddleware(10, 100),
-		)(http.HandlerFunc(ah.SearchAccountsByName)),
+		)(core.AppHandler(ah.SearchAccountsByName)),
 	)
 
 	router.Handle("GET /accounts/search/username",
@@ -108,7 +124,7 @@ func (ah *AccountHandler) RegisterHandlers(router core.Router) {
 			middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 			middleware.HasPermission([]string{"read:account:any"}),
 			middleware.PaginationMiddleware(10, 100),
-		)(http.HandlerFunc(ah.SearchAccountsByUsername)),
+		)(core.AppHandler(ah.SearchAccountsByUsername)),
 	)
 }
 
@@ -154,6 +170,16 @@ type BotAccountResponse struct {
 	} `json:"service_token"`
 }
 
+// generateSecureToken generates a cryptographically secure token
+func (ah *AccountHandler) generateSecureToken() (string, error) {
+	bytes := make([]byte, 32)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	token := "vst_" + base64.URLEncoding.EncodeToString(bytes)
+	return token, nil
+}
+
 // CreateBotAccount godoc
 //
 // @Summary      Create a bot account with a service token
@@ -171,188 +197,103 @@ type BotAccountResponse struct {
 func (ah *AccountHandler) CreateBotAccount(
 	w http.ResponseWriter,
 	r *http.Request,
-) {
-	w.Header().Set("Content-Type", "application/json")
-
-	// Parse request
+) error {
 	var req BotAccountRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		ah.Logger.Error(
-			"Failed to parse request body",
-			slog.String("error", err.Error()),
-		)
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "Invalid request body",
-		})
-		return
+		ah.Logger.Error("Failed to parse request body", slog.String("error", err.Error()))
+		return core.Public(core.ErrInvalidInput, msgInvalidBody)
 	}
-
-	// Validate request
 	if req.Account.Email == "" || req.Account.Name == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "Email and name are required",
-		})
-		return
+		return core.Public(core.ErrInvalidInput, msgEmailNameRequired)
 	}
-
 	if req.ServiceToken.Name == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "Service token name is required",
+		return core.Public(core.ErrInvalidInput, msgTokenNameRequired)
+	}
+
+	type result struct {
+		account      repository.Account
+		serviceToken repository.ServiceToken
+		rawToken     string
+	}
+
+	res, err := core.InTx(r.Context(), ah.DB, func(tx pgx.Tx) (result, error) {
+		svc := ah.svc(tx)
+
+		created, err := svc.Create(r.Context(), repository.CreateAccountParams{
+			Email:     req.Account.Email,
+			Name:      req.Account.Name,
+			Type:      repository.AccountTypeBot,
+			AvatarUrl: req.Account.AvatarUrl,
 		})
-		return
-	}
+		if err != nil {
+			ah.Logger.Error("Failed to create account", slog.Any("error", err))
+			return result{}, core.Public(core.ErrInternal, msgAccountCreateFailed)
+		}
 
-	conn, err := ah.DB.Acquire(r.Context())
-	if err != nil {
-		ah.Logger.Error(
-			"Error while processing request",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into a problem while servicing your request please try again later",
-		})
-		return
-	}
-	defer conn.Release()
+		role, err := svc.GetBotRole(r.Context())
+		if err != nil {
+			ah.Logger.Error("Failed to retrieve bot role", slog.Any("error", err))
+			return result{}, core.Public(core.ErrInternal, msgRoleLookupFailed)
+		}
 
-	tx, err := conn.Begin(r.Context())
-	if err != nil {
-		ah.Logger.Error(
-			"Error while beginning transaction",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into a problem while servicing your request please try again later",
-		})
-		return
-	}
-	defer tx.Rollback(r.Context())
+		if err := svc.AssignRole(r.Context(), created.ID, role.ID); err != nil {
+			ah.Logger.Error("Failed to assign role", slog.Any("error", err))
+			return result{}, core.Public(core.ErrInternal, msgRoleAssignFailed)
+		}
 
-	repo := repository.New(tx)
-
-	// Create bot account
-	accData := repository.CreateAccountParams{
-		Email:     req.Account.Email,
-		Name:      req.Account.Name,
-		Type:      repository.AccountTypeBot,
-		AvatarUrl: req.Account.AvatarUrl,
-	}
-
-	created, err := repo.CreateAccount(r.Context(), accData)
-	if err != nil {
-		ah.Logger.Error("Failed to create account",
-			slog.Any("error", err),
-			slog.Any("account", accData),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We couldn't create this account at the moment please try again later",
-		})
-		return
-	}
-
-	// Assign bot role
-	role, err := repo.GetRoleByName(r.Context(), "bot")
-	if err != nil {
-		ah.Logger.Error("Failed to retrieve bot role",
-			slog.Any("error", err),
-			slog.Any("account", accData),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We couldn't found a suitable role to assign to your bot",
-		})
-		return
-	}
-
-	if _, err := repo.AssignRole(r.Context(), repository.AssignRoleParams{
-		UserID: created.ID, RoleID: role.ID,
-	}); err != nil {
-		ah.Logger.Error("Failed to assign role",
-			slog.Any("error", err),
-			slog.Any("account", accData),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We couldn't assign default bot role",
-		})
-		return
-	}
-
-	// Generate secure service token
-	token, err := ah.generateSecureToken()
-	if err != nil {
-		ah.Logger.Error(
-			"Failed to generate secure token",
-			slog.String("error", err.Error()),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "Failed to generate service token",
-		})
-		return
-	}
-
-	// Calculate expiry
-	var expiresAt *time.Time
-	if req.ServiceToken.ExpiresInDays != nil {
-		expiry := time.Now().AddDate(0, 0, *req.ServiceToken.ExpiresInDays)
-		expiresAt = &expiry
-	} else {
-		// Default to 1 year
-		expiry := time.Now().AddDate(1, 0, 0)
-		expiresAt = &expiry
-	}
-
-	// Prepare rotation policy
-	var rotationPolicyJSON []byte
-	if req.ServiceToken.RotationPolicy != nil {
-		rotationPolicyJSON, err = json.Marshal(req.ServiceToken.RotationPolicy)
+		token, err := ah.generateSecureToken()
 		if err != nil {
 			ah.Logger.Error(
-				"Failed to marshal rotation policy",
-				slog.String("error", err.Error()),
+				"Failed to generate secure token", slog.String("error", err.Error()),
 			)
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]string{
-				"error": "Invalid rotation policy",
-			})
-			return
+			return result{}, core.Public(core.ErrInternal, msgTokenGenFailed)
 		}
-	}
 
-	// Prepare metadata
-	var metadataJSON []byte
-	if req.ServiceToken.Metadata != nil {
-		metadataJSON, err = json.Marshal(req.ServiceToken.Metadata)
-		if err != nil {
-			ah.Logger.Error(
-				"Failed to marshal metadata",
-				slog.String("error", err.Error()),
-			)
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]string{
-				"error": "Invalid metadata",
-			})
-			return
+		var expiresAt *time.Time
+		if req.ServiceToken.ExpiresInDays != nil {
+			expiry := time.Now().AddDate(0, 0, *req.ServiceToken.ExpiresInDays)
+			expiresAt = &expiry
+		} else {
+			expiry := time.Now().AddDate(1, 0, 0)
+			expiresAt = &expiry
 		}
-	}
 
-	// Create service token
-	serviceToken, err := repo.CreateServiceToken(
-		r.Context(),
-		repository.CreateServiceTokenParams{
+		var rotationPolicyJSON []byte
+		if req.ServiceToken.RotationPolicy != nil {
+			rotationPolicyJSON, err = json.Marshal(req.ServiceToken.RotationPolicy)
+			if err != nil {
+				ah.Logger.Error(
+					"Failed to marshal rotation policy", slog.String("error", err.Error()),
+				)
+				return result{}, core.Public(core.ErrInvalidInput, msgInvalidRotation)
+			}
+		}
+
+		var metadataJSON []byte
+		if req.ServiceToken.Metadata != nil {
+			metadataJSON, err = json.Marshal(req.ServiceToken.Metadata)
+			if err != nil {
+				ah.Logger.Error(
+					"Failed to marshal metadata", slog.String("error", err.Error()),
+				)
+				return result{}, core.Public(core.ErrInvalidInput, msgInvalidMetadata)
+			}
+		}
+
+		serviceToken, err := svc.CreateServiceToken(r.Context(), token, repository.CreateServiceTokenParams{
 			AccountID:   created.ID,
 			Name:        req.ServiceToken.Name,
 			Description: req.ServiceToken.Description,
-			TokenHash:   token,
-			ExpiresAt:   expiresAt,
-			Scopes:      req.ServiceToken.Scopes,
+			// TokenHash is set by the service, which hashes rawToken -- this
+			// literal value is ignored. Before this migration, the handler
+			// passed the raw token straight through as TokenHash with no
+			// hashing at all, so every bot account created through this
+			// endpoint received a service token that could never
+			// authenticate (the X-API-Key check hashes the presented key and
+			// looks up by that hash). This was fixed as part of the
+			// extraction rather than reproduced; see ADR 0009.
+			ExpiresAt: expiresAt,
+			Scopes:    req.ServiceToken.Scopes,
 			MaxUses: func() *int32 {
 				if req.ServiceToken.MaxUses == nil {
 					return nil
@@ -365,77 +306,47 @@ func (ah *AccountHandler) CreateBotAccount(
 			UserAgentPattern: req.ServiceToken.UserAgentPattern,
 			CreatedBy:        pgtype.UUID{Bytes: created.ID, Valid: true},
 			Metadata:         metadataJSON,
-		},
-	)
+		})
+		if err != nil {
+			ah.Logger.Error(
+				"Failed to create service token", slog.String("error", err.Error()),
+			)
+			return result{}, core.Public(core.ErrInternal, msgServiceTokenFailed)
+		}
+
+		return result{account: created, serviceToken: serviceToken, rawToken: token}, nil
+	})
 	if err != nil {
-		ah.Logger.Error(
-			"Failed to create service token",
-			slog.String("error", err.Error()),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "Failed to create service token",
-		})
-		return
+		return core.Fallback(err, core.ErrInternal, msgGeneric)
 	}
 
-	if err = tx.Commit(r.Context()); err != nil {
-		ah.Logger.Error(
-			"Error while committing transaction",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]any{
-			"error": "We ran into a problem while servicing your request please try again later",
-		})
-		return
-	}
-
-	// Prepare response
 	response := BotAccountResponse{}
+	response.Account.ID = res.account.ID
+	response.Account.Email = res.account.Email
+	response.Account.Name = res.account.Name
+	response.Account.Type = string(res.account.Type)
+	response.Account.CreatedAt = res.account.CreatedAt.Time
 
-	// Account info
-	response.Account.ID = created.ID
-	response.Account.Email = created.Email
-	response.Account.Name = created.Name
-	response.Account.Type = string(created.Type)
-	response.Account.CreatedAt = created.CreatedAt.Time
-
-	// Service token info
-	response.ServiceToken.ID = serviceToken.ID
-	response.ServiceToken.Name = serviceToken.Name
-	response.ServiceToken.Description = serviceToken.Description
-	response.ServiceToken.Token = token
-	response.ServiceToken.ExpiresAt = serviceToken.ExpiresAt
-	response.ServiceToken.Scopes = serviceToken.Scopes
+	response.ServiceToken.ID = res.serviceToken.ID
+	response.ServiceToken.Name = res.serviceToken.Name
+	response.ServiceToken.Description = res.serviceToken.Description
+	response.ServiceToken.Token = res.rawToken
+	response.ServiceToken.ExpiresAt = res.serviceToken.ExpiresAt
+	response.ServiceToken.Scopes = res.serviceToken.Scopes
 	response.ServiceToken.MaxUses = func() *int {
-		if serviceToken.MaxUses == nil {
+		if res.serviceToken.MaxUses == nil {
 			return nil
 		}
-		val := int(*serviceToken.MaxUses)
+		val := int(*res.serviceToken.MaxUses)
 		return &val
 	}()
-	response.ServiceToken.CreatedAt = serviceToken.CreatedAt.Time
-
-	if serviceToken.Metadata != nil {
-		json.Unmarshal(serviceToken.Metadata, &response.ServiceToken.Metadata)
+	response.ServiceToken.CreatedAt = res.serviceToken.CreatedAt.Time
+	if res.serviceToken.Metadata != nil {
+		json.Unmarshal(res.serviceToken.Metadata, &response.ServiceToken.Metadata)
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(response)
-}
-
-// generateSecureToken generates a cryptographically secure token
-func (ah *AccountHandler) generateSecureToken() (string, error) {
-	// Generate 32 bytes of random data
-	bytes := make([]byte, 32)
-	if _, err := rand.Read(bytes); err != nil {
-		return "", err
-	}
-
-	// Encode as base64 and add prefix for identification
-	token := "vst_" + base64.URLEncoding.EncodeToString(bytes)
-	return token, nil
+	core.WriteJSON(w, http.StatusCreated, response)
+	return nil
 }
 
 // FanoutAccouts godoc
@@ -452,41 +363,26 @@ func (ah *AccountHandler) generateSecureToken() (string, error) {
 func (ah *AccountHandler) FanoutAccouts(
 	w http.ResponseWriter,
 	r *http.Request,
-) {
-	w.Header().Set("Content-Type", "application/json")
+) error {
 	conn, err := ah.DB.Acquire(r.Context())
 	if err != nil {
-		ah.Logger.Error(
-			"Error while processing request",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into a problem while servicing your request please try again later",
-		})
-		return
+		ah.Logger.Error("Error while processing request", slog.Any("error", err))
+		return core.Public(core.ErrInternal, msgGeneric)
 	}
 	defer conn.Release()
 
-	repo := repository.New(conn)
-	userCount, err := repo.GetAccountsCount(r.Context())
+	svc := ah.svc(conn)
+
+	userCount, err := svc.Count(r.Context())
 	if err != nil {
-		ah.Logger.Error(
-			"Error while processing request",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into an error while trying to service your request",
-		})
-		return
+		ah.Logger.Error("Error while processing request", slog.Any("error", err))
+		return core.Public(core.ErrInternal, msgFanoutServiceUnavailable)
 	}
 
 	batchSize := 1000
 	totalBatches := (int(userCount) + batchSize - 1) / batchSize
 	publishedCount := 0
 
-	// Use a worker pool to limit concurrent goroutines
 	workerCount := 5
 	semaphore := make(chan struct{}, workerCount)
 	var wg sync.WaitGroup
@@ -494,40 +390,29 @@ func (ah *AccountHandler) FanoutAccouts(
 
 	for batch := range totalBatches {
 		wg.Add(1)
-		semaphore <- struct{}{} // Acquire slot
+		semaphore <- struct{}{}
 
 		go func(batchNum int) {
 			defer wg.Done()
-			defer func() { <-semaphore }() // Release slot
+			defer func() { <-semaphore }()
 
 			offset := batchNum * batchSize
-			ctx, cancel := context.WithTimeout(
-				context.Background(),
-				30*time.Minute,
-			)
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 			defer cancel()
-			users, err := repo.GetAllAccounts(
-				ctx,
-				repository.GetAllAccountsParams{
-					Limit:  int32(batchSize),
-					Offset: int32(offset),
-				},
-			)
+
+			users, err := svc.ListBatch(ctx, int32(batchSize), int32(offset))
 			if err != nil {
 				ah.Logger.Error("Error fetching batch",
-					slog.Any("error", err),
-					slog.Int("batch", batchNum),
+					slog.Any("error", err), slog.Int("batch", batchNum),
 				)
 				errChan <- fmt.Errorf("batch %d: %w", batchNum, err)
 				return
 			}
 
-			// Publish synchronously within the goroutine
 			for _, user := range users {
 				if err := ah.UserEventBus.PublishUserCreated(ctx, user, user.ID.String()); err != nil {
 					ah.Logger.Error("Error publishing user",
-						slog.Any("error", err),
-						slog.String("user_id", user.ID.String()),
+						slog.Any("error", err), slog.String("user_id", user.ID.String()),
 					)
 					errChan <- err
 					return
@@ -540,22 +425,14 @@ func (ah *AccountHandler) FanoutAccouts(
 	wg.Wait()
 	close(errChan)
 
-	// Check for errors
 	if len(errChan) > 0 {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "Some batches failed to publish",
-		})
-		return
+		return core.Public(core.ErrInternal, msgSomeBatchesFailed)
 	}
 
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]any{
-		"message": fmt.Sprintf(
-			"Published %d users to the event bus",
-			publishedCount,
-		),
+	core.WriteJSON(w, http.StatusOK, map[string]any{
+		"message": fmt.Sprintf("Published %d users to the event bus", publishedCount),
 	})
+	return nil
 }
 
 // GetPersonalAccount godoc
@@ -573,68 +450,36 @@ func (ah *AccountHandler) FanoutAccouts(
 func (ah *AccountHandler) GetPersonalAccount(
 	w http.ResponseWriter,
 	r *http.Request,
-) {
+) error {
 	claims, ok := middleware.ClaimsFromContext(r.Context())
 	if !ok {
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(map[string]string{"error": "authentication required"})
-		return
+		return core.Public(core.ErrUnauthorized, msgAuthRequired)
 	}
-	w.Header().Set("Content-Type", "application/json")
-	conn, err := ah.DB.Acquire(r.Context())
+
+	user, err := core.InTx(r.Context(), ah.DB, func(tx pgx.Tx) (repository.Account, error) {
+		id, err := uuid.Parse(claims.Subject)
+		if err != nil {
+			ah.Logger.Error("Error while parsing user id", slog.Any("error", err))
+			return repository.Account{}, core.Public(core.ErrInternal, msgFetchAccountFailed)
+		}
+
+		user, err := ah.svc(tx).GetByID(r.Context(), id)
+		if errors.Is(err, core.ErrNotFound) {
+			ah.Logger.Error("Error while processing request", slog.Any("error", err))
+			return repository.Account{}, core.Public(core.ErrInternal, msgWrongFlavor)
+		}
+		if err != nil {
+			ah.Logger.Error("Error while processing request", slog.Any("error", err))
+			return repository.Account{}, core.Public(core.ErrInternal, msgFetchAccountFailed)
+		}
+		return user, nil
+	})
 	if err != nil {
-		ah.Logger.Error(
-			"Error while processing request",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into a problem while servicing your request please try again later",
-		})
-		return
-	}
-	defer conn.Release()
-
-	tx, _ := conn.Begin(r.Context())
-	defer tx.Rollback(r.Context())
-	repo := repository.New(tx)
-
-	id, err := uuid.Parse(claims.Subject)
-	if err != nil {
-		ah.Logger.Error("Error while parsing user id", slog.Any("error", err))
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into an error while trying to fetch your account",
-		})
-		return
+		return core.Fallback(err, core.ErrInternal, msgGeneric)
 	}
 
-	user, err := repo.GetAccountByID(r.Context(), id)
-	if errors.Is(err, sql.ErrNoRows) {
-		ah.Logger.Error(
-			"Error while processing request",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "Account does not exist your token might be from a different flavor",
-		})
-		return
-
-	}
-	if err != nil {
-		ah.Logger.Error(
-			"Error while processing request",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into an error while trying to fetch your account",
-		})
-		return
-	}
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(user)
+	core.WriteJSON(w, http.StatusOK, user)
+	return nil
 }
 
 // UpdatePersonalAccount godoc
@@ -655,107 +500,48 @@ func (ah *AccountHandler) GetPersonalAccount(
 func (ah *AccountHandler) UpdatePersonalAccount(
 	w http.ResponseWriter,
 	r *http.Request,
-) {
+) error {
 	var accData repository.UpdateAccountDetailsParams
-	if err := json.NewDecoder(r.Body).Decode(&accData); err != nil ||
-		accData.Name == "" {
+	if err := json.NewDecoder(r.Body).Decode(&accData); err != nil || accData.Name == "" {
 		ah.Logger.Error("Failed to parse request body", slog.Any("error", err))
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "Please check your request body and try again",
-		})
-		return
+		return core.Public(core.ErrInvalidInput, msgCheckBody)
 	}
+
 	claims, ok := middleware.ClaimsFromContext(r.Context())
 	if !ok {
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(map[string]string{"error": "authentication required"})
-		return
+		return core.Public(core.ErrUnauthorized, msgAuthRequired)
 	}
 
-	// Check if the user is indeed the owner of the account
+	// Preserved exactly as it shipped: this is a 500, not a 403, despite
+	// being an ownership check.
 	if accData.ID.String() != claims.Subject {
 		ah.Logger.Error("Attempting to update wrong account")
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "You dont have permissions to update this account",
-		})
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	conn, err := ah.DB.Acquire(r.Context())
-	if err != nil {
-		ah.Logger.Error(
-			"Error while processing request",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into a problem while servicing your request please try again later",
-		})
-		return
-	}
-	defer conn.Release()
-
-	tx, _ := conn.Begin(r.Context())
-	defer tx.Rollback(r.Context())
-	repo := repository.New(tx)
-
-	err = repo.UpdateAccountDetails(r.Context(), accData)
-	if err != nil {
-		ah.Logger.Error(
-			"Error while processing request",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into an error while trying to update your account",
-		})
-		return
-	}
-	updated, err := repo.GetAccountByID(r.Context(), accData.ID)
-	if err != nil {
-		ah.Logger.Error(
-			"Error while processing request",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into an error while trying to fetch your account",
-		})
-		return
+		return core.Public(core.ErrInternal, msgOwnershipViolation)
 	}
 
-	if err = tx.Commit(r.Context()); err != nil {
-		ah.Logger.Error(
-			"Error while committing transaction",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]any{
-			"error": "We ran into a problem while servicing your request please try again later",
-		})
-		return
-	}
+	updated, err := core.InTx(r.Context(), ah.DB, func(tx pgx.Tx) (repository.Account, error) {
+		svc := ah.svc(tx)
 
-	go func() {
-		eventRequestID := eventbus.GenerateRequestID()
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		if err := ah.UserEventBus.PublishUserUpdated(
-			ctx,
-			updated, eventRequestID); err != nil {
-			ah.Logger.Error("Failed to publish user updated event",
-				slog.Any("event_id", eventRequestID),
-				slog.Any("event_data", updated),
-				slog.Any("error", err),
-			)
+		if err := svc.Update(r.Context(), accData); err != nil {
+			ah.Logger.Error("Error while processing request", slog.Any("error", err))
+			return repository.Account{}, core.Public(core.ErrInternal, msgUpdateAccountFailed)
 		}
-	}()
 
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(updated)
+		updated, err := svc.GetByID(r.Context(), accData.ID)
+		if err != nil {
+			ah.Logger.Error("Error while processing request", slog.Any("error", err))
+			return repository.Account{}, core.Public(core.ErrInternal, msgFetchAccountFailed)
+		}
+		return updated, nil
+	})
+	if err != nil {
+		return core.Fallback(err, core.ErrInternal, msgGeneric)
+	}
+
+	go ah.publishUserUpdated(updated)
+
+	core.WriteJSON(w, http.StatusOK, updated)
+	return nil
 }
 
 // VerifyPhone godoc
@@ -776,103 +562,66 @@ func (ah *AccountHandler) UpdatePersonalAccount(
 //
 // TODO: implement verifying mechanisms
 // Use a provider such as AT or One Signal etc
-func (ah *AccountHandler) VerifyPhone(w http.ResponseWriter, r *http.Request) {
+func (ah *AccountHandler) VerifyPhone(w http.ResponseWriter, r *http.Request) error {
 	var accData repository.UpdateAccountPhoneNumberParams
-	if err := json.NewDecoder(r.Body).Decode(&accData); err != nil ||
-		len(accData.Phone) < 5 {
+	if err := json.NewDecoder(r.Body).Decode(&accData); err != nil || len(accData.Phone) < 5 {
 		ah.Logger.Error("Failed to parse request body", slog.Any("error", err))
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "Please check your request body and try again",
-		})
-		return
+		return core.Public(core.ErrInvalidInput, msgCheckBody)
 	}
+
 	claims, ok := middleware.ClaimsFromContext(r.Context())
 	if !ok {
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(map[string]string{"error": "authentication required"})
-		return
+		return core.Public(core.ErrUnauthorized, msgAuthRequired)
 	}
 
-	// Check if the user is indeed the owner of the account
+	// Preserved exactly as it shipped: this is a 500, not a 403.
 	if accData.ID.String() != claims.Subject {
 		ah.Logger.Error("Attempting to update wrong account")
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "You dont have permissions to update this account",
-		})
-		return
+		return core.Public(core.ErrInternal, msgOwnershipViolation)
 	}
-	w.Header().Set("Content-Type", "application/json")
-	conn, err := ah.DB.Acquire(r.Context())
-	if err != nil {
-		ah.Logger.Error(
-			"Error while processing request",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into a problem while servicing your request please try again later",
-		})
-		return
-	}
-	defer conn.Release()
 
-	tx, _ := conn.Begin(r.Context())
-	defer tx.Rollback(r.Context())
-	repo := repository.New(tx)
+	updated, err := core.InTx(r.Context(), ah.DB, func(tx pgx.Tx) (repository.Account, error) {
+		svc := ah.svc(tx)
 
-	err = repo.UpdateAccountPhoneNumber(r.Context(), accData)
-	if err != nil {
-		ah.Logger.Error(
-			"Error while processing request",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into an error while trying to update your account",
-		})
-		return
-	}
-	updated, err := repo.GetAccountByID(r.Context(), accData.ID)
-	if err != nil {
-		ah.Logger.Error(
-			"Error while processing request",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into an error while trying to fetch your account",
-		})
-		return
-	}
-	if err = tx.Commit(r.Context()); err != nil {
-		ah.Logger.Error(
-			"Error while committing transaction",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]any{
-			"error": "We ran into a problem while servicing your request please try again later",
-		})
-		return
-	}
-	go func() {
-		eventRequestID := eventbus.GenerateRequestID()
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		if err := ah.UserEventBus.PublishUserUpdated(ctx, updated, eventRequestID); err != nil {
-			ah.Logger.Error("Failed to publish user updated event",
-				slog.Any("event_id", eventRequestID),
-				slog.Any("event_data", updated),
-				slog.Any("error", err),
-			)
+		if err := svc.UpdatePhone(r.Context(), accData); err != nil {
+			ah.Logger.Error("Error while processing request", slog.Any("error", err))
+			return repository.Account{}, core.Public(core.ErrInternal, msgUpdateAccountFailed)
 		}
-	}()
 
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(updated)
+		updated, err := svc.GetByID(r.Context(), accData.ID)
+		if err != nil {
+			ah.Logger.Error("Error while processing request", slog.Any("error", err))
+			return repository.Account{}, core.Public(core.ErrInternal, msgFetchAccountFailed)
+		}
+		return updated, nil
+	})
+	if err != nil {
+		return core.Fallback(err, core.ErrInternal, msgGeneric)
+	}
+
+	go ah.publishUserUpdated(updated)
+
+	core.WriteJSON(w, http.StatusOK, updated)
+	return nil
+}
+
+// publishUserUpdated is the fire-and-forget notification both
+// UpdatePersonalAccount and VerifyPhone spawn after a successful commit.
+// Extracted to one place; the goroutine, the 10-second timeout and the
+// lack of any completion signal are all unchanged from before this
+// extraction.
+func (ah *AccountHandler) publishUserUpdated(updated repository.Account) {
+	eventRequestID := eventbus.GenerateRequestID()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := ah.UserEventBus.PublishUserUpdated(ctx, updated, eventRequestID); err != nil {
+		ah.Logger.Error("Failed to publish user updated event",
+			slog.Any("event_id", eventRequestID),
+			slog.Any("event_data", updated),
+			slog.Any("error", err),
+		)
+	}
 }
 
 // SearchAccountsByEmail godoc
@@ -893,90 +642,28 @@ func (ah *AccountHandler) VerifyPhone(w http.ResponseWriter, r *http.Request) {
 func (ah *AccountHandler) SearchAccountsByEmail(
 	w http.ResponseWriter,
 	r *http.Request,
-) {
-	w.Header().Set("Content-Type", "application/json")
-
-	// Get search query from URL parameters
+) error {
 	query := r.URL.Query().Get("q")
 	if query == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "Search query parameter 'q' is required",
-		})
-		return
+		return core.Public(core.ErrInvalidInput, msgSearchQueryRequired)
 	}
-
-	// Get pagination from context
 	pagination := middleware.GetPagination(r.Context())
 
-	// Get database connection
-	conn, err := ah.DB.Acquire(r.Context())
+	accounts, err := core.InTx(r.Context(), ah.DB, func(tx pgx.Tx) ([]repository.Account, error) {
+		accounts, err := ah.svc(tx).SearchByEmail(
+			r.Context(), query, int32(pagination.Limit), int32(pagination.Offset),
+		)
+		if err != nil {
+			ah.Logger.Error("Failed to search accounts by email", slog.Any("error", err))
+			return nil, core.Public(core.ErrInternal, msgSearchFailed)
+		}
+		return accounts, nil
+	})
 	if err != nil {
-		ah.Logger.Error(
-			"Error while processing request",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into a problem while servicing your request please try again later",
-		})
-		return
-	}
-	defer conn.Release()
-
-	// Begin transaction
-	tx, err := conn.Begin(r.Context())
-	if err != nil {
-		ah.Logger.Error(
-			"Error while beginning transaction",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into a problem while servicing your request please try again later",
-		})
-		return
-	}
-	defer tx.Rollback(r.Context())
-
-	repo := repository.New(tx)
-
-	// Search accounts by email
-	accounts, err := repo.SearchAccountByEmail(
-		r.Context(),
-		repository.SearchAccountByEmailParams{
-			Email:  query,
-			Limit:  int32(pagination.Limit),
-			Offset: int32(pagination.Offset),
-		},
-	)
-	if err != nil {
-		ah.Logger.Error(
-			"Failed to search accounts by email",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We couldn't complete this request at the moment please try again later",
-		})
-		return
+		return core.Fallback(err, core.ErrInternal, msgGeneric)
 	}
 
-	// Commit transaction
-	if err = tx.Commit(r.Context()); err != nil {
-		ah.Logger.Error(
-			"Error while committing transaction",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into a problem while servicing your request please try again later",
-		})
-		return
-	}
-
-	// Prepare response
-	response := map[string]any{
+	core.WriteJSON(w, http.StatusOK, map[string]any{
 		"accounts": accounts,
 		"pagination": map[string]any{
 			"limit":  pagination.Limit,
@@ -985,10 +672,8 @@ func (ah *AccountHandler) SearchAccountsByEmail(
 		},
 		"query":       query,
 		"search_type": "email",
-	}
-
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	})
+	return nil
 }
 
 // SearchAccountsByName godoc
@@ -1011,90 +696,28 @@ func (ah *AccountHandler) SearchAccountsByEmail(
 func (ah *AccountHandler) SearchAccountsByName(
 	w http.ResponseWriter,
 	r *http.Request,
-) {
-	w.Header().Set("Content-Type", "application/json")
-
-	// Get search query from URL parameters
+) error {
 	query := r.URL.Query().Get("q")
 	if query == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "Search query parameter 'q' is required",
-		})
-		return
+		return core.Public(core.ErrInvalidInput, msgSearchQueryRequired)
 	}
-
-	// Get pagination from context
 	pagination := middleware.GetPagination(r.Context())
 
-	// Get database connection
-	conn, err := ah.DB.Acquire(r.Context())
+	accounts, err := core.InTx(r.Context(), ah.DB, func(tx pgx.Tx) ([]repository.Account, error) {
+		accounts, err := ah.svc(tx).SearchByName(
+			r.Context(), query, int32(pagination.Limit), int32(pagination.Offset),
+		)
+		if err != nil {
+			ah.Logger.Error("Failed to search accounts by name", slog.Any("error", err))
+			return nil, core.Public(core.ErrInternal, msgSearchFailed)
+		}
+		return accounts, nil
+	})
 	if err != nil {
-		ah.Logger.Error(
-			"Error while processing request",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into a problem while servicing your request please try again later",
-		})
-		return
-	}
-	defer conn.Release()
-
-	// Begin transaction
-	tx, err := conn.Begin(r.Context())
-	if err != nil {
-		ah.Logger.Error(
-			"Error while beginning transaction",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into a problem while servicing your request please try again later",
-		})
-		return
-	}
-	defer tx.Rollback(r.Context())
-
-	repo := repository.New(tx)
-
-	// Search accounts by name
-	accounts, err := repo.SearchAccountByName(
-		r.Context(),
-		repository.SearchAccountByNameParams{
-			Name:   query,
-			Limit:  int32(pagination.Limit),
-			Offset: int32(pagination.Offset),
-		},
-	)
-	if err != nil {
-		ah.Logger.Error(
-			"Failed to search accounts by name",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We couldn't complete this request at the moment please try again later",
-		})
-		return
+		return core.Fallback(err, core.ErrInternal, msgGeneric)
 	}
 
-	// Commit transaction
-	if err = tx.Commit(r.Context()); err != nil {
-		ah.Logger.Error(
-			"Error while committing transaction",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into a problem while servicing your request please try again later",
-		})
-		return
-	}
-
-	// Prepare response
-	response := map[string]any{
+	core.WriteJSON(w, http.StatusOK, map[string]any{
 		"accounts": accounts,
 		"pagination": map[string]any{
 			"limit":  pagination.Limit,
@@ -1103,10 +726,8 @@ func (ah *AccountHandler) SearchAccountsByName(
 		},
 		"query":       query,
 		"search_type": "name",
-	}
-
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	})
+	return nil
 }
 
 // GetAllUserAccounts godoc
@@ -1123,74 +744,25 @@ func (ah *AccountHandler) SearchAccountsByName(
 func (ah *AccountHandler) GetAllUserAccounts(
 	w http.ResponseWriter,
 	r *http.Request,
-) {
-	w.Header().Set("Content-Type", "application/json")
-	// Get pagination from context
+) error {
 	pagination := middleware.GetPagination(r.Context())
-	// Get database connection
-	conn, err := ah.DB.Acquire(r.Context())
-	if err != nil {
-		ah.Logger.Error(
-			"Error while processing request",
-			slog.Any("error", err),
+
+	accounts, err := core.InTx(r.Context(), ah.DB, func(tx pgx.Tx) ([]repository.Account, error) {
+		accounts, err := ah.svc(tx).List(
+			r.Context(), int32(pagination.Limit), int32(pagination.Offset),
 		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into a problem while servicing your request please try again later",
-		})
-		return
-	}
-	defer conn.Release()
-
-	// Begin transaction
-	tx, err := conn.Begin(r.Context())
+		if err != nil {
+			ah.Logger.Error("Failed to get all accounts", slog.Any("error", err))
+			return nil, core.Public(core.ErrInternal, msgSearchFailed)
+		}
+		return accounts, nil
+	})
 	if err != nil {
-		ah.Logger.Error(
-			"Error while beginning transaction",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into a problem while servicing your request please try again later",
-		})
-		return
-	}
-	defer tx.Rollback(r.Context())
-
-	repo := repository.New(tx)
-
-	// Search accounts by username
-	accounts, err := repo.GetAllAccounts(
-		r.Context(),
-		repository.GetAllAccountsParams{
-			Limit:  int32(pagination.Limit),
-			Offset: int32(pagination.Offset),
-		},
-	)
-	if err != nil {
-		ah.Logger.Error("Failed to get all accounts", slog.Any("error", err))
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We couldn't complete this request at the moment please try again later",
-		})
-		return
+		return core.Fallback(err, core.ErrInternal, msgGeneric)
 	}
 
-	// Commit transaction
-	if err = tx.Commit(r.Context()); err != nil {
-		ah.Logger.Error(
-			"Error while committing transaction",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into a problem while servicing your request please try again later",
-		})
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(accounts)
+	core.WriteJSON(w, http.StatusOK, accounts)
+	return nil
 }
 
 // SearchAccountsByUsername godoc
@@ -1213,90 +785,28 @@ func (ah *AccountHandler) GetAllUserAccounts(
 func (ah *AccountHandler) SearchAccountsByUsername(
 	w http.ResponseWriter,
 	r *http.Request,
-) {
-	w.Header().Set("Content-Type", "application/json")
-
-	// Get search query from URL parameters
+) error {
 	query := r.URL.Query().Get("q")
 	if query == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "Search query parameter 'q' is required",
-		})
-		return
+		return core.Public(core.ErrInvalidInput, msgSearchQueryRequired)
 	}
-
-	// Get pagination from context
 	pagination := middleware.GetPagination(r.Context())
 
-	// Get database connection
-	conn, err := ah.DB.Acquire(r.Context())
+	accounts, err := core.InTx(r.Context(), ah.DB, func(tx pgx.Tx) ([]repository.Account, error) {
+		accounts, err := ah.svc(tx).SearchByUsername(
+			r.Context(), query, int32(pagination.Limit), int32(pagination.Offset),
+		)
+		if err != nil {
+			ah.Logger.Error("Failed to search accounts by username", slog.Any("error", err))
+			return nil, core.Public(core.ErrInternal, msgSearchFailed)
+		}
+		return accounts, nil
+	})
 	if err != nil {
-		ah.Logger.Error(
-			"Error while processing request",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into a problem while servicing your request please try again later",
-		})
-		return
-	}
-	defer conn.Release()
-
-	// Begin transaction
-	tx, err := conn.Begin(r.Context())
-	if err != nil {
-		ah.Logger.Error(
-			"Error while beginning transaction",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into a problem while servicing your request please try again later",
-		})
-		return
-	}
-	defer tx.Rollback(r.Context())
-
-	repo := repository.New(tx)
-
-	// Search accounts by username
-	accounts, err := repo.SearchAccountByUsername(
-		r.Context(),
-		repository.SearchAccountByUsernameParams{
-			Username: query,
-			Limit:    int32(pagination.Limit),
-			Offset:   int32(pagination.Offset),
-		},
-	)
-	if err != nil {
-		ah.Logger.Error(
-			"Failed to search accounts by username",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We couldn't complete this request at the moment please try again later",
-		})
-		return
+		return core.Fallback(err, core.ErrInternal, msgGeneric)
 	}
 
-	// Commit transaction
-	if err = tx.Commit(r.Context()); err != nil {
-		ah.Logger.Error(
-			"Error while committing transaction",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into a problem while servicing your request please try again later",
-		})
-		return
-	}
-
-	// Prepare response
-	response := map[string]any{
+	core.WriteJSON(w, http.StatusOK, map[string]any{
 		"accounts": accounts,
 		"pagination": map[string]any{
 			"limit":  pagination.Limit,
@@ -1305,10 +815,8 @@ func (ah *AccountHandler) SearchAccountsByUsername(
 		},
 		"query":       query,
 		"search_type": "username",
-	}
-
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	})
+	return nil
 }
 
 // MarkAccountForDeletion godoc
@@ -1326,88 +834,58 @@ func (ah *AccountHandler) SearchAccountsByUsername(
 func (ah *AccountHandler) MarkAccountForDeletion(
 	w http.ResponseWriter,
 	r *http.Request,
-) {
+) error {
 	claims, ok := middleware.ClaimsFromContext(r.Context())
 	if !ok {
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(map[string]string{"error": "authentication required"})
-		return
+		return core.Public(core.ErrUnauthorized, msgAuthRequired)
 	}
-	w.Header().Set("Content-Type", "application/json")
+
+	// Begin gets its own message here, distinct from Acquire and Commit
+	// (which share msgGeneric) -- the one grouping in this file that core.InTx
+	// cannot express in a single Fallback call, so Acquire and the
+	// transaction are handled separately rather than through core.InTx.
 	conn, err := ah.DB.Acquire(r.Context())
 	if err != nil {
-		ah.Logger.Error(
-			"Error while processing request",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into a problem while servicing your request please try again later",
-		})
-		return
+		ah.Logger.Error("Error while processing request", slog.Any("error", err))
+		return core.Public(core.ErrInternal, msgGeneric)
 	}
 	defer conn.Release()
 
 	tx, err := conn.Begin(r.Context())
 	if err != nil {
-		ah.Logger.Error(
-			"Error attempting to prepare transaction",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into an error while trying to delete your account",
-		})
-		return
-
+		ah.Logger.Error("Error attempting to prepare transaction", slog.Any("error", err))
+		return core.Public(core.ErrInternal, msgDeletionBeginFailed)
 	}
-	defer func() {
+
+	txErr := func() error {
+		id, err := uuid.Parse(claims.Subject)
 		if err != nil {
-			tx.Rollback(r.Context())
+			ah.Logger.Error("Error while parsing user id", slog.Any("error", err))
+			return core.Public(core.ErrInternal, msgDeletionBeginFailed)
 		}
+
+		if err := ah.svc(tx).MarkForDeletion(r.Context(), id); err != nil {
+			ah.Logger.Error(
+				"Error while attempting to mark account for deletion", slog.Any("error", err),
+			)
+			return core.Public(core.ErrInternal, msgDeletionFailed)
+		}
+		return nil
 	}()
-
-	repo := repository.New(tx)
-
-	id, err := uuid.Parse(claims.Subject)
-	if err != nil {
-		ah.Logger.Error("Error while parsing user id", slog.Any("error", err))
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into an error while trying to delete your account",
-		})
-		return
+	if txErr != nil {
+		tx.Rollback(r.Context())
+		return txErr
 	}
 
-	err = repo.MarkAccountForDeletion(r.Context(), id)
-	if err != nil {
-		ah.Logger.Error(
-			"Error while attempting to mark account for deletion",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We couldn't delete your account at the moment please try again later",
-		})
-		return
+	if err := tx.Commit(r.Context()); err != nil {
+		ah.Logger.Error("Error while committing transaction", slog.Any("error", err))
+		return core.Public(core.ErrInternal, msgGeneric)
 	}
 
-	if err = tx.Commit(r.Context()); err != nil {
-		ah.Logger.Error(
-			"Error while committing transaction",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into a problem while servicing your request please try again later",
-		})
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]any{
+	core.WriteJSON(w, http.StatusOK, map[string]any{
 		"message": "Your account will be permanently deleted after 14 days. You may cancel this request by signing in before that time.",
 	})
+	return nil
 }
 
 // RecoverAccountFromDeletion godoc
@@ -1425,86 +903,54 @@ func (ah *AccountHandler) MarkAccountForDeletion(
 func (ah *AccountHandler) RecoverAccountFromDeletion(
 	w http.ResponseWriter,
 	r *http.Request,
-) {
+) error {
 	claims, ok := middleware.ClaimsFromContext(r.Context())
 	if !ok {
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(map[string]string{"error": "authentication required"})
-		return
+		return core.Public(core.ErrUnauthorized, msgAuthRequired)
 	}
-	w.Header().Set("Content-Type", "application/json")
+
+	// See MarkAccountForDeletion for why Acquire and the transaction are
+	// handled separately here rather than through core.InTx.
 	conn, err := ah.DB.Acquire(r.Context())
 	if err != nil {
-		ah.Logger.Error(
-			"Error while processing request",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into a problem while servicing your request please try again later",
-		})
-		return
+		ah.Logger.Error("Error while processing request", slog.Any("error", err))
+		return core.Public(core.ErrInternal, msgGeneric)
 	}
 	defer conn.Release()
 
 	tx, err := conn.Begin(r.Context())
 	if err != nil {
-		ah.Logger.Error(
-			"Error attempting to prepare transaction",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into an error while trying to recover your account",
-		})
-		return
-
+		ah.Logger.Error("Error attempting to prepare transaction", slog.Any("error", err))
+		return core.Public(core.ErrInternal, msgRecoveryBeginFailed)
 	}
-	defer func() {
+
+	txErr := func() error {
+		id, err := uuid.Parse(claims.Subject)
 		if err != nil {
-			tx.Rollback(r.Context())
+			ah.Logger.Error("Error while parsing user id", slog.Any("error", err))
+			return core.Public(core.ErrInternal, msgRecoveryBeginFailed)
 		}
+
+		if err := ah.svc(tx).MarkForRecovery(r.Context(), id); err != nil {
+			ah.Logger.Error(
+				"Error while attempting to recover account from deletion", slog.Any("error", err),
+			)
+			return core.Public(core.ErrInternal, msgRecoveryFailed)
+		}
+		return nil
 	}()
-
-	repo := repository.New(tx)
-
-	id, err := uuid.Parse(claims.Subject)
-	if err != nil {
-		ah.Logger.Error("Error while parsing user id", slog.Any("error", err))
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into an error while trying to recover your account",
-		})
-		return
+	if txErr != nil {
+		tx.Rollback(r.Context())
+		return txErr
 	}
 
-	err = repo.MarkAccountForRecovery(r.Context(), id)
-	if err != nil {
-		ah.Logger.Error(
-			"Error while attempting to recover account from deletion",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We couldn't recover your account at the moment please try again later",
-		})
-		return
+	if err := tx.Commit(r.Context()); err != nil {
+		ah.Logger.Error("Error while committing transaction", slog.Any("error", err))
+		return core.Public(core.ErrInternal, msgGeneric)
 	}
 
-	if err = tx.Commit(r.Context()); err != nil {
-		ah.Logger.Error(
-			"Error while committing transaction",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into a problem while servicing your request please try again later",
-		})
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]any{
+	core.WriteJSON(w, http.StatusOK, map[string]any{
 		"message": "Account recovery was successful. All access has been restored",
 	})
+	return nil
 }

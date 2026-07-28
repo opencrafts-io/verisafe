@@ -19,6 +19,7 @@ import (
 	"github.com/opencrafts-io/verisafe/internal/handlers/servicetoken"
 	"github.com/opencrafts-io/verisafe/internal/handlers/social"
 	"github.com/opencrafts-io/verisafe/internal/handlers/streak"
+	accountsvc "github.com/opencrafts-io/verisafe/internal/service/account"
 	activitysvc "github.com/opencrafts-io/verisafe/internal/service/activity"
 	institutionsvc "github.com/opencrafts-io/verisafe/internal/service/institution"
 	leaderboardsvc "github.com/opencrafts-io/verisafe/internal/service/leaderboard"
@@ -61,6 +62,7 @@ func (a *App) loadRoutes() http.Handler {
 		).WithGrantRecording(a.oauthRegistry, a.tokenSealer, a.tokenExchanger),
 		&account.AccountHandler{
 			DB:           db,
+			Service:      accountsvc.NewService,
 			Cacher:       a.cacher,
 			Logger:       a.logger,
 			UserEventBus: a.userEventBus,
