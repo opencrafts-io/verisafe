@@ -1,15 +1,16 @@
 package social
 
 import (
-	"encoding/json"
 	"log/slog"
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/opencrafts-io/verisafe/internal/config"
 	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/repository"
+	socialsvc "github.com/opencrafts-io/verisafe/internal/service/social"
 )
 
 type SocialHandler struct {
@@ -17,6 +18,18 @@ type SocialHandler struct {
 	DB     core.IDBProvider
 	Cfg    *config.Config
 	Logger *slog.Logger
+
+	// Service builds a social service bound to the caller's transaction. Left
+	// nil it falls back to the real implementation; see the role handler for
+	// why this field is the testing seam.
+	Service func(repository.Querier) socialsvc.Service
+}
+
+func (sh *SocialHandler) svc(tx pgx.Tx) socialsvc.Service {
+	if sh.Service != nil {
+		return sh.Service(repository.New(tx))
+	}
+	return socialsvc.NewService(repository.New(tx))
 }
 
 func (sh *SocialHandler) RegisterHandlers(router core.Router) {
@@ -24,13 +37,13 @@ func (sh *SocialHandler) RegisterHandlers(router core.Router) {
 		middleware.CreateStack(
 			middleware.IsAuthenticated(sh.Cfg, sh.DB, sh.Cacher, sh.Logger),
 			middleware.HasPermission([]string{"read:account:own"}),
-		)(http.HandlerFunc(sh.GetAllUserSocials)),
+		)(core.AppHandler(sh.GetAllUserSocials)),
 	)
 	router.Handle("GET /socials/user/{user_id}",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(sh.Cfg, sh.DB, sh.Cacher, sh.Logger),
 			middleware.HasPermission([]string{"read:account:any"}),
-		)(http.HandlerFunc(sh.GetUserIDSocials)),
+		)(core.AppHandler(sh.GetUserIDSocials)),
 	)
 }
 
@@ -50,65 +63,33 @@ func (sh *SocialHandler) RegisterHandlers(router core.Router) {
 func (sh *SocialHandler) GetUserIDSocials(
 	w http.ResponseWriter,
 	r *http.Request,
-) {
-	w.Header().Set("Content-Type", "application/json")
-	rawID := r.PathValue("user_id")
-	id, err := uuid.Parse(rawID)
+) error {
+	id, err := uuid.Parse(r.PathValue("user_id"))
 	if err != nil {
 		sh.Logger.Error("Failed to parse request body", slog.Any("error", err))
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "Please check your request body and try again",
-		})
-		return
+		return core.Public(core.ErrInvalidInput, msgCheckBody)
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	conn, err := sh.DB.Acquire(r.Context())
+	socials, err := core.InTx(
+		r.Context(),
+		sh.DB,
+		func(tx pgx.Tx) ([]repository.Social, error) {
+			socials, err := sh.svc(tx).ListForAccount(r.Context(), id)
+			if err != nil {
+				sh.Logger.Error(
+					"Error while processing request", slog.Any("error", err),
+				)
+				return nil, core.Public(core.ErrInternal, msgFetchFailed)
+			}
+			return socials, nil
+		},
+	)
 	if err != nil {
-		sh.Logger.Error(
-			"Error while processing request",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into a problem while servicing your request please try again later",
-		})
-		return
-	}
-	defer conn.Release()
-
-	tx, _ := conn.Begin(r.Context())
-	defer tx.Rollback(r.Context())
-	repo := repository.New(tx)
-
-	socials, err := repo.GetAllAccountSocials(r.Context(), id)
-	if err != nil {
-		sh.Logger.Error(
-			"Error while processing request",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We couldn't fetch your social login providers at the moment please try again",
-		})
-		return
+		return core.Fallback(err, core.ErrInternal, msgGeneric)
 	}
 
-	if err = tx.Commit(r.Context()); err != nil {
-		sh.Logger.Error(
-			"Error while committing transaction",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]any{
-			"error": "We ran into a problem while servicing your request please try again later",
-		})
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(sanitizeSocials(socials))
+	core.WriteJSON(w, http.StatusOK, sanitizeSocials(socials))
+	return nil
 }
 
 // GetAllUserSocials godoc
@@ -126,72 +107,40 @@ func (sh *SocialHandler) GetUserIDSocials(
 func (sh *SocialHandler) GetAllUserSocials(
 	w http.ResponseWriter,
 	r *http.Request,
-) {
-	w.Header().Set("Content-Type", "application/json")
-
-	// Parse the id from the token
+) error {
 	claims, ok := middleware.ClaimsFromContext(r.Context())
 	if !ok {
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(map[string]string{"error": "authentication required"})
-		return
+		return core.Public(core.ErrUnauthorized, msgAuthRequired)
 	}
+
 	id, err := uuid.Parse(claims.Subject)
 	if err != nil {
-		sh.Logger.Error(
-			"Error while processing request",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "Please check your request auth token and try again",
-		})
-		return
+		sh.Logger.Error("Error while processing request", slog.Any("error", err))
+		// The subject failing to parse is a 500 here, not a 400, matching
+		// this endpoint's behaviour before the extraction: a malformed
+		// subject in an otherwise-valid token is treated as our failure, not
+		// the caller's bad input.
+		return core.Public(core.ErrInternal, msgCheckToken)
 	}
 
-	conn, err := sh.DB.Acquire(r.Context())
+	socials, err := core.InTx(
+		r.Context(),
+		sh.DB,
+		func(tx pgx.Tx) ([]repository.Social, error) {
+			socials, err := sh.svc(tx).ListForAccount(r.Context(), id)
+			if err != nil {
+				sh.Logger.Error(
+					"Error while processing request", slog.Any("error", err),
+				)
+				return nil, core.Public(core.ErrInternal, msgFetchFailed)
+			}
+			return socials, nil
+		},
+	)
 	if err != nil {
-		sh.Logger.Error(
-			"Error while processing request",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We ran into a problem while servicing your request please try again later",
-		})
-		return
-	}
-	defer conn.Release()
-
-	tx, _ := conn.Begin(r.Context())
-	defer tx.Rollback(r.Context())
-	repo := repository.New(tx)
-
-	socials, err := repo.GetAllAccountSocials(r.Context(), id)
-	if err != nil {
-		sh.Logger.Error(
-			"Error while processing request",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "We couldn't fetch your social login providers at the moment please try again",
-		})
-		return
+		return core.Fallback(err, core.ErrInternal, msgGeneric)
 	}
 
-	if err = tx.Commit(r.Context()); err != nil {
-		sh.Logger.Error(
-			"Error while committing transaction",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]any{
-			"error": "We ran into a problem while servicing your request please try again later",
-		})
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(sanitizeSocials(socials))
+	core.WriteJSON(w, http.StatusOK, sanitizeSocials(socials))
+	return nil
 }
