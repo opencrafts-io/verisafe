@@ -64,8 +64,11 @@ jobs:
 
       # Blocking, not advisory: the enabled linter set is clean across the
       # whole repository today, so any finding is something this PR introduced.
+      #
+      # golangci-lint-action v6 only supports golangci-lint v1; the v2 config
+      # format this repo uses (.golangci.yml's `version: "2"`) requires v7.
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v7
         with:
           version: v2.12.2
 
