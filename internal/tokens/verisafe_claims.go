@@ -18,7 +18,7 @@ type VerisafeClaims struct {
 
 // JTI extracts the jti claim as a uuid.UUID.
 func (c *VerisafeClaims) JTI() (uuid.UUID, error) {
-	jtiStr, ok := c.RegisteredClaims.ID, c.RegisteredClaims.ID != ""
+	jtiStr, ok := c.ID, c.ID != ""
 	if !ok {
 		return uuid.Nil, errors.New("jti claim is missing")
 	}
@@ -54,7 +54,7 @@ func ValidateJWT(tokenString string, secret string) (*VerisafeClaims, error) {
 		return nil, errors.New("token is missing expiry")
 	}
 
-	if claims.ExpiresAt.Time.Before(time.Now()) {
+	if claims.ExpiresAt.Before(time.Now()) {
 		return nil, errors.New("token has expired")
 	}
 

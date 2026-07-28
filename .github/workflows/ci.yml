@@ -50,6 +50,25 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
+  lint:
+    name: Lint
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      # Blocking, not advisory: the enabled linter set is clean across the
+      # whole repository today, so any finding is something this PR introduced.
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v2.12.2
+
   generated-artifacts-are-fresh:
     name: Generated artifacts are fresh
     runs-on: blacksmith-4vcpu-ubuntu-2404

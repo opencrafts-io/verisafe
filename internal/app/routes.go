@@ -19,6 +19,7 @@ import (
 	"github.com/opencrafts-io/verisafe/internal/handlers/servicetoken"
 	"github.com/opencrafts-io/verisafe/internal/handlers/social"
 	"github.com/opencrafts-io/verisafe/internal/handlers/streak"
+	permsvc "github.com/opencrafts-io/verisafe/internal/service/permission"
 	rolesvc "github.com/opencrafts-io/verisafe/internal/service/role"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
@@ -79,10 +80,11 @@ func (a *App) loadRoutes() http.Handler {
 			Logger:  a.logger,
 		},
 		&permission.PermissionHandler{
-			DB:     db,
-			Cacher: a.cacher,
-			Cfg:    a.config,
-			Logger: a.logger,
+			DB:      db,
+			Service: permsvc.NewService,
+			Cacher:  a.cacher,
+			Cfg:     a.config,
+			Logger:  a.logger,
 		},
 		&institution.InstitutionHandler{
 			DB:                  db,

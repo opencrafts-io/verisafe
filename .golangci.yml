@@ -1,0 +1,67 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: none
+  enable:
+    - govet
+    - staticcheck
+    - ineffassign
+    - unused
+    - copyloopvar
+    # Catches errors.Is/As misuse, which the whole error-handling contract
+    # rests on: a sentinel compared with == instead of errors.Is silently
+    # stops matching once anything wraps it.
+    - errorlint
+    # Would have caught `tx, _ := conn.Begin(ctx)` followed by a deferred call
+    # on the nil result -- a live panic in two handlers until recently.
+    - nilerr
+    - bodyclose
+    - rowserrcheck
+    - sqlclosecheck
+
+  settings:
+    errorlint:
+      # Keep the checks that catch real bugs: comparing errors with == and
+      # type-asserting instead of errors.As.
+      comparison: true
+      asserts: true
+      # Turn off the "use %w everywhere" rule. Services deliberately write
+      # fmt.Errorf("%w: context: %v", core.ErrInternal, driverErr): the
+      # sentinel is wrapped so callers can match it, while the driver error is
+      # formatted with %v so pgx.ErrNoRows does NOT become matchable upstream.
+      # Wrapping both would leak the driver through the service boundary the
+      # whole layering exists to establish.
+      errorf: false
+
+  exclusions:
+    rules:
+      # sqlc and mockgen output. Regenerated wholesale, never hand-edited.
+      - path: internal/repository/
+        linters: [govet, staticcheck, ineffassign, unused, errorlint, nilerr]
+      - path: mocks/
+        linters: [govet, staticcheck, ineffassign, unused, errorlint, nilerr]
+
+issues:
+  # Report everything rather than the default caps, so the true count of a
+  # class of finding is visible instead of the first three.
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+# The enabled set above is clean across the whole repository, so there is
+# deliberately no new-from-rev here: every PR is linted in full.
+#
+# Deliberately NOT enabled, with the measured cost of turning each on, so
+# nobody has to rediscover it:
+#
+#   errcheck    37 findings, almost all `defer tx.Rollback(ctx)` and
+#               json.Encoder.Encode in the handlers not yet migrated to
+#               core.InTx and core.WriteJSON. Enable once they are.
+#   funlen      58 findings, all in those same handlers.
+#   gocyclo      8 findings, likewise.
+#   lll         swagger annotation lines legitimately exceed any column limit.
+#   gochecknoglobals  the error sentinels are package-level by design.
+#   gofumpt, gci      would reformat the whole repository. If wanted, do it as
+#               one isolated formatting commit, never mixed into a refactor.

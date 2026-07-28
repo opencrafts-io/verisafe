@@ -551,7 +551,7 @@ func (h *AuthHandler) RevokeTokenHandler(
 		return fmt.Errorf("%w: failed to acquire connection", core.ErrInternal)
 	}
 
-	remaining := time.Until(claims.RegisteredClaims.ExpiresAt.Time)
+	remaining := time.Until(claims.ExpiresAt.Time)
 
 	err = core.WithTransaction(r.Context(), conn, func(tx pgx.Tx) error {
 		tokenSvc := tokens.NewTokenService(

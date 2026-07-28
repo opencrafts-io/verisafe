@@ -268,9 +268,7 @@ func (d Descriptor) ParseScopeString(s string) []string {
 	// Tolerate space-padded comma lists ("a, b") and repeated delimiters.
 	cleaned := make([]string, 0, len(parts))
 	for _, p := range parts {
-		for _, q := range strings.Fields(p) {
-			cleaned = append(cleaned, q)
-		}
+		cleaned = append(cleaned, strings.Fields(p)...)
 	}
 	return d.NormalizeAll(cleaned)
 }

@@ -4,14 +4,13 @@ import (
 	"errors"
 	"io"
 	"log/slog"
-	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/handlers/permission"
 	"github.com/opencrafts-io/verisafe/internal/testsupport"
-	"github.com/stretchr/testify/assert"
 )
 
 // Byte-exact characterisation of each branch, so the service extraction can be
@@ -33,7 +32,7 @@ func TestGetPermissionByID(t *testing.T) {
 		req.SetPathValue("id", "not-a-uuid")
 
 		testsupport.WireCase{
-			Handler: http.HandlerFunc((&permission.PermissionHandler{
+			Handler: core.AppHandler((&permission.PermissionHandler{
 				Logger: discardLogger(),
 			}).GetPermissionByID),
 			Request:         req,
@@ -54,7 +53,7 @@ func TestGetPermissionByID(t *testing.T) {
 		}
 
 		testsupport.WireCase{
-			Handler:         http.HandlerFunc(h.GetPermissionByID),
+			Handler:         core.AppHandler(h.GetPermissionByID),
 			Request:         req,
 			WantStatus:      500,
 			WantContentType: "application/json",
@@ -70,7 +69,7 @@ func TestCreatePermission_MalformedBodyIsRejected(t *testing.T) {
 	}
 
 	testsupport.WireCase{
-		Handler: http.HandlerFunc(h.CreatePermission),
+		Handler: core.AppHandler(h.CreatePermission),
 		Request: httptest.NewRequest(
 			"POST", "/permissions/create", strings.NewReader("{not json"),
 		),
@@ -87,7 +86,7 @@ func TestGetAllPermissions_ConnectionAcquisitionFailureIsA500(t *testing.T) {
 	}
 
 	testsupport.WireCase{
-		Handler:         http.HandlerFunc(h.GetAllPermissions),
+		Handler:         core.AppHandler(h.GetAllPermissions),
 		Request:         httptest.NewRequest("GET", "/permissions", nil),
 		WantStatus:      500,
 		WantContentType: "application/json",
@@ -95,8 +94,10 @@ func TestGetAllPermissions_ConnectionAcquisitionFailureIsA500(t *testing.T) {
 	}.Run(t)
 }
 
-// Same discarded-Begin-error defect as the role handler; see the note there.
-func TestGetPermissionByID_BeginFailurePanics_KnownDefect(t *testing.T) {
+// This handler carried the same discarded-Begin-error defect as the role one,
+// and this test pinned the resulting panic. core.InTx returns that error, so
+// it now asserts the 500 the endpoint should always have produced.
+func TestGetPermissionByID_BeginFailureIsA500(t *testing.T) {
 	req := httptest.NewRequest("GET", "/permissions/x", nil)
 	req.SetPathValue("id", "6f1b6b1e-0000-4000-8000-000000000000")
 
@@ -107,7 +108,11 @@ func TestGetPermissionByID_BeginFailurePanics_KnownDefect(t *testing.T) {
 		),
 	}
 
-	assert.Panics(t, func() {
-		h.GetPermissionByID(httptest.NewRecorder(), req)
-	}, "when this stops panicking, replace this test with a 500 assertion")
+	testsupport.WireCase{
+		Handler:         core.AppHandler(h.GetPermissionByID),
+		Request:         req,
+		WantStatus:      500,
+		WantContentType: "application/json",
+		WantBody:        `{"error":"` + msgGeneric + `"}` + "\n",
+	}.Run(t)
 }
