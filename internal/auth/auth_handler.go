@@ -26,7 +26,8 @@ import (
 	"github.com/opencrafts-io/verisafe/internal/providers"
 	"github.com/opencrafts-io/verisafe/internal/repository"
 	"github.com/opencrafts-io/verisafe/internal/secrets"
-	"github.com/opencrafts-io/verisafe/internal/service"
+	devicesvc "github.com/opencrafts-io/verisafe/internal/service/device"
+	grantsvc "github.com/opencrafts-io/verisafe/internal/service/grants"
 	"github.com/opencrafts-io/verisafe/internal/tokens"
 )
 
@@ -80,7 +81,7 @@ type AuthHandler struct {
 	// login can mirror provider credentials into oauth_grants. Nil disables
 	// the mirroring, which keeps the handler constructible in tests that do
 	// not care about it.
-	grants func(repository.Querier) service.GrantService
+	grants func(repository.Querier) grantsvc.GrantService
 }
 
 func NewAuthHandler(
@@ -108,8 +109,8 @@ func (h *AuthHandler) WithGrantRecording(
 	sealer *secrets.Sealer,
 	exchanger providers.TokenExchanger,
 ) *AuthHandler {
-	h.grants = func(repo repository.Querier) service.GrantService {
-		return service.NewGrantService(
+	h.grants = func(repo repository.Querier) grantsvc.GrantService {
+		return grantsvc.NewGrantService(
 			repo,
 			h.cacher,
 			registry,
@@ -342,7 +343,7 @@ func (h *AuthHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = core.WithTransaction(r.Context(), conn, func(tx pgx.Tx) error {
 		repo := repository.New(tx)
-		deviceSvc := service.NewDeviceService(repo)
+		deviceSvc := devicesvc.NewDeviceService(repo)
 		tokenSvc := tokens.NewTokenService(repo, h.cacher, h.auth.config)
 
 		account, err := h.upsertAccount(r, repo, gothUser)
@@ -368,7 +369,7 @@ func (h *AuthHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		if h.grants != nil {
 			if err := h.grants(repo).RecordGrant(
 				r.Context(),
-				service.RecordGrantInput{
+				grantsvc.RecordGrantInput{
 					AccountID:      account.ID,
 					Provider:       provider,
 					ExternalUserID: gothUser.UserID,
@@ -402,7 +403,7 @@ func (h *AuthHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 			return fmt.Errorf("parse remote addr: %w", err)
 		}
 
-		input := service.DeviceRegistrationInput{
+		input := devicesvc.DeviceRegistrationInput{
 			UserID:      account.ID,
 			DeviceName:  stateData.DeviceName,
 			Platform:    stateData.Platform,

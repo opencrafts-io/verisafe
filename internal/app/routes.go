@@ -7,7 +7,18 @@ import (
 	"github.com/opencrafts-io/verisafe/internal/auth"
 	"github.com/opencrafts-io/verisafe/internal/broker"
 	"github.com/opencrafts-io/verisafe/internal/core"
-	"github.com/opencrafts-io/verisafe/internal/handlers"
+	"github.com/opencrafts-io/verisafe/internal/handlers/account"
+	"github.com/opencrafts-io/verisafe/internal/handlers/activity"
+	"github.com/opencrafts-io/verisafe/internal/handlers/device"
+	"github.com/opencrafts-io/verisafe/internal/handlers/health"
+	"github.com/opencrafts-io/verisafe/internal/handlers/institution"
+	"github.com/opencrafts-io/verisafe/internal/handlers/leaderboard"
+	"github.com/opencrafts-io/verisafe/internal/handlers/oauth"
+	"github.com/opencrafts-io/verisafe/internal/handlers/permission"
+	"github.com/opencrafts-io/verisafe/internal/handlers/role"
+	"github.com/opencrafts-io/verisafe/internal/handlers/servicetoken"
+	"github.com/opencrafts-io/verisafe/internal/handlers/social"
+	"github.com/opencrafts-io/verisafe/internal/handlers/streak"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
@@ -42,38 +53,38 @@ func (a *App) loadRoutes() http.Handler {
 			a.logger,
 			a.geoIPLocator,
 		).WithGrantRecording(a.oauthRegistry, a.tokenSealer, a.tokenExchanger),
-		&handlers.AccountHandler{
+		&account.AccountHandler{
 			DB:           db,
 			Cacher:       a.cacher,
 			Logger:       a.logger,
 			UserEventBus: a.userEventBus,
 			Cfg:          a.config,
 		},
-		&handlers.ServiceTokenHandler{
+		&servicetoken.ServiceTokenHandler{
 			DB:     db,
 			Cacher: a.cacher,
 			Logger: a.logger,
 			Cfg:    a.config,
 		},
-		&handlers.SocialHandler{
+		&social.SocialHandler{
 			DB:     db,
 			Cacher: a.cacher,
 			Cfg:    a.config,
 			Logger: a.logger,
 		},
-		&handlers.RoleHandler{
+		&role.RoleHandler{
 			DB:     db,
 			Cacher: a.cacher,
 			Cfg:    a.config,
 			Logger: a.logger,
 		},
-		&handlers.PermissionHandler{
+		&permission.PermissionHandler{
 			DB:     db,
 			Cacher: a.cacher,
 			Cfg:    a.config,
 			Logger: a.logger,
 		},
-		&handlers.InstitutionHandler{
+		&institution.InstitutionHandler{
 			DB:                  db,
 			Cacher:              a.cacher,
 			Cfg:                 a.config,
@@ -81,33 +92,33 @@ func (a *App) loadRoutes() http.Handler {
 			InstitutionEventBus: a.institutionEventBus,
 			Publisher:           broker.NewPublisher(a.rabbitMQConn, a.logger),
 		},
-		&handlers.LeaderBoardHandler{
+		&leaderboard.LeaderBoardHandler{
 			DB:     db,
 			Cacher: a.cacher,
 			Cfg:    a.config,
 			Logger: a.logger,
 		},
-		&handlers.ActivityHandler{
+		&activity.ActivityHandler{
 			DB:     db,
 			Cacher: a.cacher,
 			Cfg:    a.config,
 			Logger: a.logger,
 		},
-		&handlers.StreakHandler{
+		&streak.StreakHandler{
 			DB:                   db,
 			Cacher:               a.cacher,
 			Cfg:                  a.config,
 			Logger:               a.logger,
 			NotificationEventBus: a.notificationEventBus,
 		},
-		&handlers.DeviceHandler{
+		&device.DeviceHandler{
 			DB:         db,
 			Cacher:     a.cacher,
 			Cfg:        a.config,
 			GeoLocator: a.geoIPLocator,
 			Logger:     a.logger,
 		},
-		&handlers.OAuthBrokerHandler{
+		&oauth.OAuthBrokerHandler{
 			DB:        db,
 			Cacher:    a.cacher,
 			Cfg:       a.config,
@@ -116,7 +127,7 @@ func (a *App) loadRoutes() http.Handler {
 			Exchanger: a.tokenExchanger,
 			Sealer:    a.tokenSealer,
 		},
-		&handlers.OAuthScopeHandler{
+		&oauth.OAuthScopeHandler{
 			DB:        db,
 			Cacher:    a.cacher,
 			Cfg:       a.config,
@@ -131,7 +142,7 @@ func (a *App) loadRoutes() http.Handler {
 		handler.RegisterHandlers(router)
 	}
 
-	router.HandleFunc("GET /ping", handlers.PingHandler)
+	router.HandleFunc("GET /ping", health.PingHandler)
 	router.Handle("GET /docs/", httpSwagger.WrapHandler)
 
 	return router

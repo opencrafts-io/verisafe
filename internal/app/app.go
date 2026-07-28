@@ -19,7 +19,7 @@ import (
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/providers"
 	"github.com/opencrafts-io/verisafe/internal/secrets"
-	"github.com/opencrafts-io/verisafe/internal/service"
+	"github.com/opencrafts-io/verisafe/internal/service/grants"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -41,7 +41,7 @@ type App struct {
 
 	// reconciler drains grants whose scopes are still presumed rather than
 	// provider-verified. Nil when OAUTH_RECONCILE_ENABLED is off.
-	reconciler   *service.OAuthReconciler
+	reconciler   *grants.OAuthReconciler
 	reconcilerWG sync.WaitGroup
 
 	rabbitMQConn broker.Connection
@@ -235,7 +235,7 @@ func (a *App) startReconciler(ctx context.Context) {
 		return
 	}
 
-	a.reconciler = service.NewOAuthReconciler(
+	a.reconciler = grants.NewOAuthReconciler(
 		&core.PgxPoolAdapter{Pool: a.pool},
 		a.cacher,
 		a.oauthRegistry,

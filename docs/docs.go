@@ -89,7 +89,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.BotAccountRequest"
+                            "$ref": "#/definitions/account.BotAccountRequest"
                         }
                     }
                 ],
@@ -97,7 +97,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/handlers.BotAccountResponse"
+                            "$ref": "#/definitions/account.BotAccountResponse"
                         }
                     },
                     "400": {
@@ -907,7 +907,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/handlers.ServiceTokenResponse"
+                                "$ref": "#/definitions/servicetoken.ServiceTokenResponse"
                             }
                         }
                     },
@@ -975,7 +975,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/handlers.ServiceTokenResponse"
+                                "$ref": "#/definitions/servicetoken.ServiceTokenResponse"
                             }
                         }
                     },
@@ -1020,7 +1020,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.ServiceTokenRequest"
+                            "$ref": "#/definitions/servicetoken.ServiceTokenRequest"
                         }
                     }
                 ],
@@ -1028,7 +1028,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Includes the raw token, only returned on creation",
                         "schema": {
-                            "$ref": "#/definitions/handlers.ServiceTokenResponse"
+                            "$ref": "#/definitions/servicetoken.ServiceTokenResponse"
                         }
                     },
                     "400": {
@@ -1074,7 +1074,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handlers.ServiceTokenStats"
+                            "$ref": "#/definitions/servicetoken.ServiceTokenStats"
                         }
                     },
                     "401": {
@@ -1123,7 +1123,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handlers.ServiceTokenResponse"
+                            "$ref": "#/definitions/servicetoken.ServiceTokenResponse"
                         }
                     },
                     "400": {
@@ -1186,7 +1186,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.ServiceTokenUpdateRequest"
+                            "$ref": "#/definitions/servicetoken.ServiceTokenUpdateRequest"
                         }
                     }
                 ],
@@ -1194,7 +1194,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handlers.ServiceTokenResponse"
+                            "$ref": "#/definitions/servicetoken.ServiceTokenResponse"
                         }
                     },
                     "400": {
@@ -1311,7 +1311,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Includes the new raw token",
                         "schema": {
-                            "$ref": "#/definitions/handlers.ServiceTokenResponse"
+                            "$ref": "#/definitions/servicetoken.ServiceTokenResponse"
                         }
                     },
                     "400": {
@@ -1715,7 +1715,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/service.DeviceOutput"
+                                "$ref": "#/definitions/device.DeviceOutput"
                             }
                         }
                     },
@@ -2511,7 +2511,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/service.GrantView"
+                                "$ref": "#/definitions/grants.GrantView"
                             }
                         }
                     },
@@ -2549,7 +2549,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handlers.ScopesResponse"
+                            "$ref": "#/definitions/oauth.ScopesResponse"
                         }
                     },
                     "401": {
@@ -2597,7 +2597,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.ScopeAuthorizeRequest"
+                            "$ref": "#/definitions/oauth.ScopeAuthorizeRequest"
                         }
                     }
                 ],
@@ -2605,7 +2605,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handlers.ScopeAuthorizeResponse"
+                            "$ref": "#/definitions/oauth.ScopeAuthorizeResponse"
                         }
                     },
                     "400": {
@@ -2768,7 +2768,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.ProviderTokenRequest"
+                            "$ref": "#/definitions/oauth.ProviderTokenRequest"
                         }
                     }
                 ],
@@ -2839,7 +2839,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.ProviderTokenRequest"
+                            "$ref": "#/definitions/oauth.ProviderTokenRequest"
                         }
                     }
                 ],
@@ -2847,7 +2847,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handlers.ProviderTokenResponse"
+                            "$ref": "#/definitions/oauth.ProviderTokenResponse"
                         }
                     },
                     "400": {
@@ -2865,7 +2865,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Caller is not a service token, lacks the permission, or the user has not granted the capability",
                         "schema": {
-                            "$ref": "#/definitions/handlers.InsufficientScopeResponse"
+                            "$ref": "#/definitions/oauth.InsufficientScopeResponse"
                         }
                     },
                     "404": {
@@ -3749,7 +3749,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/handlers.socialResponse"
+                                "$ref": "#/definitions/social.socialResponse"
                             }
                         }
                     },
@@ -3801,7 +3801,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/handlers.socialResponse"
+                                "$ref": "#/definitions/social.socialResponse"
                             }
                         }
                     },
@@ -4096,57 +4096,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "auth.authCodeExchangeRequest": {
-            "type": "object",
-            "properties": {
-                "code": {
-                    "type": "string"
-                }
-            }
-        },
-        "auth.refreshTokenRequest": {
-            "type": "object",
-            "properties": {
-                "refresh_token": {
-                    "type": "string"
-                }
-            }
-        },
-        "auth.revokeTokenRequest": {
-            "type": "object",
-            "properties": {
-                "refresh_token": {
-                    "type": "string"
-                }
-            }
-        },
-        "auth.tokenResponse": {
-            "type": "object",
-            "properties": {
-                "access_expires_at": {
-                    "type": "string"
-                },
-                "access_token": {
-                    "type": "string"
-                },
-                "refresh_expires_at": {
-                    "type": "string"
-                },
-                "refresh_token": {
-                    "type": "string"
-                }
-            }
-        },
-        "core.APIError": {
-            "type": "object",
-            "properties": {
-                "error": {
-                    "type": "string",
-                    "example": "the provided input is invalid or malformed"
-                }
-            }
-        },
-        "handlers.BotAccountRequest": {
+        "account.BotAccountRequest": {
             "type": "object",
             "properties": {
                 "account": {
@@ -4203,7 +4153,7 @@ const docTemplate = `{
                             "minLength": 1
                         },
                         "rotation_policy": {
-                            "$ref": "#/definitions/handlers.RotationPolicy"
+                            "$ref": "#/definitions/servicetoken.RotationPolicy"
                         },
                         "scopes": {
                             "type": "array",
@@ -4218,7 +4168,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.BotAccountResponse": {
+        "account.BotAccountResponse": {
             "type": "object",
             "properties": {
                 "account": {
@@ -4279,7 +4229,142 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.InsufficientScopeResponse": {
+        "auth.authCodeExchangeRequest": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                }
+            }
+        },
+        "auth.refreshTokenRequest": {
+            "type": "object",
+            "properties": {
+                "refresh_token": {
+                    "type": "string"
+                }
+            }
+        },
+        "auth.revokeTokenRequest": {
+            "type": "object",
+            "properties": {
+                "refresh_token": {
+                    "type": "string"
+                }
+            }
+        },
+        "auth.tokenResponse": {
+            "type": "object",
+            "properties": {
+                "access_expires_at": {
+                    "type": "string"
+                },
+                "access_token": {
+                    "type": "string"
+                },
+                "refresh_expires_at": {
+                    "type": "string"
+                },
+                "refresh_token": {
+                    "type": "string"
+                }
+            }
+        },
+        "core.APIError": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "the provided input is invalid or malformed"
+                }
+            }
+        },
+        "device.DeviceOutput": {
+            "type": "object",
+            "properties": {
+                "country": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "device_name": {
+                    "type": "string"
+                },
+                "device_token": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "ip_address": {
+                    "type": "string"
+                },
+                "last_active_at": {
+                    "type": "string"
+                },
+                "platform": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "grants.GrantView": {
+            "type": "object",
+            "properties": {
+                "available_capabilities": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/providers.Capability"
+                    }
+                },
+                "connected_at": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "external_user_id": {
+                    "type": "string"
+                },
+                "granted_capabilities": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/providers.Capability"
+                    }
+                },
+                "granted_scopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "last_refreshed_at": {
+                    "type": "string"
+                },
+                "provider": {
+                    "type": "string"
+                },
+                "refresh_available": {
+                    "type": "boolean"
+                },
+                "revoked": {
+                    "type": "boolean"
+                },
+                "revoked_reason": {
+                    "type": "string"
+                },
+                "scopes_verified": {
+                    "type": "boolean"
+                },
+                "supports_incremental": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "oauth.InsufficientScopeResponse": {
             "type": "object",
             "properties": {
                 "account_id": {
@@ -4327,7 +4412,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.ProviderTokenRequest": {
+        "oauth.ProviderTokenRequest": {
             "type": "object",
             "properties": {
                 "account_id": {
@@ -4342,7 +4427,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.ProviderTokenResponse": {
+        "oauth.ProviderTokenResponse": {
             "type": "object",
             "properties": {
                 "access_token": {
@@ -4381,25 +4466,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.RotationPolicy": {
-            "type": "object",
-            "properties": {
-                "auto_rotate": {
-                    "type": "boolean"
-                },
-                "notify_before_days": {
-                    "type": "integer",
-                    "maximum": 30,
-                    "minimum": 1
-                },
-                "rotation_interval_days": {
-                    "type": "integer",
-                    "maximum": 365,
-                    "minimum": 1
-                }
-            }
-        },
-        "handlers.ScopeAuthorizeRequest": {
+        "oauth.ScopeAuthorizeRequest": {
             "type": "object",
             "properties": {
                 "capabilities": {
@@ -4423,7 +4490,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.ScopeAuthorizeResponse": {
+        "oauth.ScopeAuthorizeResponse": {
             "type": "object",
             "properties": {
                 "already_granted": {
@@ -4448,7 +4515,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.ScopesResponse": {
+        "oauth.ScopesResponse": {
             "type": "object",
             "properties": {
                 "available_capabilities": {
@@ -4464,224 +4531,8 @@ const docTemplate = `{
                 "grants": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/service.GrantView"
+                        "$ref": "#/definitions/grants.GrantView"
                     }
-                }
-            }
-        },
-        "handlers.ServiceTokenRequest": {
-            "type": "object",
-            "required": [
-                "name"
-            ],
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "expires_in_days": {
-                    "description": "Max 10 years",
-                    "type": "integer",
-                    "maximum": 3650,
-                    "minimum": 1
-                },
-                "ip_whitelist": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "max_uses": {
-                    "type": "integer",
-                    "minimum": 1
-                },
-                "metadata": {
-                    "type": "object",
-                    "additionalProperties": true
-                },
-                "name": {
-                    "type": "string",
-                    "maxLength": 100,
-                    "minLength": 1
-                },
-                "rotation_policy": {
-                    "$ref": "#/definitions/handlers.RotationPolicy"
-                },
-                "scopes": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "user_agent_pattern": {
-                    "type": "string"
-                }
-            }
-        },
-        "handlers.ServiceTokenResponse": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "expires_at": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "last_used_at": {
-                    "type": "string"
-                },
-                "max_uses": {
-                    "type": "integer"
-                },
-                "metadata": {
-                    "type": "object",
-                    "additionalProperties": true
-                },
-                "name": {
-                    "type": "string"
-                },
-                "revoked_at": {
-                    "type": "string"
-                },
-                "rotated_at": {
-                    "type": "string"
-                },
-                "scopes": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "token": {
-                    "description": "Only included on creation",
-                    "type": "string"
-                },
-                "use_count": {
-                    "type": "integer"
-                }
-            }
-        },
-        "handlers.ServiceTokenStats": {
-            "type": "object",
-            "properties": {
-                "active_tokens": {
-                    "type": "integer"
-                },
-                "expired_tokens": {
-                    "type": "integer"
-                },
-                "recently_used_tokens": {
-                    "type": "integer"
-                },
-                "revoked_tokens": {
-                    "type": "integer"
-                },
-                "total_tokens": {
-                    "type": "integer"
-                }
-            }
-        },
-        "handlers.ServiceTokenUpdateRequest": {
-            "type": "object",
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "ip_whitelist": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "max_uses": {
-                    "type": "integer",
-                    "minimum": 1
-                },
-                "metadata": {
-                    "type": "object",
-                    "additionalProperties": true
-                },
-                "name": {
-                    "type": "string",
-                    "maxLength": 100,
-                    "minLength": 1
-                },
-                "rotation_policy": {
-                    "$ref": "#/definitions/handlers.RotationPolicy"
-                },
-                "scopes": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "user_agent_pattern": {
-                    "type": "string"
-                }
-            }
-        },
-        "handlers.socialResponse": {
-            "type": "object",
-            "properties": {
-                "access_token": {
-                    "description": "Always null. See the type comment.",
-                    "type": "string"
-                },
-                "access_token_secret": {
-                    "type": "string"
-                },
-                "account_id": {
-                    "type": "string"
-                },
-                "avatar_url": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "$ref": "#/definitions/pgtype.Timestamp"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "email": {
-                    "type": "string"
-                },
-                "expires_at": {
-                    "$ref": "#/definitions/pgtype.Timestamp"
-                },
-                "first_name": {
-                    "type": "string"
-                },
-                "id_token": {
-                    "type": "string"
-                },
-                "last_name": {
-                    "type": "string"
-                },
-                "location": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "nick_name": {
-                    "type": "string"
-                },
-                "provider": {
-                    "type": "string"
-                },
-                "refresh_token": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "$ref": "#/definitions/pgtype.Timestamp"
-                },
-                "user_id": {
-                    "type": "string"
                 }
             }
         },
@@ -5326,88 +5177,237 @@ const docTemplate = `{
                 }
             }
         },
-        "service.DeviceOutput": {
+        "servicetoken.RotationPolicy": {
             "type": "object",
             "properties": {
-                "country": {
-                    "type": "string"
+                "auto_rotate": {
+                    "type": "boolean"
                 },
-                "created_at": {
-                    "type": "string"
+                "notify_before_days": {
+                    "type": "integer",
+                    "maximum": 30,
+                    "minimum": 1
                 },
-                "device_name": {
-                    "type": "string"
-                },
-                "device_token": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "ip_address": {
-                    "type": "string"
-                },
-                "last_active_at": {
-                    "type": "string"
-                },
-                "platform": {
-                    "type": "string"
-                },
-                "user_id": {
-                    "type": "string"
+                "rotation_interval_days": {
+                    "type": "integer",
+                    "maximum": 365,
+                    "minimum": 1
                 }
             }
         },
-        "service.GrantView": {
+        "servicetoken.ServiceTokenRequest": {
             "type": "object",
+            "required": [
+                "name"
+            ],
             "properties": {
-                "available_capabilities": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/providers.Capability"
-                    }
-                },
-                "connected_at": {
+                "description": {
                     "type": "string"
                 },
-                "expires_at": {
-                    "type": "string"
+                "expires_in_days": {
+                    "description": "Max 10 years",
+                    "type": "integer",
+                    "maximum": 3650,
+                    "minimum": 1
                 },
-                "external_user_id": {
-                    "type": "string"
-                },
-                "granted_capabilities": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/providers.Capability"
-                    }
-                },
-                "granted_scopes": {
+                "ip_whitelist": {
                     "type": "array",
                     "items": {
                         "type": "string"
                     }
                 },
-                "last_refreshed_at": {
+                "max_uses": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "minLength": 1
+                },
+                "rotation_policy": {
+                    "$ref": "#/definitions/servicetoken.RotationPolicy"
+                },
+                "scopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "user_agent_pattern": {
+                    "type": "string"
+                }
+            }
+        },
+        "servicetoken.ServiceTokenResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "last_used_at": {
+                    "type": "string"
+                },
+                "max_uses": {
+                    "type": "integer"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "name": {
+                    "type": "string"
+                },
+                "revoked_at": {
+                    "type": "string"
+                },
+                "rotated_at": {
+                    "type": "string"
+                },
+                "scopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "token": {
+                    "description": "Only included on creation",
+                    "type": "string"
+                },
+                "use_count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "servicetoken.ServiceTokenStats": {
+            "type": "object",
+            "properties": {
+                "active_tokens": {
+                    "type": "integer"
+                },
+                "expired_tokens": {
+                    "type": "integer"
+                },
+                "recently_used_tokens": {
+                    "type": "integer"
+                },
+                "revoked_tokens": {
+                    "type": "integer"
+                },
+                "total_tokens": {
+                    "type": "integer"
+                }
+            }
+        },
+        "servicetoken.ServiceTokenUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "ip_whitelist": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "max_uses": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "minLength": 1
+                },
+                "rotation_policy": {
+                    "$ref": "#/definitions/servicetoken.RotationPolicy"
+                },
+                "scopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "user_agent_pattern": {
+                    "type": "string"
+                }
+            }
+        },
+        "social.socialResponse": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "description": "Always null. See the type comment.",
+                    "type": "string"
+                },
+                "access_token_secret": {
+                    "type": "string"
+                },
+                "account_id": {
+                    "type": "string"
+                },
+                "avatar_url": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "$ref": "#/definitions/pgtype.Timestamp"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "$ref": "#/definitions/pgtype.Timestamp"
+                },
+                "first_name": {
+                    "type": "string"
+                },
+                "id_token": {
+                    "type": "string"
+                },
+                "last_name": {
+                    "type": "string"
+                },
+                "location": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "nick_name": {
                     "type": "string"
                 },
                 "provider": {
                     "type": "string"
                 },
-                "refresh_available": {
-                    "type": "boolean"
-                },
-                "revoked": {
-                    "type": "boolean"
-                },
-                "revoked_reason": {
+                "refresh_token": {
                     "type": "string"
                 },
-                "scopes_verified": {
-                    "type": "boolean"
+                "updated_at": {
+                    "$ref": "#/definitions/pgtype.Timestamp"
                 },
-                "supports_incremental": {
-                    "type": "boolean"
+                "user_id": {
+                    "type": "string"
                 }
             }
         }
