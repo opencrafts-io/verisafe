@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/handlers/role"
 	"github.com/opencrafts-io/verisafe/internal/testsupport"
-	"github.com/stretchr/testify/assert"
 )
 
 // These lock the exact bytes each branch puts on the wire, so that extracting
@@ -40,7 +40,9 @@ func TestGetRoleByID(t *testing.T) {
 		// This branch returns before the handler's own Content-Type call, so
 		// in production the header comes from IsAuthenticated.
 		testsupport.WireCase{
-			Handler:         (&role.RoleHandler{Logger: discardLogger()}).GetRoleByID,
+			Handler: core.AppHandler(
+				(&role.RoleHandler{Logger: discardLogger()}).GetRoleByID,
+			),
 			Request:         req,
 			Authenticated:   true,
 			WantStatus:      400,
@@ -59,7 +61,7 @@ func TestGetRoleByID(t *testing.T) {
 		}
 
 		testsupport.WireCase{
-			Handler:         h.GetRoleByID,
+			Handler:         core.AppHandler(h.GetRoleByID),
 			Request:         req,
 			WantStatus:      500,
 			WantContentType: "application/json",
@@ -79,7 +81,7 @@ func TestCreateRole_MalformedBodyIsRejected(t *testing.T) {
 	}
 
 	testsupport.WireCase{
-		Handler:         h.CreateRole,
+		Handler:         core.AppHandler(h.CreateRole),
 		Request:         req,
 		WantStatus:      400,
 		WantContentType: "application/json",
@@ -94,7 +96,7 @@ func TestGetAllRoles_ConnectionAcquisitionFailureIsA500(t *testing.T) {
 	}
 
 	testsupport.WireCase{
-		Handler:         h.GetAllRoles,
+		Handler:         core.AppHandler(h.GetAllRoles),
 		Request:         httptest.NewRequest("GET", "/roles", nil),
 		WantStatus:      500,
 		WantContentType: "application/json",
@@ -102,18 +104,17 @@ func TestGetAllRoles_ConnectionAcquisitionFailureIsA500(t *testing.T) {
 	}.Run(t)
 }
 
-// DEFECT, pinned rather than asserted as correct behaviour.
+// This was a defect until the service extraction, and this test was written
+// pinning it: every method did `tx, _ := conn.Begin(ctx)`, discarding the
+// error, then `defer tx.Rollback(ctx)` on the resulting nil interface. A failed
+// Begin panicked, so the client got a dropped connection and net/http logged a
+// stack trace instead of the 500 every other failure path produced.
 //
-// Every method in this handler does `tx, _ := conn.Begin(ctx)`, discarding the
-// error, then immediately `defer tx.Rollback(ctx)`. When Begin fails tx is a
-// nil interface and the deferred call panics, so the client gets a dropped
-// connection and net/http logs a stack trace, rather than the 500 every other
-// failure path produces.
-//
-// This test exists so the fix is visible as a change to this file. Once the
-// handler moves to a helper that owns the transaction lifecycle, replace it
-// with an assertion of 500 plus msgGeneric.
-func TestGetRoleByID_BeginFailurePanics_KnownDefect(t *testing.T) {
+// core.InTx owns the transaction lifecycle and returns the Begin error, so the
+// assertion is now what it always should have been. The other cases in this
+// file were not touched by that change, which is the evidence that the
+// extraction fixed this and moved nothing else.
+func TestGetRoleByID_BeginFailureIsA500(t *testing.T) {
 	req := httptest.NewRequest("GET", "/roles/x", nil)
 	req.SetPathValue("id", "6f1b6b1e-0000-4000-8000-000000000000")
 
@@ -124,7 +125,11 @@ func TestGetRoleByID_BeginFailurePanics_KnownDefect(t *testing.T) {
 		),
 	}
 
-	assert.Panics(t, func() {
-		h.GetRoleByID(httptest.NewRecorder(), req)
-	}, "when this stops panicking, replace this test with a 500 assertion")
+	testsupport.WireCase{
+		Handler:         core.AppHandler(h.GetRoleByID),
+		Request:         req,
+		WantStatus:      500,
+		WantContentType: "application/json",
+		WantBody:        `{"error":"` + msgGeneric + `"}` + "\n",
+	}.Run(t)
 }

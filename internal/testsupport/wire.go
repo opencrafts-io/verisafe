@@ -27,7 +27,11 @@ type WireCase struct {
 	Name string
 
 	// Handler is invoked directly rather than through a middleware stack.
-	Handler http.HandlerFunc
+	// Pass http.HandlerFunc for a handler that writes its own responses, or
+	// core.AppHandler for one that returns an error; the assertions below are
+	// on the bytes either way, which is what lets a case survive the move from
+	// one form to the other unchanged.
+	Handler http.Handler
 
 	// Request is the request to serve.
 	Request *http.Request

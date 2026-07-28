@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -27,7 +28,7 @@ func TestServiceTokenHandler_ConnectionAcquisitionFailure(t *testing.T) {
 	req := httptest.NewRequest("GET", "/api/v1/admin/service-tokens", nil)
 
 	testsupport.WireCase{
-		Handler:         h.ListAllServiceTokens,
+		Handler:         http.HandlerFunc(h.ListAllServiceTokens),
 		Request:         req,
 		WantStatus:      500,
 		WantContentType: "text/plain; charset=utf-8",

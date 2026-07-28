@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -27,7 +28,7 @@ func TestInstitutionHandler_ConnectionAcquisitionFailure(t *testing.T) {
 	req := httptest.NewRequest("GET", "/institutions/all", nil)
 
 	testsupport.WireCase{
-		Handler:         h.GetAllInstitutions,
+		Handler:         http.HandlerFunc(h.GetAllInstitutions),
 		Request:         req,
 		WantStatus:      500,
 		WantContentType: "text/plain; charset=utf-8",

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -36,7 +37,7 @@ func TestSocialHandler_ConnectionAcquisitionFailure(t *testing.T) {
 	))
 
 	testsupport.WireCase{
-		Handler:         h.GetAllUserSocials,
+		Handler:         http.HandlerFunc(h.GetAllUserSocials),
 		Request:         req,
 		WantStatus:      500,
 		WantContentType: "application/json",

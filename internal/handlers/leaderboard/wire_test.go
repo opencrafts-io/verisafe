@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -27,7 +28,7 @@ func TestLeaderBoardHandler_ConnectionAcquisitionFailure(t *testing.T) {
 	req := httptest.NewRequest("GET", "/leaderboard/global", nil)
 
 	testsupport.WireCase{
-		Handler:         h.GetGlobalLeaderBoard,
+		Handler:         http.HandlerFunc(h.GetGlobalLeaderBoard),
 		Request:         req,
 		WantStatus:      500,
 		WantContentType: "text/plain; charset=utf-8",

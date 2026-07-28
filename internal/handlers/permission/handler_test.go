@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -32,9 +33,9 @@ func TestGetPermissionByID(t *testing.T) {
 		req.SetPathValue("id", "not-a-uuid")
 
 		testsupport.WireCase{
-			Handler: (&permission.PermissionHandler{
+			Handler: http.HandlerFunc((&permission.PermissionHandler{
 				Logger: discardLogger(),
-			}).GetPermissionByID,
+			}).GetPermissionByID),
 			Request:         req,
 			Authenticated:   true,
 			WantStatus:      400,
@@ -53,7 +54,7 @@ func TestGetPermissionByID(t *testing.T) {
 		}
 
 		testsupport.WireCase{
-			Handler:         h.GetPermissionByID,
+			Handler:         http.HandlerFunc(h.GetPermissionByID),
 			Request:         req,
 			WantStatus:      500,
 			WantContentType: "application/json",
@@ -69,7 +70,7 @@ func TestCreatePermission_MalformedBodyIsRejected(t *testing.T) {
 	}
 
 	testsupport.WireCase{
-		Handler: h.CreatePermission,
+		Handler: http.HandlerFunc(h.CreatePermission),
 		Request: httptest.NewRequest(
 			"POST", "/permissions/create", strings.NewReader("{not json"),
 		),
@@ -86,7 +87,7 @@ func TestGetAllPermissions_ConnectionAcquisitionFailureIsA500(t *testing.T) {
 	}
 
 	testsupport.WireCase{
-		Handler:         h.GetAllPermissions,
+		Handler:         http.HandlerFunc(h.GetAllPermissions),
 		Request:         httptest.NewRequest("GET", "/permissions", nil),
 		WantStatus:      500,
 		WantContentType: "application/json",

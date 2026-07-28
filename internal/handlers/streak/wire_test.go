@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -27,7 +28,7 @@ func TestStreakHandler_ConnectionAcquisitionFailure(t *testing.T) {
 	req := httptest.NewRequest("GET", "/streaks/milestone/active", nil)
 
 	testsupport.WireCase{
-		Handler:         h.GetAllActiveStreakAchievements,
+		Handler:         http.HandlerFunc(h.GetAllActiveStreakAchievements),
 		Request:         req,
 		WantStatus:      500,
 		WantContentType: "text/plain; charset=utf-8",

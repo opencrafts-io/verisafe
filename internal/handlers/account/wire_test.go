@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -27,7 +28,7 @@ func TestAccountHandler_ConnectionAcquisitionFailure(t *testing.T) {
 	req := httptest.NewRequest("GET", "/accounts/all", nil)
 
 	testsupport.WireCase{
-		Handler:         h.GetAllUserAccounts,
+		Handler:         http.HandlerFunc(h.GetAllUserAccounts),
 		Request:         req,
 		WantStatus:      500,
 		WantContentType: "application/json",
