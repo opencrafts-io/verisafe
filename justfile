@@ -14,7 +14,7 @@ generate-mocks:
 
 
 test:
-    @go test ./... | grep -v "no test files" || true
+    go test ./...
 
 swag:
     swag init --parseDependency --parseInternal

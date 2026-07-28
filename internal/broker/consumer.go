@@ -17,19 +17,8 @@ const (
 // MessageHandler is the callback function that processes consumed messages
 type MessageHandler func(ctx context.Context, message []byte) error
 
-// MessageConsumer defines the contract for consuming messages from RabbitMQ
-type MessageConsumer interface {
-	Consume(
-		ctx context.Context,
-		exchange string,
-		exchangeType ExchangeType,
-		queue string,
-		bindingKey string,
-		handler MessageHandler,
-	) error
-}
-
-// Consumer implements MessageConsumer
+// Consumer reads messages off a RabbitMQ queue and dispatches them to a
+// MessageHandler.
 type Consumer struct {
 	conn          Connection
 	prefetchCount int
