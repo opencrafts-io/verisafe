@@ -89,9 +89,15 @@ type LocationInfo struct {
 
 // IPLocater resolves an IP address to full location information.
 // Satisfied by GeoIPLocater in production and can be mocked in tests.
+//
+// Close is deliberately excluded: the App owns the locater's lifecycle and
+// closes the underlying mmdb files at shutdown, so a handler holding only this
+// interface cannot close a locater other requests still depend on.
 type IPLocater interface {
 	Lookup(ip netip.Addr) (*LocationInfo, error)
 }
+
+var _ IPLocater = (*GeoIPLocater)(nil)
 
 // GeoIPLocater resolves IP addresses using local MaxMind GeoLite2 database
 // files. It is safe for concurrent use.

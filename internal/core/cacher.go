@@ -9,7 +9,8 @@ import (
 // Cacher defines a simple key-value cache interface.
 // The default implementation uses Redis, but any backend can be swapped in —
 // including an in-memory mock for testing.
-// mockgen -source=cacher.go -destination=mocks/cacher.go -package=mockscore
+//
+//go:generate go tool mockgen -source=cacher.go -destination=mocks/cacher.go -package=mockscore
 type Cacher interface {
 	// Set stores a value under the given key with an optional TTL.
 	// Pass 0 for ttl to store indefinitely.

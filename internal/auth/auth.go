@@ -56,6 +56,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -276,7 +277,7 @@ func GenerateAppleClientSecret(
 
 	ecdsaKey, ok := privateKey.(*ecdsa.PrivateKey)
 	if !ok {
-		return "", fmt.Errorf("Apple private key is not an ECDSA key")
+		return "", errors.New("private key for Apple is not an ECDSA key")
 	}
 
 	now := time.Now()

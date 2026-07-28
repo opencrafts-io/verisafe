@@ -20,6 +20,49 @@ import (
 //
 // Note: We use a named return parameter 'err' to ensure the deferred
 // rollback block can inspect the final error state of the function.
+// InTx acquires a connection, runs fn inside a transaction, commits, and
+// releases the connection.
+//
+// Prefer this to calling Acquire and WithTransaction separately. Because
+// WithTransaction owns the Release, any early return between the two leaks a
+// pooled connection permanently; here there is no window in which that can
+// happen, since nothing is held when Acquire fails.
+func InTx[T any](
+	ctx context.Context,
+	db IDBProvider,
+	fn func(tx pgx.Tx) (T, error),
+) (T, error) {
+	var zero T
+
+	conn, err := db.Acquire(ctx)
+	if err != nil {
+		return zero, fmt.Errorf("%w: failed to acquire connection", ErrInternal)
+	}
+
+	var out T
+	if err := WithTransaction(ctx, conn, func(tx pgx.Tx) error {
+		var ferr error
+		out, ferr = fn(tx)
+		return ferr
+	}); err != nil {
+		return zero, err
+	}
+
+	return out, nil
+}
+
+// InTxDo is InTx for work that produces no value.
+func InTxDo(
+	ctx context.Context,
+	db IDBProvider,
+	fn func(tx pgx.Tx) error,
+) error {
+	_, err := InTx(ctx, db, func(tx pgx.Tx) (struct{}, error) {
+		return struct{}{}, fn(tx)
+	})
+	return err
+}
+
 func WithTransaction(
 	ctx context.Context,
 	conn IDBConnection,

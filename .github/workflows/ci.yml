@@ -1,0 +1,127 @@
+name: CI
+
+# Runs on pull requests as well as pushes. Before this workflow existed the
+# only gate lived in build-push-tag.yml, which triggers on push to main and
+# staging only -- so a branch was never checked until after it had merged.
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - staging
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-vet-test:
+    name: Build, Vet, and Test
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build
+        run: go build ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test ./... -coverprofile=coverage.out
+
+      # Reported, not enforced. A coverage floor is only meaningful once the
+      # handler migration has put tests behind the packages that lack them;
+      # setting one now would block PRs without improving anything.
+      - name: Coverage summary
+        if: always()
+        run: |
+          {
+            echo '### Coverage'
+            echo
+            echo '```'
+            go tool cover -func=coverage.out | tail -30
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  lint:
+    name: Lint
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      # Blocking, not advisory: the enabled linter set is clean across the
+      # whole repository today, so any finding is something this PR introduced.
+      #
+      # golangci-lint-action v6 only supports golangci-lint v1; the v2 config
+      # format this repo uses (.golangci.yml's `version: "2"`) requires v7.
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.12.2
+
+  generated-artifacts-are-fresh:
+    name: Generated artifacts are fresh
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      # swag and mockgen are pinned as tool dependencies in go.mod, so this
+      # runs the same versions a developer gets from `just swag` and
+      # `just generate-mocks`.
+      - name: Regenerate the OpenAPI spec
+        run: go tool swag init --parseDependency --parseInternal
+
+      - name: Regenerate mocks
+        run: go generate ./...
+
+      # The spec encodes every route, status code and response type, so a
+      # non-empty diff here means a refactor moved part of the API surface
+      # without the author noticing. That makes this a structural regression
+      # detector, not just a tidiness check.
+      - name: Fail if anything drifted
+        run: |
+          if ! git diff --exit-code; then
+            echo "::error::Generated files are stale. Run 'just verify-generated' and commit the result."
+            exit 1
+          fi
+
+  race:
+    name: Race detector (advisory)
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    # Advisory on purpose. -race is clean today, but only because the handlers
+    # that dispatch fire-and-forget goroutines (account, streak, institution)
+    # have no tests exercising those paths at all. Adding that coverage is
+    # likely to surface pre-existing races, and a blocking gate would then stop
+    # unrelated work. Flip continue-on-error off once those goroutines have a
+    # supervised seam and the detector has been clean with them under test.
+    continue-on-error: true
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Test with -race
+        run: go test -race ./...

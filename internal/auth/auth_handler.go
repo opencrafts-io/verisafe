@@ -22,12 +22,12 @@ import (
 	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/eventbus"
 	"github.com/opencrafts-io/verisafe/internal/geo"
-	"github.com/opencrafts-io/verisafe/internal/handlers"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/providers"
 	"github.com/opencrafts-io/verisafe/internal/repository"
 	"github.com/opencrafts-io/verisafe/internal/secrets"
-	"github.com/opencrafts-io/verisafe/internal/service"
+	devicesvc "github.com/opencrafts-io/verisafe/internal/service/device"
+	grantsvc "github.com/opencrafts-io/verisafe/internal/service/grants"
 	"github.com/opencrafts-io/verisafe/internal/tokens"
 )
 
@@ -70,27 +70,27 @@ type tokenResponse struct {
 }
 
 type AuthHandler struct {
-	geoLocator *geo.GeoIPLocater
+	geoLocator geo.IPLocater
 	auth       *Auth
 	db         core.IDBProvider
 	cacher     core.Cacher
-	eventBus   *eventbus.UserEventBus
+	eventBus   eventbus.UserPublisher
 	logger     *slog.Logger
 
 	// grants builds a GrantService bound to the caller's transaction, so a
 	// login can mirror provider credentials into oauth_grants. Nil disables
 	// the mirroring, which keeps the handler constructible in tests that do
 	// not care about it.
-	grants func(repository.Querier) service.GrantService
+	grants func(repository.Querier) grantsvc.GrantService
 }
 
 func NewAuthHandler(
 	auth *Auth,
 	db core.IDBProvider,
 	cacher core.Cacher,
-	eventBus *eventbus.UserEventBus,
+	eventBus eventbus.UserPublisher,
 	logger *slog.Logger,
-	geoLocator *geo.GeoIPLocater,
+	geoLocator geo.IPLocater,
 ) *AuthHandler {
 	return &AuthHandler{
 		auth:       auth,
@@ -109,8 +109,8 @@ func (h *AuthHandler) WithGrantRecording(
 	sealer *secrets.Sealer,
 	exchanger providers.TokenExchanger,
 ) *AuthHandler {
-	h.grants = func(repo repository.Querier) service.GrantService {
-		return service.NewGrantService(
+	h.grants = func(repo repository.Querier) grantsvc.GrantService {
+		return grantsvc.NewGrantService(
 			repo,
 			h.cacher,
 			registry,
@@ -123,22 +123,22 @@ func (h *AuthHandler) WithGrantRecording(
 	return h
 }
 
-func (h *AuthHandler) RegisterHandlers(router *http.ServeMux) {
+func (h *AuthHandler) RegisterHandlers(router core.Router) {
 	router.HandleFunc("GET /auth/{provider}", h.LoginHandler)
 	router.HandleFunc("/auth/{provider}/callback", h.CallbackHandler)
 	router.Handle(
 		"POST /auth/token/exchange",
-		handlers.AppHandler(h.ExchangeAuthCodeHandler),
+		core.AppHandler(h.ExchangeAuthCodeHandler),
 	)
 	router.Handle(
 		"POST /auth/token/refresh",
-		handlers.AppHandler(h.RefreshTokenHandler),
+		core.AppHandler(h.RefreshTokenHandler),
 	)
 	router.Handle(
 		"POST /auth/token/revoke",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(h.auth.config, h.db, h.cacher, h.logger),
-		)(handlers.AppHandler(h.RevokeTokenHandler)),
+		)(core.AppHandler(h.RevokeTokenHandler)),
 	)
 	router.Handle(
 		"GET /auth/{provider}/logout",
@@ -185,6 +185,7 @@ func (h *AuthHandler) storeAuthCode(
 // @Summary      Start OAuth2 login
 // @Description  Redirects the client to the given OAuth2 provider to begin a login. Omit "platform" (or pass anything other than "web") for the mobile flow. Pass platform=web with a redirect_uri that's in the server-side allowlist for the web flow.
 // @Tags         auth
+// @Produce      json
 // @Param        provider      path   string  true   "OAuth2 provider"  Enums(google, spotify, apple)
 // @Param        platform      query  string  false  "Set to 'web' for the web flow; omitted defaults to mobile"
 // @Param        redirect_uri  query  string  false  "Required when platform=web; must be in the configured allowlist"
@@ -288,6 +289,7 @@ func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 // @Summary      OAuth2 provider callback
 // @Description  Completes an OAuth2 login started by LoginHandler. Not called directly by clients — the provider redirects here (Apple posts via application/x-www-form-urlencoded). On success, redirects to redirect_uri with cookies set (web) or to the deep link with a one-time opaque code (mobile).
 // @Tags         auth
+// @Produce      json
 // @Param        provider  path  string  true  "OAuth2 provider"  Enums(google, spotify, apple)
 // @Success      302  "Redirects to redirect_uri (web) or the deep link (mobile)"
 // @Failure      400  {object}  core.APIError  "Missing provider or malformed/missing state"
@@ -341,7 +343,7 @@ func (h *AuthHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = core.WithTransaction(r.Context(), conn, func(tx pgx.Tx) error {
 		repo := repository.New(tx)
-		deviceSvc := service.NewDeviceService(repo)
+		deviceSvc := devicesvc.NewDeviceService(repo)
 		tokenSvc := tokens.NewTokenService(repo, h.cacher, h.auth.config)
 
 		account, err := h.upsertAccount(r, repo, gothUser)
@@ -367,7 +369,7 @@ func (h *AuthHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		if h.grants != nil {
 			if err := h.grants(repo).RecordGrant(
 				r.Context(),
-				service.RecordGrantInput{
+				grantsvc.RecordGrantInput{
 					AccountID:      account.ID,
 					Provider:       provider,
 					ExternalUserID: gothUser.UserID,
@@ -401,7 +403,7 @@ func (h *AuthHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 			return fmt.Errorf("parse remote addr: %w", err)
 		}
 
-		input := service.DeviceRegistrationInput{
+		input := devicesvc.DeviceRegistrationInput{
 			UserID:      account.ID,
 			DeviceName:  stateData.DeviceName,
 			Platform:    stateData.Platform,
@@ -549,7 +551,7 @@ func (h *AuthHandler) RevokeTokenHandler(
 		return fmt.Errorf("%w: failed to acquire connection", core.ErrInternal)
 	}
 
-	remaining := time.Until(claims.RegisteredClaims.ExpiresAt.Time)
+	remaining := time.Until(claims.ExpiresAt.Time)
 
 	err = core.WithTransaction(r.Context(), conn, func(tx pgx.Tx) error {
 		tokenSvc := tokens.NewTokenService(
@@ -597,6 +599,7 @@ func (h *AuthHandler) RevokeTokenHandler(
 // @Summary      Log out of the OAuth2 provider session
 // @Description  Clears the goth/gothic OAuth2 session for the given provider. This is not the same as token revocation — call RevokeTokenHandler too if the client also wants to invalidate its JWT/refresh token.
 // @Tags         auth
+// @Produce      json
 // @Param        provider  path  string  true  "OAuth2 provider"  Enums(google, spotify, apple)
 // @Success      307  "Redirects to /"
 // @Failure      400  {object}  core.APIError  "Missing provider"

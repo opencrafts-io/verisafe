@@ -20,17 +20,24 @@ import (
 	"github.com/opencrafts-io/verisafe/internal/tokens"
 )
 
-const (
-	AuthUserClaims            = "middleware.auth.claims"
-	AuthUserPerms             = "middleware.auth.perms"
-	AuthUserRoles             = "middleware.auth.roles"
-	AuthUserIsPendingDeletion = "middleware.auth.pending_deletion"
+// authKey is the type of every context key this package sets. Using a private
+// named type rather than bare strings means no other package can collide with
+// these keys, accidentally or otherwise, and it is what staticcheck's SA1029
+// asks for. The keys themselves are unexported, so the accessors and setters
+// below are the only way in or out — there is no raw assertion to get wrong.
+type authKey struct{ name string }
 
-	// AuthIsServiceToken marks a request authenticated with an X-API-Key
+var (
+	authUserClaims            = authKey{"claims"}
+	authUserPerms             = authKey{"perms"}
+	authUserRoles             = authKey{"roles"}
+	authUserIsPendingDeletion = authKey{"pending_deletion"}
+
+	// authIsServiceToken marks a request authenticated with an X-API-Key
 	// service token rather than a user's Bearer JWT. Endpoints that act on
 	// behalf of a user for another service — the OAuth token broker — use it
 	// to reject a human caller who happens to hold the permission.
-	AuthIsServiceToken = "middleware.auth.is_service_token"
+	authIsServiceToken = authKey{"is_service_token"}
 )
 
 // errAbort is returned inside the transaction closure when the HTTP response
@@ -43,7 +50,7 @@ var errAbort = fmt.Errorf("abort")
 // handler that runs behind IsAuthenticated rather than asserting the context
 // value directly.
 func ClaimsFromContext(ctx context.Context) (*tokens.VerisafeClaims, bool) {
-	claims, ok := ctx.Value(AuthUserClaims).(*tokens.VerisafeClaims)
+	claims, ok := ctx.Value(authUserClaims).(*tokens.VerisafeClaims)
 	return claims, ok
 }
 
@@ -51,7 +58,7 @@ func ClaimsFromContext(ctx context.Context) (*tokens.VerisafeClaims, bool) {
 // token rather than a user's JWT. Defaults to false when unset, so a missing
 // value denies rather than admits.
 func IsServiceToken(ctx context.Context) bool {
-	isService, _ := ctx.Value(AuthIsServiceToken).(bool)
+	isService, _ := ctx.Value(authIsServiceToken).(bool)
 	return isService
 }
 
@@ -59,8 +66,49 @@ func IsServiceToken(ctx context.Context) bool {
 // the caller. Use this rather than asserting the context value directly — a
 // bare .([]string) panics when IsAuthenticated has not run.
 func PermissionsFromContext(ctx context.Context) []string {
-	perms, _ := ctx.Value(AuthUserPerms).([]string)
+	perms, _ := ctx.Value(authUserPerms).([]string)
 	return perms
+}
+
+// RolesFromContext returns the roles IsAuthenticated loaded for the caller.
+func RolesFromContext(ctx context.Context) []string {
+	roles, _ := ctx.Value(authUserRoles).([]string)
+	return roles
+}
+
+// IsPendingDeletion reports whether the caller's account is inside its deletion
+// grace period. Defaults to false when unset.
+func IsPendingDeletion(ctx context.Context) bool {
+	pending, _ := ctx.Value(authUserIsPendingDeletion).(bool)
+	return pending
+}
+
+// The setters below exist so tests can build a context in the state
+// IsAuthenticated would have left it. They were previously unnecessary because
+// the keys were exported strings that any package could write directly; now
+// that the keys are unexported, these are the supported way in.
+
+// WithClaims returns ctx carrying claims, as IsAuthenticated would set them.
+func WithClaims(
+	ctx context.Context,
+	claims *tokens.VerisafeClaims,
+) context.Context {
+	return context.WithValue(ctx, authUserClaims, claims)
+}
+
+// WithPermissions returns ctx carrying perms, as IsAuthenticated would set them.
+func WithPermissions(ctx context.Context, perms []string) context.Context {
+	return context.WithValue(ctx, authUserPerms, perms)
+}
+
+// WithRoles returns ctx carrying roles, as IsAuthenticated would set them.
+func WithRoles(ctx context.Context, roles []string) context.Context {
+	return context.WithValue(ctx, authUserRoles, roles)
+}
+
+// WithServiceToken returns ctx marked as authenticated by a service token.
+func WithServiceToken(ctx context.Context, isService bool) context.Context {
+	return context.WithValue(ctx, authIsServiceToken, isService)
 }
 
 // IsAuthenticated validates the incoming request using either a Bearer JWT
@@ -161,7 +209,7 @@ func IsAuthenticated(
 							}
 							ctx = context.WithValue(
 								ctx,
-								AuthUserIsPendingDeletion,
+								authUserIsPendingDeletion,
 								true,
 							)
 						}
@@ -188,7 +236,7 @@ func IsAuthenticated(
 							},
 						}
 
-						ctx = context.WithValue(ctx, AuthIsServiceToken, true)
+						ctx = context.WithValue(ctx, authIsServiceToken, true)
 
 					default:
 						writeUnauthorized(
@@ -237,9 +285,9 @@ func IsAuthenticated(
 						return errAbort
 					}
 
-					ctx = context.WithValue(ctx, AuthUserClaims, claims)
-					ctx = context.WithValue(ctx, AuthUserRoles, roles)
-					ctx = context.WithValue(ctx, AuthUserPerms, perms)
+					ctx = WithClaims(ctx, claims)
+					ctx = WithRoles(ctx, roles)
+					ctx = WithPermissions(ctx, perms)
 
 					return nil
 				},
@@ -258,10 +306,7 @@ func IsAuthenticated(
 func HasPermission(permissions []string) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			var perms []string
-			if v := r.Context().Value(AuthUserPerms); v != nil {
-				perms = v.([]string)
-			}
+			perms := PermissionsFromContext(r.Context())
 
 			for _, required := range permissions {
 				if !slices.Contains(perms, required) {

@@ -20,25 +20,82 @@ func WriteError(w http.ResponseWriter, status int, message string) {
 	WriteJSON(w, status, APIError{Error: message})
 }
 
-// HandleError maps a domain error to an HTTP response by checking it against
-// the sentinel errors below. Add new sentinels here as the domain grows.
-func HandleError(w http.ResponseWriter, err error) {
+// publicError carries a client-facing message alongside a sentinel.
+//
+// Handlers migrating off hand-written response blocks use it to keep the exact
+// bytes their previous code emitted while still routing through HandleError.
+// Without it, every migrated 500 would silently switch from whatever wording
+// the handler used to "something went wrong".
+type publicError struct {
+	sentinel error
+	msg      string
+}
+
+func (e *publicError) Error() string { return e.msg }
+
+// Unwrap is what lets errors.Is find the sentinel, so statusFor keeps working.
+func (e *publicError) Unwrap() error { return e.sentinel }
+
+// Public wraps sentinel so the response takes its status from sentinel but its
+// body from msg. Use it when a specific wording is part of the live contract;
+// return the bare sentinel when it is not.
+func Public(sentinel error, msg string) error {
+	return &publicError{sentinel: sentinel, msg: msg}
+}
+
+// Fallback returns err unchanged if it already carries a public message, and
+// wraps it otherwise.
+//
+// Use it at a transaction boundary, where the error may have come from deep
+// inside the closure (already public) or from Begin or Commit (not).
+func Fallback(err error, sentinel error, msg string) error {
+	var pe *publicError
+	if errors.As(err, &pe) {
+		return err
+	}
+	return Public(sentinel, msg)
+}
+
+// statusFor maps a domain error to its HTTP status. Add new sentinels here as
+// the domain grows.
+func statusFor(err error) int {
 	switch {
 	case errors.Is(err, ErrInvalidInput):
-		WriteError(w, http.StatusBadRequest, err.Error())
+		return http.StatusBadRequest
 	case errors.Is(err, ErrNotFound):
-		WriteError(w, http.StatusNotFound, err.Error())
+		return http.StatusNotFound
 	case errors.Is(err, ErrUnauthorized):
-		WriteError(w, http.StatusUnauthorized, err.Error())
+		return http.StatusUnauthorized
 	case errors.Is(err, ErrForbidden):
-		WriteError(w, http.StatusForbidden, err.Error())
+		return http.StatusForbidden
 	case errors.Is(err, ErrConflict):
-		WriteError(w, http.StatusConflict, err.Error())
+		return http.StatusConflict
 	case errors.Is(err, ErrUnavailable):
-		WriteError(w, http.StatusServiceUnavailable, err.Error())
-	case errors.Is(err, ErrInternal):
-		WriteError(w, http.StatusInternalServerError, "something went wrong")
+		return http.StatusServiceUnavailable
 	default:
-		WriteError(w, http.StatusInternalServerError, "something went wrong")
+		// ErrInternal and anything unclassified.
+		return http.StatusInternalServerError
 	}
+}
+
+// HandleError maps a domain error to an HTTP response.
+//
+// An error carrying a public message is rendered with that message. Otherwise
+// a 500 is rendered as a fixed string, because the wrapped detail can hold a
+// driver error or a query fragment, and any other status echoes the error text.
+func HandleError(w http.ResponseWriter, err error) {
+	status := statusFor(err)
+
+	var pe *publicError
+	if errors.As(err, &pe) {
+		WriteError(w, status, pe.msg)
+		return
+	}
+
+	if status == http.StatusInternalServerError {
+		WriteError(w, status, "something went wrong")
+		return
+	}
+
+	WriteError(w, status, err.Error())
 }

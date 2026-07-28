@@ -53,6 +53,7 @@ func main() {
 	app, err := app.New(logger, cfg)
 	if err != nil {
 		logger.Error("Failed to create app.", slog.Any("error", err))
+		return
 	}
 
 	if err := app.Start(ctx); err != nil {

@@ -1,38 +1,6 @@
 basePath: /
 definitions:
-  auth.authCodeExchangeRequest:
-    properties:
-      code:
-        type: string
-    type: object
-  auth.refreshTokenRequest:
-    properties:
-      refresh_token:
-        type: string
-    type: object
-  auth.revokeTokenRequest:
-    properties:
-      refresh_token:
-        type: string
-    type: object
-  auth.tokenResponse:
-    properties:
-      access_expires_at:
-        type: string
-      access_token:
-        type: string
-      refresh_expires_at:
-        type: string
-      refresh_token:
-        type: string
-    type: object
-  core.APIError:
-    properties:
-      error:
-        example: the provided input is invalid or malformed
-        type: string
-    type: object
-  handlers.BotAccountRequest:
+  account.BotAccountRequest:
     properties:
       account:
         properties:
@@ -71,7 +39,7 @@ definitions:
             minLength: 1
             type: string
           rotation_policy:
-            $ref: '#/definitions/handlers.RotationPolicy'
+            $ref: '#/definitions/servicetoken.RotationPolicy'
           scopes:
             items:
               type: string
@@ -82,7 +50,7 @@ definitions:
         - name
         type: object
     type: object
-  handlers.BotAccountResponse:
+  account.BotAccountResponse:
     properties:
       account:
         properties:
@@ -122,7 +90,95 @@ definitions:
             type: string
         type: object
     type: object
-  handlers.InsufficientScopeResponse:
+  auth.authCodeExchangeRequest:
+    properties:
+      code:
+        type: string
+    type: object
+  auth.refreshTokenRequest:
+    properties:
+      refresh_token:
+        type: string
+    type: object
+  auth.revokeTokenRequest:
+    properties:
+      refresh_token:
+        type: string
+    type: object
+  auth.tokenResponse:
+    properties:
+      access_expires_at:
+        type: string
+      access_token:
+        type: string
+      refresh_expires_at:
+        type: string
+      refresh_token:
+        type: string
+    type: object
+  core.APIError:
+    properties:
+      error:
+        example: the provided input is invalid or malformed
+        type: string
+    type: object
+  device.DeviceOutput:
+    properties:
+      country:
+        type: string
+      created_at:
+        type: string
+      device_name:
+        type: string
+      device_token:
+        type: string
+      id:
+        type: string
+      ip_address:
+        type: string
+      last_active_at:
+        type: string
+      platform:
+        type: string
+      user_id:
+        type: string
+    type: object
+  grants.GrantView:
+    properties:
+      available_capabilities:
+        items:
+          $ref: '#/definitions/providers.Capability'
+        type: array
+      connected_at:
+        type: string
+      expires_at:
+        type: string
+      external_user_id:
+        type: string
+      granted_capabilities:
+        items:
+          $ref: '#/definitions/providers.Capability'
+        type: array
+      granted_scopes:
+        items:
+          type: string
+        type: array
+      last_refreshed_at:
+        type: string
+      provider:
+        type: string
+      refresh_available:
+        type: boolean
+      revoked:
+        type: boolean
+      revoked_reason:
+        type: string
+      scopes_verified:
+        type: boolean
+      supports_incremental:
+        type: boolean
+    type: object
+  oauth.InsufficientScopeResponse:
     properties:
       account_id:
         type: string
@@ -159,7 +215,7 @@ definitions:
       provider:
         type: string
     type: object
-  handlers.ProviderTokenRequest:
+  oauth.ProviderTokenRequest:
     properties:
       account_id:
         type: string
@@ -173,7 +229,7 @@ definitions:
           type: string
         type: array
     type: object
-  handlers.ProviderTokenResponse:
+  oauth.ProviderTokenResponse:
     properties:
       access_token:
         type: string
@@ -204,20 +260,7 @@ definitions:
       token_type:
         type: string
     type: object
-  handlers.RotationPolicy:
-    properties:
-      auto_rotate:
-        type: boolean
-      notify_before_days:
-        maximum: 30
-        minimum: 1
-        type: integer
-      rotation_interval_days:
-        maximum: 365
-        minimum: 1
-        type: integer
-    type: object
-  handlers.ScopeAuthorizeRequest:
+  oauth.ScopeAuthorizeRequest:
     properties:
       capabilities:
         description: |-
@@ -236,7 +279,7 @@ definitions:
         description: RedirectURI is where to return a web user. Must be allowlisted.
         type: string
     type: object
-  handlers.ScopeAuthorizeResponse:
+  oauth.ScopeAuthorizeResponse:
     properties:
       already_granted:
         description: |-
@@ -255,7 +298,7 @@ definitions:
       state:
         type: string
     type: object
-  handlers.ScopesResponse:
+  oauth.ScopesResponse:
     properties:
       available_capabilities:
         additionalProperties:
@@ -268,155 +311,8 @@ definitions:
         type: object
       grants:
         items:
-          $ref: '#/definitions/service.GrantView'
+          $ref: '#/definitions/grants.GrantView'
         type: array
-    type: object
-  handlers.ServiceTokenRequest:
-    properties:
-      description:
-        type: string
-      expires_in_days:
-        description: Max 10 years
-        maximum: 3650
-        minimum: 1
-        type: integer
-      ip_whitelist:
-        items:
-          type: string
-        type: array
-      max_uses:
-        minimum: 1
-        type: integer
-      metadata:
-        additionalProperties: true
-        type: object
-      name:
-        maxLength: 100
-        minLength: 1
-        type: string
-      rotation_policy:
-        $ref: '#/definitions/handlers.RotationPolicy'
-      scopes:
-        items:
-          type: string
-        type: array
-      user_agent_pattern:
-        type: string
-    required:
-    - name
-    type: object
-  handlers.ServiceTokenResponse:
-    properties:
-      created_at:
-        type: string
-      description:
-        type: string
-      expires_at:
-        type: string
-      id:
-        type: string
-      last_used_at:
-        type: string
-      max_uses:
-        type: integer
-      metadata:
-        additionalProperties: true
-        type: object
-      name:
-        type: string
-      revoked_at:
-        type: string
-      rotated_at:
-        type: string
-      scopes:
-        items:
-          type: string
-        type: array
-      token:
-        description: Only included on creation
-        type: string
-      use_count:
-        type: integer
-    type: object
-  handlers.ServiceTokenStats:
-    properties:
-      active_tokens:
-        type: integer
-      expired_tokens:
-        type: integer
-      recently_used_tokens:
-        type: integer
-      revoked_tokens:
-        type: integer
-      total_tokens:
-        type: integer
-    type: object
-  handlers.ServiceTokenUpdateRequest:
-    properties:
-      description:
-        type: string
-      ip_whitelist:
-        items:
-          type: string
-        type: array
-      max_uses:
-        minimum: 1
-        type: integer
-      metadata:
-        additionalProperties: true
-        type: object
-      name:
-        maxLength: 100
-        minLength: 1
-        type: string
-      rotation_policy:
-        $ref: '#/definitions/handlers.RotationPolicy'
-      scopes:
-        items:
-          type: string
-        type: array
-      user_agent_pattern:
-        type: string
-    type: object
-  handlers.socialResponse:
-    properties:
-      access_token:
-        description: Always null. See the type comment.
-        type: string
-      access_token_secret:
-        type: string
-      account_id:
-        type: string
-      avatar_url:
-        type: string
-      created_at:
-        $ref: '#/definitions/pgtype.Timestamp'
-      description:
-        type: string
-      email:
-        type: string
-      expires_at:
-        $ref: '#/definitions/pgtype.Timestamp'
-      first_name:
-        type: string
-      id_token:
-        type: string
-      last_name:
-        type: string
-      location:
-        type: string
-      name:
-        type: string
-      nick_name:
-        type: string
-      provider:
-        type: string
-      refresh_token:
-        type: string
-      updated_at:
-        $ref: '#/definitions/pgtype.Timestamp'
-      user_id:
-        type: string
     type: object
   pagination.PaginatedResponse:
     properties:
@@ -844,61 +740,165 @@ definitions:
       user_id:
         type: string
     type: object
-  service.DeviceOutput:
+  servicetoken.RotationPolicy:
     properties:
-      country:
-        type: string
-      created_at:
-        type: string
-      device_name:
-        type: string
-      device_token:
-        type: string
-      id:
-        type: string
-      ip_address:
-        type: string
-      last_active_at:
-        type: string
-      platform:
-        type: string
-      user_id:
-        type: string
+      auto_rotate:
+        type: boolean
+      notify_before_days:
+        maximum: 30
+        minimum: 1
+        type: integer
+      rotation_interval_days:
+        maximum: 365
+        minimum: 1
+        type: integer
     type: object
-  service.GrantView:
+  servicetoken.ServiceTokenRequest:
     properties:
-      available_capabilities:
-        items:
-          $ref: '#/definitions/providers.Capability'
-        type: array
-      connected_at:
+      description:
         type: string
-      expires_at:
-        type: string
-      external_user_id:
-        type: string
-      granted_capabilities:
-        items:
-          $ref: '#/definitions/providers.Capability'
-        type: array
-      granted_scopes:
+      expires_in_days:
+        description: Max 10 years
+        maximum: 3650
+        minimum: 1
+        type: integer
+      ip_whitelist:
         items:
           type: string
         type: array
-      last_refreshed_at:
+      max_uses:
+        minimum: 1
+        type: integer
+      metadata:
+        additionalProperties: true
+        type: object
+      name:
+        maxLength: 100
+        minLength: 1
+        type: string
+      rotation_policy:
+        $ref: '#/definitions/servicetoken.RotationPolicy'
+      scopes:
+        items:
+          type: string
+        type: array
+      user_agent_pattern:
+        type: string
+    required:
+    - name
+    type: object
+  servicetoken.ServiceTokenResponse:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      expires_at:
+        type: string
+      id:
+        type: string
+      last_used_at:
+        type: string
+      max_uses:
+        type: integer
+      metadata:
+        additionalProperties: true
+        type: object
+      name:
+        type: string
+      revoked_at:
+        type: string
+      rotated_at:
+        type: string
+      scopes:
+        items:
+          type: string
+        type: array
+      token:
+        description: Only included on creation
+        type: string
+      use_count:
+        type: integer
+    type: object
+  servicetoken.ServiceTokenStats:
+    properties:
+      active_tokens:
+        type: integer
+      expired_tokens:
+        type: integer
+      recently_used_tokens:
+        type: integer
+      revoked_tokens:
+        type: integer
+      total_tokens:
+        type: integer
+    type: object
+  servicetoken.ServiceTokenUpdateRequest:
+    properties:
+      description:
+        type: string
+      ip_whitelist:
+        items:
+          type: string
+        type: array
+      max_uses:
+        minimum: 1
+        type: integer
+      metadata:
+        additionalProperties: true
+        type: object
+      name:
+        maxLength: 100
+        minLength: 1
+        type: string
+      rotation_policy:
+        $ref: '#/definitions/servicetoken.RotationPolicy'
+      scopes:
+        items:
+          type: string
+        type: array
+      user_agent_pattern:
+        type: string
+    type: object
+  social.socialResponse:
+    properties:
+      access_token:
+        description: Always null. See the type comment.
+        type: string
+      access_token_secret:
+        type: string
+      account_id:
+        type: string
+      avatar_url:
+        type: string
+      created_at:
+        $ref: '#/definitions/pgtype.Timestamp'
+      description:
+        type: string
+      email:
+        type: string
+      expires_at:
+        $ref: '#/definitions/pgtype.Timestamp'
+      first_name:
+        type: string
+      id_token:
+        type: string
+      last_name:
+        type: string
+      location:
+        type: string
+      name:
+        type: string
+      nick_name:
         type: string
       provider:
         type: string
-      refresh_available:
-        type: boolean
-      revoked:
-        type: boolean
-      revoked_reason:
+      refresh_token:
         type: string
-      scopes_verified:
-        type: boolean
-      supports_incremental:
-        type: boolean
+      updated_at:
+        $ref: '#/definitions/pgtype.Timestamp'
+      user_id:
+        type: string
     type: object
 externalDocs:
   description: OpenAPI
@@ -953,14 +953,14 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handlers.BotAccountRequest'
+          $ref: '#/definitions/account.BotAccountRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/handlers.BotAccountResponse'
+            $ref: '#/definitions/account.BotAccountResponse'
         "400":
           description: Invalid request body, or missing required fields
           schema:
@@ -1192,6 +1192,10 @@ paths:
       - accounts
   /accounts/search/name:
     get:
+      description: |-
+        Returns accounts whose name matches the query, paginated with
+        limit/offset. Matching is on the account's display name; use
+        the username or email search endpoints for those fields.
       parameters:
       - description: Name search query
         in: query
@@ -1230,6 +1234,10 @@ paths:
       - accounts
   /accounts/search/username:
     get:
+      description: |-
+        Returns accounts whose username matches the query, paginated
+        with limit/offset. Usernames are unique, so a full-value query
+        yields at most one result.
       parameters:
       - description: Username search query
         in: query
@@ -1340,6 +1348,10 @@ paths:
       - activities
   /activity/active:
     get:
+      description: |-
+        Returns activity definitions users can currently earn
+        completions against. Paginated with page/page_size; the
+        response is a count/next/previous/results envelope.
       parameters:
       - description: Page number (default 1)
         in: query
@@ -1402,6 +1414,10 @@ paths:
       - activities
   /activity/all:
     get:
+      description: |-
+        Returns every activity definition regardless of active state.
+        Paginated with page/page_size; the response is a
+        count/next/previous/results envelope.
       parameters:
       - description: Page number (default 1)
         in: query
@@ -1430,6 +1446,11 @@ paths:
       - activities
   /activity/inactive:
     get:
+      description: |-
+        Returns activity definitions that are currently disabled, so
+        completions against them are no longer accepted. Paginated with
+        page/page_size; the response is a count/next/previous/results
+        envelope.
       parameters:
       - description: Page number (default 1)
         in: query
@@ -1458,6 +1479,9 @@ paths:
       - activities
   /api/v1/admin/service-tokens:
     get:
+      description: Returns active service tokens across every account, as metadata
+        only. Unlike the per-account listing this is not scoped to the caller, so
+        it requires an admin permission.
       produces:
       - application/json
       responses:
@@ -1465,7 +1489,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/handlers.ServiceTokenResponse'
+              $ref: '#/definitions/servicetoken.ServiceTokenResponse'
             type: array
         "500":
           description: Failed to list service tokens
@@ -1479,6 +1503,12 @@ paths:
       - service-tokens
   /api/v1/admin/service-tokens/cleanup:
     post:
+      description: 'Sweeps expired service tokens across all accounts. Despite the
+        name this is a soft delete: rows are retained and stamped with revoked_at,
+        not removed. Housekeeping only, since an expired token already fails authentication
+        before this runs. Returns 204 with no body on success.'
+      produces:
+      - application/json
       responses:
         "204":
           description: No Content
@@ -1494,6 +1524,8 @@ paths:
       - service-tokens
   /api/v1/service-tokens:
     get:
+      description: Returns the caller's service tokens as metadata only. Raw token
+        values are never returned here, only at creation and rotation.
       produces:
       - application/json
       responses:
@@ -1501,7 +1533,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/handlers.ServiceTokenResponse'
+              $ref: '#/definitions/servicetoken.ServiceTokenResponse'
             type: array
         "401":
           description: Missing or invalid claims
@@ -1520,20 +1552,23 @@ paths:
     post:
       consumes:
       - application/json
+      description: Mints a service token for machine-to-machine calls, presented as
+        X-Api-Key rather than a Bearer JWT. The raw token value is returned only in
+        this response and is not recoverable afterwards; only its hash is stored.
       parameters:
       - description: Service token to create
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handlers.ServiceTokenRequest'
+          $ref: '#/definitions/servicetoken.ServiceTokenRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Includes the raw token, only returned on creation
           schema:
-            $ref: '#/definitions/handlers.ServiceTokenResponse'
+            $ref: '#/definitions/servicetoken.ServiceTokenResponse'
         "400":
           description: Invalid request body
           schema:
@@ -1562,6 +1597,8 @@ paths:
         name: id
         required: true
         type: string
+      produces:
+      - application/json
       responses:
         "204":
           description: No Content
@@ -1602,7 +1639,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/handlers.ServiceTokenResponse'
+            $ref: '#/definitions/servicetoken.ServiceTokenResponse'
         "400":
           description: Invalid token
           schema:
@@ -1641,14 +1678,14 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handlers.ServiceTokenUpdateRequest'
+          $ref: '#/definitions/servicetoken.ServiceTokenUpdateRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/handlers.ServiceTokenResponse'
+            $ref: '#/definitions/servicetoken.ServiceTokenResponse'
         "400":
           description: Invalid id or request body
           schema:
@@ -1688,7 +1725,7 @@ paths:
         "200":
           description: Includes the new raw token
           schema:
-            $ref: '#/definitions/handlers.ServiceTokenResponse'
+            $ref: '#/definitions/servicetoken.ServiceTokenResponse'
         "400":
           description: Invalid id
           schema:
@@ -1713,13 +1750,15 @@ paths:
       - service-tokens
   /api/v1/service-tokens/stats:
     get:
+      description: Returns aggregate counts over the caller's own service tokens,
+        such as how many are active, expired, or revoked.
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/handlers.ServiceTokenStats'
+            $ref: '#/definitions/servicetoken.ServiceTokenStats'
         "401":
           description: Missing or invalid claims
           schema:
@@ -1770,6 +1809,8 @@ paths:
         in: query
         name: device_token
         type: string
+      produces:
+      - application/json
       responses:
         "302":
           description: Redirects to the OAuth2 provider
@@ -1800,6 +1841,8 @@ paths:
         name: provider
         required: true
         type: string
+      produces:
+      - application/json
       responses:
         "302":
           description: Redirects to redirect_uri (web) or the deep link (mobile)
@@ -1829,6 +1872,8 @@ paths:
         name: provider
         required: true
         type: string
+      produces:
+      - application/json
       responses:
         "302":
           description: Redirects to redirect_uri (web) or the deep link (mobile)
@@ -1858,6 +1903,8 @@ paths:
         name: provider
         required: true
         type: string
+      produces:
+      - application/json
       responses:
         "307":
           description: Redirects to /
@@ -1983,7 +2030,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/service.DeviceOutput'
+              $ref: '#/definitions/device.DeviceOutput'
             type: array
         "401":
           description: Unauthorized
@@ -2077,6 +2124,10 @@ paths:
       - institutions
   /institutions/accounts:
     get:
+      description: |-
+        Returns the accounts linked to the institution, paginated with
+        limit/offset. This is the inverse of listing an account's
+        institutions.
       parameters:
       - description: Institution ID
         in: query
@@ -2141,6 +2192,10 @@ paths:
       - institutions
   /institutions/all:
     get:
+      description: |-
+        Returns a paginated list of every registered institution.
+        Paginated with limit/offset; the response is a bare array, not
+        an envelope.
       parameters:
       - description: Page size (default 10, max 100)
         in: query
@@ -2171,12 +2226,18 @@ paths:
       - institutions
   /institutions/delete/{id}:
     delete:
+      description: |-
+        Permanently deletes an institution. Account links to it are
+        removed by the cascade on account_institutions. Publishes an
+        institution-deleted event. Returns 204 with no body on success.
       parameters:
       - description: Institution ID
         in: path
         name: id
         required: true
         type: integer
+      produces:
+      - application/json
       responses:
         "204":
           description: No Content
@@ -2223,6 +2284,9 @@ paths:
       - institutions
   /institutions/find/{id}:
     get:
+      description: |-
+        Returns a single institution by its UUID. Responds 404 when no
+        institution carries that id.
       parameters:
       - description: Institution ID
         in: path
@@ -2295,6 +2359,10 @@ paths:
     post:
       consumes:
       - application/json
+      description: |-
+        Creates an institution record. Institutions are the entities
+        accounts are linked to; creating one does not link anybody to
+        it. Publishes an institution-created event.
       parameters:
       - description: Institution to create
         in: body
@@ -2325,6 +2393,9 @@ paths:
       - institutions
   /institutions/search:
     get:
+      description: |-
+        Returns institutions whose name matches the query, paginated
+        with limit/offset.
       parameters:
       - description: Name search query
         in: query
@@ -2366,6 +2437,9 @@ paths:
     patch:
       consumes:
       - application/json
+      description: |-
+        Updates an institution in place. Existing account links are
+        preserved. Publishes an institution-updated event.
       parameters:
       - description: Institution ID
         in: path
@@ -2401,6 +2475,10 @@ paths:
       - institutions
   /leaderboard/global:
     get:
+      description: |-
+        Returns the global vibepoint ranking across all accounts.
+        Paginated with page/page_size; the response is a
+        count/next/previous/results envelope.
       parameters:
       - description: Page number (default 1)
         in: query
@@ -2483,14 +2561,14 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handlers.ScopeAuthorizeRequest'
+          $ref: '#/definitions/oauth.ScopeAuthorizeRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/handlers.ScopeAuthorizeResponse'
+            $ref: '#/definitions/oauth.ScopeAuthorizeResponse'
         "400":
           description: Unknown capability, provider without incremental support, or
             a redirect target that is not allowlisted
@@ -2538,6 +2616,8 @@ paths:
         in: query
         name: error
         type: string
+      produces:
+      - application/json
       responses:
         "302":
           description: Redirects to the originating app with scope_upgrade=success
@@ -2603,7 +2683,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handlers.ProviderTokenRequest'
+          $ref: '#/definitions/oauth.ProviderTokenRequest'
       produces:
       - application/json
       responses:
@@ -2655,14 +2735,14 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handlers.ProviderTokenRequest'
+          $ref: '#/definitions/oauth.ProviderTokenRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/handlers.ProviderTokenResponse'
+            $ref: '#/definitions/oauth.ProviderTokenResponse'
         "400":
           description: Malformed body, bad account_id, or unknown capability
           schema:
@@ -2675,7 +2755,7 @@ paths:
           description: Caller is not a service token, lacks the permission, or the
             user has not granted the capability
           schema:
-            $ref: '#/definitions/handlers.InsufficientScopeResponse'
+            $ref: '#/definitions/oauth.InsufficientScopeResponse'
         "404":
           description: Unknown provider, or the account has never connected it
           schema:
@@ -2710,7 +2790,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/service.GrantView'
+              $ref: '#/definitions/grants.GrantView'
             type: array
         "400":
           description: Missing or malformed account_id
@@ -2736,7 +2816,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/handlers.ScopesResponse'
+            $ref: '#/definitions/oauth.ScopesResponse'
         "401":
           description: Missing or invalid claims
           schema:
@@ -2748,6 +2828,11 @@ paths:
       - oauth
   /permissions:
     get:
+      description: |-
+        Returns a paginated list of every permission defined in the
+        system. Paginated with limit/offset; the response is a bare
+        array, not an envelope.
+        Requires the read:permission:any permission.
       parameters:
       - description: Page size (default 10, max 100)
         in: query
@@ -2778,6 +2863,10 @@ paths:
       - permissions
   /permissions/{id}:
     get:
+      description: |-
+        Returns a single permission by its UUID. Responds 404 when no
+        permission carries that id.
+        Requires the read:permission:any permission.
       parameters:
       - description: Permission ID
         in: path
@@ -2812,6 +2901,10 @@ paths:
     patch:
       consumes:
       - application/json
+      description: |-
+        Updates a permission in place. Every role holding it, and every
+        account holding those roles, sees the change immediately.
+        Requires the update:permission:any permission.
       parameters:
       - description: Fields to update (id identifies the permission)
         in: body
@@ -2842,6 +2935,12 @@ paths:
       - permissions
   /permissions/assign/{perm_id}/{role_id}:
     get:
+      description: |-
+        Attaches a permission to a role, granting it to every account
+        that holds the role. Not idempotent: role_permissions is keyed
+        on (role_id, permission_id), so re-granting a permission the
+        role already holds fails the primary key and returns 500.
+        Requires the assign:permission:role permission.
       parameters:
       - description: Permission ID
         in: path
@@ -2911,6 +3010,11 @@ paths:
       - permissions
   /permissions/revoke/{perm_id}/{role_id}:
     delete:
+      description: |-
+        Detaches a permission from a role, withdrawing it from every
+        account that held it only through this role. Accounts holding
+        the same permission via another role keep it.
+        Requires the revoke:permission:role permission.
       parameters:
       - description: Permission ID
         in: path
@@ -2946,6 +3050,11 @@ paths:
       - permissions
   /permissions/user/{id}:
     get:
+      description: |-
+        Returns the permissions the account effectively holds, resolved
+        through every role assigned to it. Permissions are never
+        attached to an account directly, only via a role.
+        Requires the read:permission:user permission.
       parameters:
       - description: Account ID
         in: path
@@ -2975,8 +3084,31 @@ paths:
       summary: List a given user's effective permissions
       tags:
       - permissions
+  /ping:
+    get:
+      description: |-
+        Returns 200 with a fixed message whenever the process is
+        serving. This is a liveness check only: it does not touch the
+        database, Redis, or RabbitMQ, so a 200 here does not imply any
+        dependency is reachable. Unauthenticated by design.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Fixed liveness message
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Liveness probe
+      tags:
+      - health
   /roles:
     get:
+      description: |-
+        Returns a paginated list of every role defined in the system.
+        Paginated with limit/offset; the response is a bare array, not
+        an envelope.
+        Requires the read:role:any permission.
       parameters:
       - description: Page size (default 10, max 100)
         in: query
@@ -3007,6 +3139,10 @@ paths:
       - roles
   /roles/{id}:
     get:
+      description: |-
+        Returns a single role by its UUID. Responds 404 when no role
+        carries that id.
+        Requires the read:role:any permission.
       parameters:
       - description: Role ID
         in: path
@@ -3078,6 +3214,12 @@ paths:
       - roles
   /roles/assign/{user_id}/{role_id}:
     get:
+      description: |-
+        Grants a role to an account, transitively granting the account
+        every permission that role holds. Not idempotent: user_roles is
+        keyed on (user_id, role_id), so re-assigning a role the account
+        already holds fails the primary key and returns 500.
+        Requires the assign:role:any permission.
       parameters:
       - description: Account ID
         in: path
@@ -3115,6 +3257,11 @@ paths:
     post:
       consumes:
       - application/json
+      description: |-
+        Creates a new role. Roles are the unit RBAC permissions attach
+        to: assigning a role to an account grants that account every
+        permission the role holds.
+        Requires the create:role permission.
       parameters:
       - description: Role to create
         in: body
@@ -3145,6 +3292,11 @@ paths:
       - roles
   /roles/permissions/{id}:
     get:
+      description: |-
+        Returns every permission attached to the given role. These are
+        the permissions an account inherits when the role is assigned
+        to it.
+        Requires the read:role:permissions permission.
       parameters:
       - description: Role ID
         in: path
@@ -3176,6 +3328,11 @@ paths:
       - roles
   /roles/revoke/{user_id}/{role_id}:
     delete:
+      description: |-
+        Removes a role from an account, withdrawing every permission
+        the account held only through that role. Permissions the
+        account also holds via another role are unaffected.
+        Requires the revoke:role:any permission.
       parameters:
       - description: Account ID
         in: path
@@ -3211,6 +3368,9 @@ paths:
       - roles
   /roles/user/{id}:
     get:
+      description: |-
+        Returns every role currently assigned to the given account.
+        Requires the read:role:any permission.
       parameters:
       - description: Account ID
         in: path
@@ -3251,7 +3411,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/handlers.socialResponse'
+              $ref: '#/definitions/social.socialResponse'
             type: array
         "401":
           description: Missing or invalid claims
@@ -3284,7 +3444,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/handlers.socialResponse'
+              $ref: '#/definitions/social.socialResponse'
             type: array
         "400":
           description: Invalid user_id
@@ -3334,6 +3494,10 @@ paths:
       - streaks
   /streaks/milestone/active:
     get:
+      description: |-
+        Returns the streak milestones users can currently reach.
+        Paginated with page/page_size; the response is a
+        count/next/previous/results envelope.
       parameters:
       - description: Page number (default 1)
         in: query

@@ -123,10 +123,10 @@ func LoadConfig() (*Config, error) {
 
 	// load the configs
 	if err := godotenv.Load(".env"); err != nil {
-		return nil, fmt.Errorf("failed to load environment variables: %v", err)
+		return nil, fmt.Errorf("failed to load environment variables: %w", err)
 	}
 	if err := envconfig.Process("", &cfg); err != nil {
-		return nil, fmt.Errorf("failed to load environment variables: %v", err)
+		return nil, fmt.Errorf("failed to load environment variables: %w", err)
 	}
 
 	if cfg.AuthenticationConfig.ApplePrivateKeyBase64 != "" {
@@ -135,7 +135,7 @@ func LoadConfig() (*Config, error) {
 		)
 		if err != nil {
 			return nil, fmt.Errorf(
-				"failed to decode Apple private key from base64: %v",
+				"failed to decode Apple private key from base64: %w",
 				err,
 			)
 		}

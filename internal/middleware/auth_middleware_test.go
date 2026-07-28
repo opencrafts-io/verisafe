@@ -1,7 +1,6 @@
 package middleware_test
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -25,7 +24,7 @@ func TestHasPermission(t *testing.T) {
 		handler := middleware.HasPermission([]string{"read:role:any"})(next)
 
 		req := httptest.NewRequest("GET", "/roles", nil)
-		ctx := context.WithValue(req.Context(), middleware.AuthUserPerms, []string{"read:role:any"})
+		ctx := middleware.WithPermissions(req.Context(), []string{"read:role:any"})
 		req = req.WithContext(ctx)
 		rr := httptest.NewRecorder()
 
@@ -40,7 +39,7 @@ func TestHasPermission(t *testing.T) {
 		handler := middleware.HasPermission([]string{"read:role:any"})(next)
 
 		req := httptest.NewRequest("GET", "/roles", nil)
-		ctx := context.WithValue(req.Context(), middleware.AuthUserPerms, []string{"create:role"})
+		ctx := middleware.WithPermissions(req.Context(), []string{"create:role"})
 		req = req.WithContext(ctx)
 		rr := httptest.NewRecorder()
 
@@ -56,7 +55,7 @@ func TestHasPermission(t *testing.T) {
 
 		req := httptest.NewRequest("PATCH", "/roles/1", nil)
 		// Caller has only one of the two required permissions.
-		ctx := context.WithValue(req.Context(), middleware.AuthUserPerms, []string{"read:role:any"})
+		ctx := middleware.WithPermissions(req.Context(), []string{"read:role:any"})
 		req = req.WithContext(ctx)
 		rr := httptest.NewRecorder()
 
@@ -71,9 +70,7 @@ func TestHasPermission(t *testing.T) {
 		handler := middleware.HasPermission([]string{"read:role:any", "update:role:any"})(next)
 
 		req := httptest.NewRequest("PATCH", "/roles/1", nil)
-		ctx := context.WithValue(
-			req.Context(), middleware.AuthUserPerms, []string{"read:role:any", "update:role:any"},
-		)
+		ctx := middleware.WithPermissions(req.Context(), []string{"read:role:any", "update:role:any"})
 		req = req.WithContext(ctx)
 		rr := httptest.NewRecorder()
 
@@ -83,7 +80,7 @@ func TestHasPermission(t *testing.T) {
 		assert.Equal(t, http.StatusOK, rr.Code)
 	})
 
-	t.Run("missing AuthUserPerms in context denies safely, does not panic", func(t *testing.T) {
+	t.Run("missing permissions in context denies safely, does not panic", func(t *testing.T) {
 		next, called := nextHandlerCalled(t)
 		handler := middleware.HasPermission([]string{"read:role:any"})(next)
 
