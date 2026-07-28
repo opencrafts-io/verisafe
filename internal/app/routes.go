@@ -19,6 +19,7 @@ import (
 	"github.com/opencrafts-io/verisafe/internal/handlers/servicetoken"
 	"github.com/opencrafts-io/verisafe/internal/handlers/social"
 	"github.com/opencrafts-io/verisafe/internal/handlers/streak"
+	activitysvc "github.com/opencrafts-io/verisafe/internal/service/activity"
 	leaderboardsvc "github.com/opencrafts-io/verisafe/internal/service/leaderboard"
 	permsvc "github.com/opencrafts-io/verisafe/internal/service/permission"
 	rolesvc "github.com/opencrafts-io/verisafe/internal/service/role"
@@ -106,10 +107,11 @@ func (a *App) loadRoutes() http.Handler {
 			Logger:  a.logger,
 		},
 		&activity.ActivityHandler{
-			DB:     db,
-			Cacher: a.cacher,
-			Cfg:    a.config,
-			Logger: a.logger,
+			DB:      db,
+			Service: activitysvc.NewService,
+			Cacher:  a.cacher,
+			Cfg:     a.config,
+			Logger:  a.logger,
 		},
 		&streak.StreakHandler{
 			DB:                   db,
