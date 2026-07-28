@@ -1,16 +1,17 @@
 package leaderboard
 
 import (
-	"encoding/json"
 	"log/slog"
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/opencrafts-io/verisafe/internal/config"
 	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/middleware/pagination"
 	"github.com/opencrafts-io/verisafe/internal/repository"
+	leaderboardsvc "github.com/opencrafts-io/verisafe/internal/service/leaderboard"
 )
 
 type LeaderBoardHandler struct {
@@ -18,15 +19,27 @@ type LeaderBoardHandler struct {
 	DB     core.IDBProvider
 	Cfg    *config.Config
 	Logger *slog.Logger
+
+	// Service builds a leaderboard service bound to the caller's transaction.
+	// Left nil it falls back to the real implementation; see the role handler
+	// for why this field is the testing seam.
+	Service func(repository.Querier) leaderboardsvc.Service
+}
+
+func (lh *LeaderBoardHandler) svc(tx pgx.Tx) leaderboardsvc.Service {
+	if lh.Service != nil {
+		return lh.Service(repository.New(tx))
+	}
+	return leaderboardsvc.NewService(repository.New(tx))
 }
 
 func (lh *LeaderBoardHandler) RegisterHandlers(router core.Router) {
 	router.Handle("GET /leaderboard/global", middleware.CreateStack(
 		middleware.IsAuthenticated(lh.Cfg, lh.DB, lh.Cacher, lh.Logger),
-	)(http.HandlerFunc(lh.GetGlobalLeaderBoard)))
+	)(core.AppHandler(lh.GetGlobalLeaderBoard)))
 	router.Handle("GET /leaderboard/global/{user}", middleware.CreateStack(
 		middleware.IsAuthenticated(lh.Cfg, lh.DB, lh.Cacher, lh.Logger),
-	)(http.HandlerFunc(lh.GetGlobalUserRank)))
+	)(core.AppHandler(lh.GetGlobalUserRank)))
 }
 
 // GetGlobalUserRank godoc
@@ -45,56 +58,44 @@ func (lh *LeaderBoardHandler) RegisterHandlers(router core.Router) {
 func (lh *LeaderBoardHandler) GetGlobalUserRank(
 	w http.ResponseWriter,
 	r *http.Request,
-) {
-	w.Header().Set("Content-Type", "application/json")
+) error {
+	// Acquire and Begin are called separately, not through core.InTx, because
+	// this endpoint gives each of their failures a distinct message
+	// (msgInternalServer vs msgCannotProcess) and InTx collapses both into one
+	// bare sentinel. WithTransaction still owns conn.Release, so there is no
+	// leak window between the two calls.
 	conn, err := lh.DB.Acquire(r.Context())
 	if err != nil {
-		lh.Logger.Error(
-			"Error while processing request",
-			slog.Any("error", err),
-		)
-		http.Error(
-			w,
-			`{"error":"internal server error"}`,
-			http.StatusInternalServerError,
-		)
-		return
-	}
-	defer conn.Release()
-
-	tx, err := conn.Begin(r.Context())
-	if err != nil {
-		lh.Logger.Error("Failed to start transaction", slog.Any("error", err))
-		http.Error(
-			w,
-			`{"error":"Cannot process your request at the moment"}`,
-			http.StatusInternalServerError,
-		)
-		return
-	}
-	defer tx.Rollback(r.Context())
-	repo := repository.New(tx)
-
-	idStr := r.PathValue("user")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		http.Error(w, `{"error":"invalid user id"}`, http.StatusBadRequest)
-		return
+		lh.Logger.Error("Error while processing request", slog.Any("error", err))
+		return core.Public(core.ErrInternal, msgInternalServer)
 	}
 
-	leaderboardRank, err := repo.GetLeaderBoardRankForUser(r.Context(), id)
-	if err != nil {
-		lh.Logger.Error(
-			"Failed to retrieve leaderboard",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]any{
-			"error": "We couldn't provide the global leaderboard at the moment",
-		})
-		return
+	var rank repository.AccountVibepointRank
+	if err := core.WithTransaction(r.Context(), conn, func(tx pgx.Tx) error {
+		// The id is validated here, inside the transaction, rather than
+		// before acquiring one -- that is the order this endpoint used
+		// before the extraction, and preserving it means a malformed id
+		// still returns 400 rather than whatever Acquire would have
+		// returned had it run first.
+		id, err := uuid.Parse(r.PathValue("user"))
+		if err != nil {
+			return core.Public(core.ErrInvalidInput, msgInvalidUserID)
+		}
+
+		rank, err = lh.svc(tx).RankForUser(r.Context(), id)
+		if err != nil {
+			lh.Logger.Error(
+				"Failed to retrieve leaderboard", slog.Any("error", err),
+			)
+			return core.Public(core.ErrInternal, msgLeaderboardFailed)
+		}
+		return nil
+	}); err != nil {
+		return core.Fallback(err, core.ErrInternal, msgCannotProcess)
 	}
-	json.NewEncoder(w).Encode(leaderboardRank)
+
+	core.WriteJSON(w, http.StatusOK, rank)
+	return nil
 }
 
 // GetGlobalLeaderBoard godoc
@@ -115,77 +116,42 @@ func (lh *LeaderBoardHandler) GetGlobalUserRank(
 func (lh *LeaderBoardHandler) GetGlobalLeaderBoard(
 	w http.ResponseWriter,
 	r *http.Request,
-) {
-	w.Header().Set("Content-Type", "application/json")
-	conn, err := lh.DB.Acquire(r.Context())
-	if err != nil {
-		lh.Logger.Error(
-			"Error while processing request",
-			slog.Any("error", err),
-		)
-		http.Error(
-			w,
-			`{"error":"internal server error"}`,
-			http.StatusInternalServerError,
-		)
-		return
-	}
-	defer conn.Release()
-
-	tx, err := conn.Begin(r.Context())
-	if err != nil {
-		lh.Logger.Error("Failed to start transaction", slog.Any("error", err))
-		http.Error(
-			w,
-			`{"error":"Cannot process your request at the moment"}`,
-			http.StatusInternalServerError,
-		)
-		return
-	}
-
-	defer tx.Rollback(r.Context())
-	repo := repository.New(tx)
-
-	// Parse pagination params
+) error {
 	pageParams := pagination.ParsePageParams(r)
 
-	totalCount, err := repo.GetGlobalLeaderBoardCount(r.Context())
+	// See GetGlobalUserRank for why Acquire and Begin are separated rather
+	// than going through core.InTx: this endpoint gives each failure a
+	// distinct message.
+	conn, err := lh.DB.Acquire(r.Context())
 	if err != nil {
-		lh.Logger.Error(
-			"Failed to get leaderboard count",
-			slog.Any("error", err),
-		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]any{
-			"error": "We couldn't provide the global leaderboard at the moment",
-		})
-		return
+		lh.Logger.Error("Error while processing request", slog.Any("error", err))
+		return core.Public(core.ErrInternal, msgInternalServer)
 	}
 
-	leaderboard, err := repo.GetLeaderboard(
-		r.Context(),
-		repository.GetLeaderboardParams{
-			Limit:  int32(pageParams.PageSize),
-			Offset: int32(pageParams.Offset),
-		},
-	)
-	if err != nil {
-		lh.Logger.Error(
-			"Failed to retrieve leaderboard",
-			slog.Any("error", err),
+	var total int64
+	var rows []repository.AccountVibepointRank
+	if err := core.WithTransaction(r.Context(), conn, func(tx pgx.Tx) error {
+		var err error
+		total, rows, err = lh.svc(tx).Global(
+			r.Context(),
+			int32(pageParams.PageSize),
+			int32(pageParams.Offset),
 		)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]any{
-			"error": "We couldn't provide the global leaderboard at the moment",
-		})
-		return
+		if err != nil {
+			lh.Logger.Error(
+				"Failed to retrieve leaderboard", slog.Any("error", err),
+			)
+			return core.Public(core.ErrInternal, msgLeaderboardFailed)
+		}
+		return nil
+	}); err != nil {
+		return core.Fallback(err, core.ErrInternal, msgCannotProcess)
 	}
 
-	response := pagination.BuildPaginatedResponse(
-		r,
-		totalCount,
-		leaderboard,
-		pageParams,
+	core.WriteJSON(
+		w,
+		http.StatusOK,
+		pagination.BuildPaginatedResponse(r, total, rows, pageParams),
 	)
-	json.NewEncoder(w).Encode(response)
+	return nil
 }

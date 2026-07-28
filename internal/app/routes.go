@@ -19,6 +19,7 @@ import (
 	"github.com/opencrafts-io/verisafe/internal/handlers/servicetoken"
 	"github.com/opencrafts-io/verisafe/internal/handlers/social"
 	"github.com/opencrafts-io/verisafe/internal/handlers/streak"
+	leaderboardsvc "github.com/opencrafts-io/verisafe/internal/service/leaderboard"
 	permsvc "github.com/opencrafts-io/verisafe/internal/service/permission"
 	rolesvc "github.com/opencrafts-io/verisafe/internal/service/role"
 	socialsvc "github.com/opencrafts-io/verisafe/internal/service/social"
@@ -98,10 +99,11 @@ func (a *App) loadRoutes() http.Handler {
 			Publisher:           broker.NewPublisher(a.rabbitMQConn, a.logger),
 		},
 		&leaderboard.LeaderBoardHandler{
-			DB:     db,
-			Cacher: a.cacher,
-			Cfg:    a.config,
-			Logger: a.logger,
+			DB:      db,
+			Service: leaderboardsvc.NewService,
+			Cacher:  a.cacher,
+			Cfg:     a.config,
+			Logger:  a.logger,
 		},
 		&activity.ActivityHandler{
 			DB:     db,
