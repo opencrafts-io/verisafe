@@ -118,13 +118,62 @@ released its own before invoking the handler; an authenticated request went
 from two connections held concurrently to one, and an unauthenticated one from
 one to none.
 
-Three structural invariants now guard the remaining migrations. The OpenAPI
-spec must regenerate to a zero diff, since it encodes every route, status code
-and response type. The route table golden in `internal/app` must be unchanged.
-The byte-exact wire tests must pass untouched. Each caught nothing during the
-role and permission migrations, which is the evidence those moved nothing.
+Three structural invariants guarded every migration in this series. The
+OpenAPI spec must regenerate to a zero diff, since it encodes every route,
+status code and response type. The route table golden in `internal/app` must
+be unchanged. The byte-exact wire tests must pass untouched. Each caught
+nothing across all nine handlers, which is the evidence those moved nothing.
 
-`role` and `permission` are migrated. The remaining seven handlers —
-`social`, `leaderboard`, `activity`, `streak`, `institution`, `servicetoken`,
-`account` — follow the same recipe. The permission migration required no new
-primitive of any kind, which was the criterion for calling the recipe repeatable.
+All nine legacy handlers are migrated: `role`, `permission`, `social`,
+`leaderboard`, `activity`, `streak`, `institution`, `servicetoken`, `account`.
+The permission migration required no new primitive of any kind, which was the
+criterion for calling the recipe repeatable; every migration after it reused
+`core.Public`/`Fallback`/`InTx` as-is.
+
+Each migration surfaced its own message-grouping shape for the
+Acquire/Begin/Commit split, which `core.InTx`'s single `Fallback` call cannot
+express when a handler gives more than two of those three failure points
+distinct wording:
+
+- **role, permission, social:** every failure shares one message; `core.InTx`
+  alone suffices.
+- **leaderboard, activity, streak:** Acquire and Begin share one message,
+  Commit (and, for activity/streak's write methods, the repo-call) shares
+  another. `acquireAndRun` (read methods) and `acquireRunAndCommit` (write
+  methods, tracking whether the closure reached its own success return) cover
+  this.
+- **institution, servicetoken:** the opposite grouping — Begin joins
+  Acquire, and Commit joins the repo-call failure. The same
+  `acquireRunAndCommit` shape, parameterised with the commit-failure message
+  since it differs per endpoint in servicetoken.
+- **account:** a third grouping again (Acquire and Commit share one message,
+  Begin has its own) for exactly two methods (`MarkAccountForDeletion`,
+  `RecoverAccountFromDeletion`), which hand-roll the transaction lifecycle
+  rather than force a fourth shared helper for two call sites.
+
+No new primitive was added in `internal/core` after `role`. Every grouping
+above is expressed with the existing `InTx`, `WithTransaction`, `Public`,
+and `Fallback`, plus a per-handler helper function where a handler's own
+message grouping didn't match a previous one.
+
+Two additional pre-existing defects were found and fixed during this pass,
+each decided explicitly rather than assumed:
+
+- `servicetoken`'s `UpdateServiceToken` and `RotateServiceToken` re-fetched
+  the updated row *after* `tx.Commit()`, on the same (by then closed) `pgx.Tx`.
+  pgx rejects further queries against a committed transaction, so both
+  endpoints almost certainly already returned a 500 in production despite the
+  write having succeeded. Fixed by fetching before commit, the natural shape
+  against `core.InTx`.
+- `account`'s `CreateBotAccount` stored the raw generated token directly as
+  `TokenHash`, with no hashing — unlike every other token-issuing path
+  (`servicetoken.CreateServiceToken`, and the `X-API-Key` check in
+  `auth_middleware.go`, which hashes the presented key before lookup). Every
+  bot account created through this endpoint got a service token that could
+  never authenticate. Fixed in `accountsvc.CreateServiceToken`, which now
+  hashes the raw token itself so no caller can skip it.
+
+`FanoutInstitutions` and `FanoutInstitutions`-equivalent admin backfills
+needing a raw `*pgxpool.Pool` (not `core.IDBProvider`) remain the one
+carve-out per package, unchanged and untested by design, exactly as scoped
+when each `Pool` field was added.
