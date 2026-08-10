@@ -15,5 +15,5 @@ type InstitutionEventMetaData struct {
 
 type InstitutionEvent struct {
 	Institution repository.Institution   `json:"institution"`
-	Metadata    InstitutionEventMetaData `json:"meta"`
+	Metadata    InstitutionEventMetaData `json:"metadata"`
 }

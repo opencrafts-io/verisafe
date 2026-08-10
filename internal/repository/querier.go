@@ -18,6 +18,8 @@ type Querier interface {
 	AssignRolePermission(ctx context.Context, arg AssignRolePermissionParams) (RolePermission, error)
 	ClaimRefreshToken(ctx context.Context, tokenHash string) (RefreshToken, error)
 	CleanupExpiredServiceTokens(ctx context.Context) error
+	// Operational check gating the removal of the transitional plaintext columns.
+	CountOAuthGrantsWithPlaintext(ctx context.Context) (int64, error)
 	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
 	// Creates an activity.
 	// An activity is basically an action that a user can
@@ -95,7 +97,10 @@ type Querier interface {
 	GetLeaderBoardRankForUser(ctx context.Context, id uuid.UUID) (AccountVibepointRank, error)
 	// Get top N users ranked by vibe points
 	GetLeaderboard(ctx context.Context, arg GetLeaderboardParams) ([]AccountVibepointRank, error)
-	GetPermissionByID(ctx context.Context, id uuid.UUID) ([]Permission, error)
+	// Retrieves an account's grant for a single provider.
+	GetOAuthGrant(ctx context.Context, arg GetOAuthGrantParams) (OauthGrant, error)
+	GetOAuthGrantByID(ctx context.Context, id uuid.UUID) (OauthGrant, error)
+	GetPermissionByID(ctx context.Context, id uuid.UUID) (Permission, error)
 	// Retrieves an earlier issued refresh token given its hash
 	GetRefreshTokenByHash(ctx context.Context, tokenHash string) (RefreshToken, error)
 	// Retrieves a role specified by its id
@@ -120,12 +125,26 @@ type Querier interface {
 	ListInstitutionConnections(ctx context.Context, arg ListInstitutionConnectionsParams) ([]AccountInstitution, error)
 	ListInstitutions(ctx context.Context, arg ListInstitutionsParams) ([]Institution, error)
 	ListInstitutionsForAccount(ctx context.Context, arg ListInstitutionsForAccountParams) ([]Institution, error)
+	// Every provider an account has connected. Not paginated — the provider set
+	// is small and bounded by the registry.
+	ListOAuthGrantsByAccount(ctx context.Context, accountID uuid.UUID) ([]OauthGrant, error)
 	ListServiceTokensByAccount(ctx context.Context, accountID uuid.UUID) ([]ServiceToken, error)
 	ListServiceTokensNeedingRotation(ctx context.Context) ([]ServiceToken, error)
+	// Grants whose scope list is still presumed rather than provider-confirmed.
+	// Drives the reconciliation worker, which drains the long tail of accounts
+	// nobody has brokered a token for.
+	ListUnverifiedOAuthGrants(ctx context.Context, limit int32) ([]OauthGrant, error)
 	// Marks an account for deletion
 	MarkAccountForDeletion(ctx context.Context, id uuid.UUID) error
 	// Recovers an account from scheduled deletion
 	MarkAccountForRecovery(ctx context.Context, id uuid.UUID) error
+	// Marks a grant unusable and destroys the stored credentials.
+	//
+	// Only for terminal conditions — the provider rejecting the refresh token, or
+	// an explicit user disconnect. A transient provider failure must use
+	// RecordOAuthGrantRefreshFailure instead; revoking on a provider outage would
+	// disconnect every user at once.
+	MarkOAuthGrantRevoked(ctx context.Context, arg MarkOAuthGrantRevokedParams) error
 	// Marks and persists that a refresh token has been used
 	MarkRefreshTokenUsed(ctx context.Context, id uuid.UUID) error
 	MarkTokensForRotation(ctx context.Context) error
@@ -136,6 +155,8 @@ type Querier interface {
 	RecordIssuedRefreshToken(ctx context.Context, arg RecordIssuedRefreshTokenParams) (RefreshToken, error)
 	// Records an issued access token's information to the db
 	RecordIssuedToken(ctx context.Context, arg RecordIssuedTokenParams) (IssuedToken, error)
+	// Records a transient refresh failure without touching the credentials.
+	RecordOAuthGrantRefreshFailure(ctx context.Context, arg RecordOAuthGrantRefreshFailureParams) error
 	// Inserts a new device. If the device is already registered (same user + push_token),
 	// only last_active_at, ip_address, and country are updated.
 	RecordUserDevice(ctx context.Context, arg RecordUserDeviceParams) (UserDevice, error)
@@ -166,6 +187,22 @@ type Querier interface {
 	UpdateServiceToken(ctx context.Context, arg UpdateServiceTokenParams) error
 	UpdateServiceTokenLastUsed(ctx context.Context, id uuid.UUID) error
 	UpdateSocial(ctx context.Context, arg UpdateSocialParams) (Social, error)
+	// Records or replaces an account's grant for a provider.
+	//
+	// IMPORTANT INVARIANT: both token columns are sealed under the single
+	// enc_key_version stored on the row, so the caller must always supply BOTH
+	// ciphertexts, freshly sealed under the active key. When a provider declines
+	// to rotate the refresh token, the caller re-seals the one it already had
+	// rather than passing NULL.
+	//
+	// Preserving one column while overwriting the other (the obvious
+	// COALESCE(EXCLUDED.x, oauth_grants.x) shape) would leave ciphertext from an
+	// old key alongside a bumped enc_key_version and permanently corrupt
+	// decryption for that row.
+	//
+	// The plaintext columns are always cleared, which is what lazily migrates
+	// backfilled rows off the transitional plaintext as they are used.
+	UpsertOAuthGrant(ctx context.Context, arg UpsertOAuthGrantParams) (OauthGrant, error)
 }
 
 var _ Querier = (*Queries)(nil)

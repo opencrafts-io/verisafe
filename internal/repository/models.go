@@ -174,6 +174,28 @@ type IssuedToken struct {
 	LastUsedAt pgtype.Timestamp `json:"last_used_at"`
 }
 
+type OauthGrant struct {
+	ID                  uuid.UUID          `json:"id"`
+	AccountID           uuid.UUID          `json:"account_id"`
+	Provider            string             `json:"provider"`
+	ExternalUserID      *string            `json:"external_user_id"`
+	AccessTokenEnc      []byte             `json:"access_token_enc"`
+	RefreshTokenEnc     []byte             `json:"refresh_token_enc"`
+	EncKeyVersion       int16              `json:"enc_key_version"`
+	AccessTokenPlain    *string            `json:"access_token_plain"`
+	RefreshTokenPlain   *string            `json:"refresh_token_plain"`
+	GrantedScopes       []string           `json:"granted_scopes"`
+	ScopesVerifiedAt    *time.Time         `json:"scopes_verified_at"`
+	ExpiresAt           *time.Time         `json:"expires_at"`
+	LastRefreshedAt     *time.Time         `json:"last_refreshed_at"`
+	RefreshFailureCount int32              `json:"refresh_failure_count"`
+	LastRefreshError    *string            `json:"last_refresh_error"`
+	RevokedAt           *time.Time         `json:"revoked_at"`
+	RevokedReason       *string            `json:"revoked_reason"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Permission struct {
 	ID          uuid.UUID        `json:"id"`
 	Name        string           `json:"name"`

@@ -7,7 +7,7 @@ RETURNING *;
 
 
 
--- name: GetPermissionByID :many
+-- name: GetPermissionByID :one
 SELECT * FROM permissions
 WHERE id = $1;
 

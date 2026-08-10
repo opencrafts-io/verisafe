@@ -7,21 +7,40 @@ import (
 	"github.com/opencrafts-io/verisafe/internal/auth"
 	"github.com/opencrafts-io/verisafe/internal/broker"
 	"github.com/opencrafts-io/verisafe/internal/core"
-	"github.com/opencrafts-io/verisafe/internal/handlers"
+	"github.com/opencrafts-io/verisafe/internal/handlers/account"
+	"github.com/opencrafts-io/verisafe/internal/handlers/activity"
+	"github.com/opencrafts-io/verisafe/internal/handlers/device"
+	"github.com/opencrafts-io/verisafe/internal/handlers/health"
+	"github.com/opencrafts-io/verisafe/internal/handlers/institution"
+	"github.com/opencrafts-io/verisafe/internal/handlers/leaderboard"
+	"github.com/opencrafts-io/verisafe/internal/handlers/oauth"
+	"github.com/opencrafts-io/verisafe/internal/handlers/permission"
+	"github.com/opencrafts-io/verisafe/internal/handlers/role"
+	"github.com/opencrafts-io/verisafe/internal/handlers/servicetoken"
+	"github.com/opencrafts-io/verisafe/internal/handlers/social"
+	"github.com/opencrafts-io/verisafe/internal/handlers/streak"
+	accountsvc "github.com/opencrafts-io/verisafe/internal/service/account"
+	activitysvc "github.com/opencrafts-io/verisafe/internal/service/activity"
+	institutionsvc "github.com/opencrafts-io/verisafe/internal/service/institution"
+	leaderboardsvc "github.com/opencrafts-io/verisafe/internal/service/leaderboard"
+	permsvc "github.com/opencrafts-io/verisafe/internal/service/permission"
+	rolesvc "github.com/opencrafts-io/verisafe/internal/service/role"
+	servicetokensvc "github.com/opencrafts-io/verisafe/internal/service/servicetoken"
+	socialsvc "github.com/opencrafts-io/verisafe/internal/service/social"
+	streaksvc "github.com/opencrafts-io/verisafe/internal/service/streak"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 type VerisafeHandler interface {
-	RegisterHandlers(router *http.ServeMux)
+	RegisterHandlers(router core.Router)
 }
 
 func (a *App) loadRoutes() http.Handler {
-	router := http.NewServeMux()
-
 	authenticator, err := auth.NewAuthenticator(
 		a.config,
 		a.logger,
 		auth.GenerateAppleClientSecret,
+		a.oauthRegistry,
 	)
 	if err != nil {
 		a.logger.Error("Failed to initialize authenticator", "error", err)
@@ -40,80 +59,124 @@ func (a *App) loadRoutes() http.Handler {
 			a.userEventBus,
 			a.logger,
 			a.geoIPLocator,
-		),
-		&handlers.AccountHandler{
+		).WithGrantRecording(a.oauthRegistry, a.tokenSealer, a.tokenExchanger),
+		&account.AccountHandler{
 			DB:           db,
+			Service:      accountsvc.NewService,
 			Cacher:       a.cacher,
 			Logger:       a.logger,
 			UserEventBus: a.userEventBus,
 			Cfg:          a.config,
 		},
-		&handlers.ServiceTokenHandler{
-			DB:     db,
-			Cacher: a.cacher,
-			Logger: a.logger,
-			Cfg:    a.config,
+		&servicetoken.ServiceTokenHandler{
+			DB:      db,
+			Service: servicetokensvc.NewService,
+			Cacher:  a.cacher,
+			Logger:  a.logger,
+			Cfg:     a.config,
 		},
-		&handlers.SocialHandler{
-			DB:     db,
-			Cacher: a.cacher,
-			Cfg:    a.config,
-			Logger: a.logger,
+		&social.SocialHandler{
+			DB:      db,
+			Service: socialsvc.NewService,
+			Cacher:  a.cacher,
+			Cfg:     a.config,
+			Logger:  a.logger,
 		},
-		&handlers.RoleHandler{
-			DB:     db,
-			Cacher: a.cacher,
-			Cfg:    a.config,
-			Logger: a.logger,
+		&role.RoleHandler{
+			DB:      db,
+			Service: rolesvc.NewService,
+			Cacher:  a.cacher,
+			Cfg:     a.config,
+			Logger:  a.logger,
 		},
-		&handlers.PermissionHandler{
-			DB:     db,
-			Cacher: a.cacher,
-			Cfg:    a.config,
-			Logger: a.logger,
+		&permission.PermissionHandler{
+			DB:      db,
+			Service: permsvc.NewService,
+			Cacher:  a.cacher,
+			Cfg:     a.config,
+			Logger:  a.logger,
 		},
-		&handlers.InstitutionHandler{
+		&institution.InstitutionHandler{
 			DB:                  db,
+			Pool:                a.pool,
+			Service:             institutionsvc.NewService,
 			Cacher:              a.cacher,
 			Cfg:                 a.config,
 			Logger:              a.logger,
 			InstitutionEventBus: a.institutionEventBus,
 			Publisher:           broker.NewPublisher(a.rabbitMQConn, a.logger),
 		},
-		&handlers.LeaderBoardHandler{
-			DB:     db,
-			Cacher: a.cacher,
-			Cfg:    a.config,
-			Logger: a.logger,
+		&leaderboard.LeaderBoardHandler{
+			DB:      db,
+			Service: leaderboardsvc.NewService,
+			Cacher:  a.cacher,
+			Cfg:     a.config,
+			Logger:  a.logger,
 		},
-		&handlers.ActivityHandler{
-			DB:     db,
-			Cacher: a.cacher,
-			Cfg:    a.config,
-			Logger: a.logger,
+		&activity.ActivityHandler{
+			DB:      db,
+			Service: activitysvc.NewService,
+			Cacher:  a.cacher,
+			Cfg:     a.config,
+			Logger:  a.logger,
 		},
-		&handlers.StreakHandler{
+		&streak.StreakHandler{
 			DB:                   db,
+			Service:              streaksvc.NewService,
 			Cacher:               a.cacher,
 			Cfg:                  a.config,
 			Logger:               a.logger,
 			NotificationEventBus: a.notificationEventBus,
 		},
-		&handlers.DeviceHandler{
+		&device.DeviceHandler{
 			DB:         db,
 			Cacher:     a.cacher,
 			Cfg:        a.config,
 			GeoLocator: a.geoIPLocator,
 			Logger:     a.logger,
 		},
+		&oauth.OAuthBrokerHandler{
+			DB:        db,
+			Cacher:    a.cacher,
+			Cfg:       a.config,
+			Logger:    a.logger,
+			Registry:  a.oauthRegistry,
+			Exchanger: a.tokenExchanger,
+			Sealer:    a.tokenSealer,
+		},
+		&oauth.OAuthScopeHandler{
+			DB:        db,
+			Cacher:    a.cacher,
+			Cfg:       a.config,
+			Logger:    a.logger,
+			Registry:  a.oauthRegistry,
+			Exchanger: a.tokenExchanger,
+			Sealer:    a.tokenSealer,
+		},
 	}
 
-	for _, handler := range verisafeHandlers {
+	return buildRouter(verisafeHandlers)
+}
+
+// buildRouter is the part of route loading that depends only on the handler
+// set, split out from loadRoutes so a test can drive it with zero-valued
+// handlers and assert the full route table without a live pool, Redis or
+// RabbitMQ. Registration only closes over its dependencies, so nil ones are
+// fine here — nothing is dereferenced until a request arrives.
+func buildRouter(handlers []VerisafeHandler) *http.ServeMux {
+	router := http.NewServeMux()
+	registerAll(router, handlers)
+	return router
+}
+
+// registerAll is every registration the service performs, expressed against
+// core.Router so a test can replay it into a recorder and read back the
+// complete route table.
+func registerAll(router core.Router, handlers []VerisafeHandler) {
+	for _, handler := range handlers {
 		handler.RegisterHandlers(router)
 	}
 
-	router.HandleFunc("GET /ping", handlers.PingHandler)
+	router.HandleFunc("GET /ping", health.PingHandler)
 	router.Handle("GET /docs/", httpSwagger.WrapHandler)
-
-	return router
 }

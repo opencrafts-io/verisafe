@@ -1,0 +1,50 @@
+# Gitleaks configuration.
+#
+# This exists to stop documentation placeholders being reported as leaked
+# credentials, without weakening the scan.
+#
+# Deliberately NOT done here: excluding docs/ wholesale. Documentation is a
+# very plausible place for a real credential to land — someone pastes a working
+# staging token into an example "just to show the shape" and never takes it
+# out. A path-based exclusion would make that invisible forever. Instead the
+# allowlist below matches the *shape of a placeholder*, so anything that
+# actually looks like a credential still fails the build, wherever it lives.
+#
+# If you are adding an example that trips a rule, prefer fixing the example —
+# use "$SOME_VAR" or "<your_token_here>" rather than an invented literal. That
+# is better documentation anyway: it tells the reader to load the value from a
+# secret store instead of pasting it into their shell history.
+
+[extend]
+# Keep every built-in rule. Without this line the default ruleset is replaced
+# rather than extended, and the scan silently stops detecting almost everything.
+useDefault = true
+
+[allowlist]
+description = "Documentation placeholders and local development defaults"
+
+# Matched against the detected secret value.
+regexes = [
+  # Shell variable references: -H "X-API-Key: $VERISAFE_TOKEN"
+  '''^\$[A-Za-z_][A-Za-z0-9_]*$''',
+  '''^\$\{[A-Za-z_][A-Za-z0-9_]*\}$''',
+
+  # Angle-bracket placeholders: <your_jwt_token>, <admin_jwt>, <service token>
+  '''^<[^>]{1,60}>$''',
+
+  # Ellipsis placeholders: vst_..., ya29..., 9f1c8b2e-...
+  '''\.\.\.''',
+
+  # The obviously-fake token literal used in older examples.
+  '''^vst_abc123''',
+]
+
+# Generated artifacts and vendored binaries. These are checked in but are not
+# hand-authored source, and produce noise rather than signal.
+paths = [
+  '''docs/docs\.go''',
+  '''docs/swagger\.json''',
+  '''docs/swagger\.yaml''',
+  '''internal/geo/mmdb/.*\.mmdb''',
+  '''go\.sum''',
+]

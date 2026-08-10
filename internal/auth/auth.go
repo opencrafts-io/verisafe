@@ -1,9 +1,62 @@
+// Package auth implements OAuth2 login (Google, Spotify, Apple) and the
+// session/state plumbing gothic needs to complete a login round-trip. It
+// covers provider setup and the six /auth/* HTTP endpoints; JWT/refresh-token
+// issuance itself lives in the sibling package internal/tokens.
+//
+// # Login flow
+//
+// GET /auth/{provider} starts a login: the platform (mobile vs web) and,
+// for web, a redirect_uri are captured into a pipe-delimited, base64-encoded
+// state blob (see encodeState/decodeState in auth_handler.go), then gothic
+// redirects the client to the provider.
+//
+// /auth/{provider}/callback completes it: gothic exchanges the provider's
+// code for a profile, the account/social-connection rows are upserted, a
+// device is registered, and a token pair is issued — all inside one DB
+// transaction. Mobile clients get a one-time opaque code redirected via deep
+// link (see ExchangeAuthCodeHandler); web clients get the token pair set
+// directly as cookies.
+//
+// # Apple client secret
+//
+// Apple does not accept a static client secret. GenerateAppleClientSecret
+// signs a fresh short-lived JWT on every server start (see
+// appleClientSecretValidity and ADR 0004 in docs/adrs/ for the operational
+// risk this implies if a server runs unrestarted past that window).
+//
+// # Scopes
+//
+// Which scopes a login requests comes from internal/providers, not from this
+// package. With OAUTH_MINIMAL_LOGIN_SCOPES on, sign-in asks only for identity
+// and anything further is granted through the incremental flow in
+// internal/handlers (POST /oauth/{provider}/authorize) — so a user is not
+// asked for calendar access merely to log in.
+//
+// # Known limitation
+//
+// encodeState/decodeState split fields on "|" with no escaping — a
+// DeviceName/DeviceToken/DeepLink containing a literal "|" would decode
+// incorrectly. See docs/AUTHENTICATION.md. The incremental-scope flow does not
+// share this state mechanism; it uses an opaque server-side handle instead,
+// which is the pattern this should eventually move to.
+//
+// Usage:
+//
+//	registry := providers.NewRegistry(cfg)
+//	authenticator, err := auth.NewAuthenticator(cfg, logger, auth.GenerateAppleClientSecret, registry)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	authHandler := auth.NewAuthHandler(authenticator, db, cacher, userEventBus, logger, geoLocator).
+//	    WithGrantRecording(registry, sealer, exchanger)
+//	authHandler.RegisterHandlers(router)
 package auth
 
 import (
 	"crypto/ecdsa"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -18,34 +71,25 @@ import (
 	"github.com/markbates/goth/providers/google"
 	"github.com/markbates/goth/providers/spotify"
 	"github.com/opencrafts-io/verisafe/internal/config"
+	"github.com/opencrafts-io/verisafe/internal/providers"
 )
 
-// spotifyScopes defines all Spotify OAuth2 permission scopes Verisafe requests.
-// These cover playback control, library access, and user profile reading.
-var spotifyScopes = []string{
-	"user-read-playback-state",
-	"user-modify-playback-state",
-	"user-read-currently-playing",
-	"user-read-recently-played",
-	"user-top-read",
-	"app-remote-control",
-	"playlist-read-private",
-	"playlist-modify-private",
-	"playlist-modify-public",
-	"user-follow-modify",
-	"user-follow-read",
-	"user-read-email",
-	"user-read-private",
-}
+// Login scopes and the provider list now come from internal/providers, so
+// there is one description of each provider rather than several. See
+// providers.Descriptor.LoginScopes and Registry.LoginScopesFor, which selects
+// between the minimal identity-only set and the historical broad set
+// depending on OAUTH_MINIMAL_LOGIN_SCOPES.
 
-// googleScopes defines the Google OAuth2 permission scopes Verisafe requests.
-// Includes profile, calendar, and tasks access.
-var googleScopes = []string{
-	"email",
-	"profile",
-	"https://www.googleapis.com/auth/calendar",
-	"https://www.googleapis.com/auth/tasks",
-}
+// appleClientSecretValidity is how long a generated Apple client secret JWT
+// is valid for. Apple's maximum allowed lifetime is 6 months; a server that
+// runs unrestarted past this window will start failing Apple logins with no
+// advance warning, since nothing currently re-signs the secret proactively.
+// See ADR 0004 (docs/adrs/0004-apple-client-secret-lifecycle.md).
+const appleClientSecretValidity = 180 * 24 * time.Hour
+
+// secondsPerDay converts AuthenticationConfig.MaxAge — configured in days —
+// into the seconds gorilla/sessions' CookieStore.MaxAge expects.
+const secondsPerDay = 24 * 60 * 60
 
 // AppleSecretGenerator is a function that generates an Apple client secret JWT.
 // It is defined as a type so it can be swapped out in tests with a stub,
@@ -58,19 +102,10 @@ type AppleSecretGenerator func(teamID, keyID, clientID, privateKey string) (stri
 // Use NewAuthenticator to create an instance, then pass it to NewAuthHandler
 // to wire in the services needed for request handling.
 type Auth struct {
-	config *config.Config
-	logger *slog.Logger
+	config   *config.Config
+	logger   *slog.Logger
+	registry *providers.Registry
 }
-
-// AuthHandler handles all authentication-related HTTP requests.
-// It depends on Auth for OAuth setup, and holds the services it needs
-// to complete the auth flow — token issuance and event publishing.
-// type AuthHandler struct {
-// 	auth         *Auth
-// 	tokenService tokens.TokenService
-// 	eventBus     *eventbus.UserEventBus
-// 	logger       *slog.Logger
-// }
 
 // NewAuthenticator initialises OAuth2 providers and the session store.
 // It does not require any application services — it is pure configuration.
@@ -82,43 +117,36 @@ func NewAuthenticator(
 	cfg *config.Config,
 	logger *slog.Logger,
 	appleSecretGen AppleSecretGenerator,
+	registry *providers.Registry,
 ) (*Auth, error) {
+	if registry == nil {
+		registry = providers.NewRegistry(cfg)
+	}
+
 	if err := setupSessionStore(cfg, logger); err != nil {
 		return nil, err
 	}
 
-	if err := setupOAuthProviders(cfg, appleSecretGen); err != nil {
+	if err := setupOAuthProviders(cfg, appleSecretGen, registry); err != nil {
 		return nil, err
 	}
 
-	logger.Info("OAuth2 providers initialised successfully")
+	logger.Info(
+		"OAuth2 providers initialised successfully",
+		slog.Bool("minimal_login_scopes", cfg.ProviderTokensConfig.MinimalLoginScopes),
+	)
 
 	return &Auth{
-		config: cfg,
-		logger: logger,
+		config:   cfg,
+		logger:   logger,
+		registry: registry,
 	}, nil
 }
-
-// NewAuthHandler creates an AuthHandler that wires the given services into
-// the auth flow. Call this after NewAuthenticator.
-// func NewAuthHandler(
-// 	auth *Auth,
-// 	tokenService tokens.TokenService,
-// 	eventBus *eventbus.UserEventBus,
-// 	logger *slog.Logger,
-// ) *AuthHandler {
-// 	return &AuthHandler{
-// 		auth:         auth,
-// 		tokenService: tokenService,
-// 		eventBus:     eventBus,
-// 		logger:       logger,
-// 	}
-// }
 
 // Ready reports whether all expected OAuth2 providers are registered.
 // Useful as a health or readiness check.
 func (a *Auth) Ready() bool {
-	for _, name := range []string{"google", "spotify", "apple"} {
+	for _, name := range a.registry.Names() {
 		if _, err := goth.GetProvider(name); err != nil {
 			a.logger.Warn(
 				"OAuth2 provider not ready",
@@ -150,7 +178,7 @@ func setupSessionStore(cfg *config.Config, logger *slog.Logger) error {
 	}
 
 	store := sessions.NewCookieStore([]byte(secret))
-	store.MaxAge(86400 * cfg.AuthenticationConfig.MaxAge)
+	store.MaxAge(secondsPerDay * cfg.AuthenticationConfig.MaxAge)
 	store.Options.Path = "/"
 	store.Options.HttpOnly = true
 
@@ -176,6 +204,7 @@ func setupSessionStore(cfg *config.Config, logger *slog.Logger) error {
 func setupOAuthProviders(
 	cfg *config.Config,
 	appleSecretGen AppleSecretGenerator,
+	registry *providers.Registry,
 ) error {
 	callbackBase := fmt.Sprintf(
 		"%s/auth/{provider}/callback",
@@ -191,7 +220,7 @@ func setupOAuthProviders(
 		cfg.AuthenticationConfig.GoogleClientID,
 		cfg.AuthenticationConfig.GoogleClientSecret,
 		callbackFor("google"),
-		googleScopes...,
+		registry.LoginScopesFor("google")...,
 	)
 	// offline access ensures Google returns a refresh token.
 	googleProvider.SetAccessType("offline")
@@ -200,7 +229,7 @@ func setupOAuthProviders(
 		cfg.AuthenticationConfig.SpotifyClientID,
 		cfg.AuthenticationConfig.SpotifyClientSecret,
 		callbackFor("spotify"),
-		spotifyScopes...,
+		registry.LoginScopesFor("spotify")...,
 	)
 
 	appleSecret, err := appleSecretGen(
@@ -248,14 +277,14 @@ func GenerateAppleClientSecret(
 
 	ecdsaKey, ok := privateKey.(*ecdsa.PrivateKey)
 	if !ok {
-		return "", fmt.Errorf("Apple private key is not an ECDSA key")
+		return "", errors.New("private key for Apple is not an ECDSA key")
 	}
 
 	now := time.Now()
 	claims := jwt.MapClaims{
 		"iss": teamID,
 		"iat": now.Unix(),
-		"exp": now.Add(180 * 24 * time.Hour).Unix(),
+		"exp": now.Add(appleClientSecretValidity).Unix(),
 		"aud": "https://appleid.apple.com",
 		"sub": clientID,
 	}

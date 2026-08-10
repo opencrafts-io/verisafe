@@ -1,12 +1,128 @@
 basePath: /
 definitions:
+  account.BotAccountRequest:
+    properties:
+      account:
+        properties:
+          avatar_url:
+            type: string
+          email:
+            type: string
+          name:
+            maxLength: 100
+            minLength: 1
+            type: string
+        required:
+        - email
+        - name
+        type: object
+      service_token:
+        properties:
+          description:
+            type: string
+          expires_in_days:
+            maximum: 3650
+            minimum: 1
+            type: integer
+          ip_whitelist:
+            items:
+              type: string
+            type: array
+          max_uses:
+            minimum: 1
+            type: integer
+          metadata:
+            additionalProperties: {}
+            type: object
+          name:
+            maxLength: 100
+            minLength: 1
+            type: string
+          rotation_policy:
+            $ref: '#/definitions/servicetoken.RotationPolicy'
+          scopes:
+            items:
+              type: string
+            type: array
+          user_agent_pattern:
+            type: string
+        required:
+        - name
+        type: object
+    type: object
+  account.BotAccountResponse:
+    properties:
+      account:
+        properties:
+          created_at:
+            type: string
+          email:
+            type: string
+          id:
+            type: string
+          name:
+            type: string
+          type:
+            type: string
+        type: object
+      service_token:
+        properties:
+          created_at:
+            type: string
+          description:
+            type: string
+          expires_at:
+            type: string
+          id:
+            type: string
+          max_uses:
+            type: integer
+          metadata:
+            additionalProperties: {}
+            type: object
+          name:
+            type: string
+          scopes:
+            items:
+              type: string
+            type: array
+          token:
+            type: string
+        type: object
+    type: object
+  auth.authCodeExchangeRequest:
+    properties:
+      code:
+        type: string
+    type: object
+  auth.refreshTokenRequest:
+    properties:
+      refresh_token:
+        type: string
+    type: object
+  auth.revokeTokenRequest:
+    properties:
+      refresh_token:
+        type: string
+    type: object
+  auth.tokenResponse:
+    properties:
+      access_expires_at:
+        type: string
+      access_token:
+        type: string
+      refresh_expires_at:
+        type: string
+      refresh_token:
+        type: string
+    type: object
   core.APIError:
     properties:
       error:
         example: the provided input is invalid or malformed
         type: string
     type: object
-  service.DeviceOutput:
+  device.DeviceOutput:
     properties:
       country:
         type: string
@@ -27,6 +143,763 @@ definitions:
       user_id:
         type: string
     type: object
+  grants.GrantView:
+    properties:
+      available_capabilities:
+        items:
+          $ref: '#/definitions/providers.Capability'
+        type: array
+      connected_at:
+        type: string
+      expires_at:
+        type: string
+      external_user_id:
+        type: string
+      granted_capabilities:
+        items:
+          $ref: '#/definitions/providers.Capability'
+        type: array
+      granted_scopes:
+        items:
+          type: string
+        type: array
+      last_refreshed_at:
+        type: string
+      provider:
+        type: string
+      refresh_available:
+        type: boolean
+      revoked:
+        type: boolean
+      revoked_reason:
+        type: string
+      scopes_verified:
+        type: boolean
+      supports_incremental:
+        type: boolean
+    type: object
+  oauth.InsufficientScopeResponse:
+    properties:
+      account_id:
+        type: string
+      authorization_body:
+        additionalProperties:
+          items:
+            type: string
+          type: array
+        type: object
+      authorization_method:
+        type: string
+      authorization_url:
+        description: |-
+          AuthorizationURL points at Verisafe's own scope-upgrade endpoint, not at
+          the provider. It cannot be a directly openable provider URL: starting an
+          authorization requires the *user's* JWT, which a service token holder
+          does not have. The service relays this to its own client, which calls
+          the endpoint with the user's token and opens the URL it returns.
+        type: string
+      error:
+        type: string
+      granted_capabilities:
+        items:
+          type: string
+        type: array
+      missing_capabilities:
+        items:
+          type: string
+        type: array
+      missing_scopes:
+        items:
+          type: string
+        type: array
+      provider:
+        type: string
+    type: object
+  oauth.ProviderTokenRequest:
+    properties:
+      account_id:
+        type: string
+      capabilities:
+        description: |-
+          Capabilities are abstract names ("calendar"), not raw provider scopes.
+          There is deliberately no raw-scope escape hatch: a caller needing
+          something unmapped adds it to the provider registry, which keeps the
+          registry authoritative and the insufficient_scope response meaningful.
+        items:
+          type: string
+        type: array
+    type: object
+  oauth.ProviderTokenResponse:
+    properties:
+      access_token:
+        type: string
+      account_id:
+        type: string
+      expires_at:
+        type: string
+      expires_in:
+        type: integer
+      from_cache:
+        type: boolean
+      granted_scopes:
+        items:
+          type: string
+        type: array
+      provider:
+        type: string
+      refreshed:
+        type: boolean
+      scopes_verified:
+        description: |-
+          ScopesVerified is false when the scope list is still what Verisafe
+          presumed from historical logins rather than what the provider confirmed.
+          A caller that gets a 403 from the provider despite this being false
+          should simply re-call the broker: the failed attempt will have converted
+          the grant to verified.
+        type: boolean
+      token_type:
+        type: string
+    type: object
+  oauth.ScopeAuthorizeRequest:
+    properties:
+      capabilities:
+        description: |-
+          Capabilities are abstract names ("calendar"), resolved to provider
+          scopes by the registry.
+        items:
+          type: string
+        type: array
+      deep_link:
+        description: DeepLink is where to return a mobile user. Must be allowlisted.
+        type: string
+      platform:
+        description: Platform is "web" or "mobile"; mobile returns to a deep link.
+        type: string
+      redirect_uri:
+        description: RedirectURI is where to return a web user. Must be allowlisted.
+        type: string
+    type: object
+  oauth.ScopeAuthorizeResponse:
+    properties:
+      already_granted:
+        description: |-
+          AlreadyGranted short-circuits the round trip when the user has already
+          granted everything asked for and the provider has confirmed it.
+        type: boolean
+      authorization_url:
+        description: AuthorizationURL is empty when AlreadyGranted is true.
+        type: string
+      expires_at:
+        type: string
+      requested_scopes:
+        items:
+          type: string
+        type: array
+      state:
+        type: string
+    type: object
+  oauth.ScopesResponse:
+    properties:
+      available_capabilities:
+        additionalProperties:
+          items:
+            $ref: '#/definitions/providers.Capability'
+          type: array
+        description: |-
+          AvailableCapabilities lets a settings UI render connect-this toggles
+          generically, so adding a provider grows the UI with no client change.
+        type: object
+      grants:
+        items:
+          $ref: '#/definitions/grants.GrantView'
+        type: array
+    type: object
+  pagination.PaginatedResponse:
+    properties:
+      count:
+        type: integer
+      next:
+        type: string
+      previous:
+        type: string
+      results: {}
+    type: object
+  pgtype.InfinityModifier:
+    enum:
+    - 1
+    - 0
+    - -1
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - Infinity
+    - Finite
+    - NegativeInfinity
+  pgtype.Timestamp:
+    properties:
+      infinityModifier:
+        $ref: '#/definitions/pgtype.InfinityModifier'
+      time:
+        description: Time zone will be ignored when encoding to PostgreSQL.
+        type: string
+      valid:
+        type: boolean
+    type: object
+  providers.Capability:
+    enum:
+    - identity
+    - calendar
+    - tasks
+    - playback
+    - playlist
+    - library
+    type: string
+    x-enum-varnames:
+    - CapabilityIdentity
+    - CapabilityCalendar
+    - CapabilityTasks
+    - CapabilityPlayback
+    - CapabilityPlaylist
+    - CapabilityLibrary
+  repository.Account:
+    properties:
+      avatar_url:
+        type: string
+      bio:
+        type: string
+      created_at:
+        $ref: '#/definitions/pgtype.Timestamp'
+      deleted_at:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      national_id:
+        type: string
+      onboarded:
+        type: boolean
+      phone:
+        type: string
+      terms_accepted:
+        type: boolean
+      type:
+        $ref: '#/definitions/repository.AccountType'
+      updated_at:
+        $ref: '#/definitions/pgtype.Timestamp'
+      username:
+        type: string
+      vibe_points:
+        type: integer
+    type: object
+  repository.AccountType:
+    enum:
+    - human
+    - service
+    - bot
+    - organization
+    type: string
+    x-enum-varnames:
+    - AccountTypeHuman
+    - AccountTypeService
+    - AccountTypeBot
+    - AccountTypeOrganization
+  repository.AccountVibepointRank:
+    properties:
+      avatar_url:
+        type: string
+      created_at:
+        $ref: '#/definitions/pgtype.Timestamp'
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      updated_at:
+        $ref: '#/definitions/pgtype.Timestamp'
+      username:
+        type: string
+      vibe_points:
+        type: integer
+      vibe_rank:
+        type: integer
+    type: object
+  repository.Activity:
+    properties:
+      category:
+        type: string
+      created_at:
+        $ref: '#/definitions/pgtype.Timestamp'
+      description:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      max_daily_completions:
+        type: integer
+      name:
+        type: string
+      points_awarded:
+        type: integer
+      streak_eligible:
+        type: boolean
+      updated_at:
+        $ref: '#/definitions/pgtype.Timestamp'
+    type: object
+  repository.AddAccountInstitutionParams:
+    properties:
+      account_id:
+        type: string
+      institution_id:
+        type: integer
+    type: object
+  repository.AddAccountInstitutionRow:
+    properties:
+      account_id:
+        type: string
+      institution_id:
+        type: integer
+    type: object
+  repository.CreateActivityParams:
+    properties:
+      category:
+        type: string
+      description:
+        type: string
+      max_daily_completions:
+        type: integer
+      name:
+        type: string
+      points_awarded:
+        type: integer
+      streak_eligible:
+        type: boolean
+    type: object
+  repository.CreateInstitutionParams:
+    properties:
+      alpha_two_code:
+        type: string
+      country:
+        type: string
+      domains:
+        items:
+          type: string
+        type: array
+      name:
+        type: string
+      state_province:
+        type: string
+      web_pages:
+        items:
+          type: string
+        type: array
+    type: object
+  repository.CreatePermissionParams:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+    type: object
+  repository.CreateRoleParams:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+    type: object
+  repository.CreateStreakMilestoneParams:
+    properties:
+      activity_id:
+        type: string
+      bonus_points:
+        type: integer
+      days_required:
+        type: integer
+      description:
+        type: string
+      is_active:
+        type: boolean
+      title:
+        type: string
+    type: object
+  repository.Institution:
+    properties:
+      alpha_two_code:
+        type: string
+      country:
+        type: string
+      domains:
+        items:
+          type: string
+        type: array
+      institution_id:
+        type: integer
+      name:
+        type: string
+      state_province:
+        type: string
+      web_pages:
+        items:
+          type: string
+        type: array
+    type: object
+  repository.Permission:
+    properties:
+      created_at:
+        $ref: '#/definitions/pgtype.Timestamp'
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      updated_at:
+        $ref: '#/definitions/pgtype.Timestamp'
+    type: object
+  repository.RecordActivityCompletionParams:
+    properties:
+      account_id:
+        type: string
+      activity_id:
+        type: string
+      metadata:
+        items:
+          type: integer
+        type: array
+    type: object
+  repository.RemoveAccountInstitutionParams:
+    properties:
+      account_id:
+        type: string
+      institution_id:
+        type: integer
+    type: object
+  repository.Role:
+    properties:
+      created_at:
+        $ref: '#/definitions/pgtype.Timestamp'
+      description:
+        type: string
+      id:
+        type: string
+      is_default:
+        type: boolean
+      name:
+        type: string
+      updated_at:
+        $ref: '#/definitions/pgtype.Timestamp'
+    type: object
+  repository.RolePermissionsView:
+    properties:
+      permission_id:
+        type: string
+      permission_name:
+        type: string
+      role_description:
+        type: string
+      role_id:
+        type: string
+      role_name:
+        type: string
+    type: object
+  repository.StreakMilestone:
+    properties:
+      activity_id:
+        type: string
+      bonus_points:
+        type: integer
+      days_required:
+        type: integer
+      description:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      title:
+        type: string
+    type: object
+  repository.UpdateAccountDetailsParams:
+    properties:
+      avatar_url:
+        type: string
+      bio:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      national_id:
+        type: string
+      onboarded:
+        type: boolean
+      terms_accepted:
+        type: boolean
+      username:
+        type: string
+    type: object
+  repository.UpdateAccountPhoneNumberParams:
+    properties:
+      id:
+        type: string
+      phone:
+        type: string
+    type: object
+  repository.UpdateActivityParams:
+    properties:
+      category:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      max_daily_completions:
+        type: integer
+      name:
+        type: string
+      points_awarded:
+        type: integer
+      streak_eligible:
+        type: boolean
+    type: object
+  repository.UpdateInstitutionParams:
+    properties:
+      alpha_two_code:
+        type: string
+      country:
+        type: string
+      domains:
+        items:
+          type: string
+        type: array
+      institution_id:
+        type: integer
+      name:
+        type: string
+      state_province:
+        type: string
+      web_pages:
+        items:
+          type: string
+        type: array
+    type: object
+  repository.UpdatePermissionParams:
+    properties:
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+  repository.UpdateRoleParams:
+    properties:
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+  repository.UserPermissionsView:
+    properties:
+      permission:
+        type: string
+      permission_id:
+        type: string
+      role_id:
+        type: string
+      role_name:
+        type: string
+      user_id:
+        type: string
+    type: object
+  repository.UserRolesView:
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+      role_created_at:
+        $ref: '#/definitions/pgtype.Timestamp'
+      role_description:
+        type: string
+      role_id:
+        type: string
+      role_name:
+        type: string
+      user_id:
+        type: string
+    type: object
+  servicetoken.RotationPolicy:
+    properties:
+      auto_rotate:
+        type: boolean
+      notify_before_days:
+        maximum: 30
+        minimum: 1
+        type: integer
+      rotation_interval_days:
+        maximum: 365
+        minimum: 1
+        type: integer
+    type: object
+  servicetoken.ServiceTokenRequest:
+    properties:
+      description:
+        type: string
+      expires_in_days:
+        description: Max 10 years
+        maximum: 3650
+        minimum: 1
+        type: integer
+      ip_whitelist:
+        items:
+          type: string
+        type: array
+      max_uses:
+        minimum: 1
+        type: integer
+      metadata:
+        additionalProperties: true
+        type: object
+      name:
+        maxLength: 100
+        minLength: 1
+        type: string
+      rotation_policy:
+        $ref: '#/definitions/servicetoken.RotationPolicy'
+      scopes:
+        items:
+          type: string
+        type: array
+      user_agent_pattern:
+        type: string
+    required:
+    - name
+    type: object
+  servicetoken.ServiceTokenResponse:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      expires_at:
+        type: string
+      id:
+        type: string
+      last_used_at:
+        type: string
+      max_uses:
+        type: integer
+      metadata:
+        additionalProperties: true
+        type: object
+      name:
+        type: string
+      revoked_at:
+        type: string
+      rotated_at:
+        type: string
+      scopes:
+        items:
+          type: string
+        type: array
+      token:
+        description: Only included on creation
+        type: string
+      use_count:
+        type: integer
+    type: object
+  servicetoken.ServiceTokenStats:
+    properties:
+      active_tokens:
+        type: integer
+      expired_tokens:
+        type: integer
+      recently_used_tokens:
+        type: integer
+      revoked_tokens:
+        type: integer
+      total_tokens:
+        type: integer
+    type: object
+  servicetoken.ServiceTokenUpdateRequest:
+    properties:
+      description:
+        type: string
+      ip_whitelist:
+        items:
+          type: string
+        type: array
+      max_uses:
+        minimum: 1
+        type: integer
+      metadata:
+        additionalProperties: true
+        type: object
+      name:
+        maxLength: 100
+        minLength: 1
+        type: string
+      rotation_policy:
+        $ref: '#/definitions/servicetoken.RotationPolicy'
+      scopes:
+        items:
+          type: string
+        type: array
+      user_agent_pattern:
+        type: string
+    type: object
+  social.socialResponse:
+    properties:
+      access_token:
+        description: Always null. See the type comment.
+        type: string
+      access_token_secret:
+        type: string
+      account_id:
+        type: string
+      avatar_url:
+        type: string
+      created_at:
+        $ref: '#/definitions/pgtype.Timestamp'
+      description:
+        type: string
+      email:
+        type: string
+      expires_at:
+        $ref: '#/definitions/pgtype.Timestamp'
+      first_name:
+        type: string
+      id_token:
+        type: string
+      last_name:
+        type: string
+      location:
+        type: string
+      name:
+        type: string
+      nick_name:
+        type: string
+      provider:
+        type: string
+      refresh_token:
+        type: string
+      updated_at:
+        $ref: '#/definitions/pgtype.Timestamp'
+      user_id:
+        type: string
+    type: object
 externalDocs:
   description: OpenAPI
   url: https://swagger.io/resources/open-api/
@@ -44,6 +917,1109 @@ info:
   title: Verisafe API
   version: "2.0"
 paths:
+  /accounts/all:
+    get:
+      description: 'Note: this route is not wired with pagination middleware, so limit/offset
+        query params are currently ignored — it always returns the first page (10
+        accounts).'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/repository.Account'
+            type: array
+        "500":
+          description: Failed to fetch accounts
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: List all accounts
+      tags:
+      - accounts
+  /accounts/bot/create:
+    post:
+      consumes:
+      - application/json
+      description: Creates a service (bot) account, assigns it the "bot" role, and
+        issues a service token for it in one call.
+      parameters:
+      - description: Bot account and service token details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/account.BotAccountRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/account.BotAccountResponse'
+        "400":
+          description: Invalid request body, or missing required fields
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to create account, assign role, or issue service token
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Create a bot account with a service token
+      tags:
+      - accounts
+  /accounts/deletion-request:
+    post:
+      description: The account is soft-deleted and permanently removed after a 14-day
+        grace period; signing in again before then cancels the deletion.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Confirmation message
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to mark account for deletion
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Request deletion of the authenticated user's own account
+      tags:
+      - accounts
+  /accounts/fanout:
+    get:
+      description: Batches through all accounts and republishes a UserCreated event
+        for each, via a worker pool. Intended for backfilling downstream consumers,
+        not routine use.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Publish count message
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Failed to read accounts or publish one or more batches
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Republish every account to the event bus
+      tags:
+      - accounts
+  /accounts/me:
+    get:
+      description: Returns the account belonging to the caller's own JWT/API-key subject.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/repository.Account'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to fetch account
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Get the authenticated user's own account
+      tags:
+      - accounts
+    patch:
+      consumes:
+      - application/json
+      description: The request body's id must match the caller's own subject — updating
+        a different account's id is rejected.
+      parameters:
+      - description: Account fields to update; id must be the caller's own
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/repository.UpdateAccountDetailsParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/repository.Account'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Not the account owner, or failed to update/fetch account
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Update the authenticated user's own account details
+      tags:
+      - accounts
+  /accounts/me/phone:
+    patch:
+      consumes:
+      - application/json
+      description: 'The request body''s id must match the caller''s own subject. Note:
+        this only updates the stored phone number today — it does not yet verify it
+        (see TODO below).'
+      parameters:
+      - description: New phone number; id must be the caller's own
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/repository.UpdateAccountPhoneNumberParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/repository.Account'
+        "400":
+          description: Invalid request body or phone number too short
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Not the account owner, or failed to update/fetch account
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Update the authenticated user's own phone number
+      tags:
+      - accounts
+  /accounts/recovery:
+    post:
+      description: Restores full access to an account that was previously marked for
+        deletion, provided it's still within the 14-day grace period.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Confirmation message
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to recover account
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Cancel a pending deletion of the authenticated user's own account
+      tags:
+      - accounts
+  /accounts/search/email:
+    get:
+      description: Case-sensitivity and match semantics follow the underlying SQL
+        query.
+      parameters:
+      - description: Email search query
+        in: query
+        name: q
+        required: true
+        type: string
+      - description: Page size (default 10, max 100)
+        in: query
+        name: limit
+        type: integer
+      - description: Page offset (default 0)
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: accounts, pagination, query, search_type
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Missing query parameter 'q'
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Search failed
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Search accounts by email
+      tags:
+      - accounts
+  /accounts/search/name:
+    get:
+      description: |-
+        Returns accounts whose name matches the query, paginated with
+        limit/offset. Matching is on the account's display name; use
+        the username or email search endpoints for those fields.
+      parameters:
+      - description: Name search query
+        in: query
+        name: q
+        required: true
+        type: string
+      - description: Page size (default 10, max 100)
+        in: query
+        name: limit
+        type: integer
+      - description: Page offset (default 0)
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: accounts, pagination, query, search_type
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Missing query parameter 'q'
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Search failed
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Search accounts by name
+      tags:
+      - accounts
+  /accounts/search/username:
+    get:
+      description: |-
+        Returns accounts whose username matches the query, paginated
+        with limit/offset. Usernames are unique, so a full-value query
+        yields at most one result.
+      parameters:
+      - description: Username search query
+        in: query
+        name: q
+        required: true
+        type: string
+      - description: Page size (default 10, max 100)
+        in: query
+        name: limit
+        type: integer
+      - description: Page offset (default 0)
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: accounts, pagination, query, search_type
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Missing query parameter 'q'
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Search failed
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Search accounts by username
+      tags:
+      - accounts
+  /activity/{id}:
+    delete:
+      description: 'Note: Activity is a shared catalog resource with no per-user owner
+        — this route only checks IsAuthenticated today, with no admin-style permission
+        gate (see ADR 0006 for the planned fix).'
+      parameters:
+      - description: Activity ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Confirmation message
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid id
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to delete activity
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Delete an activity definition
+      tags:
+      - activities
+    patch:
+      consumes:
+      - application/json
+      description: 'Note: Activity is a shared catalog resource with no per-user owner
+        — this route only checks IsAuthenticated today, with no admin-style permission
+        gate (see ADR 0006 for the planned fix).'
+      parameters:
+      - description: Activity ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/repository.UpdateActivityParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/repository.Activity'
+        "400":
+          description: Invalid id or request body
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to update activity
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Update an activity definition
+      tags:
+      - activities
+  /activity/active:
+    get:
+      description: |-
+        Returns activity definitions users can currently earn
+        completions against. Paginated with page/page_size; the
+        response is a count/next/previous/results envelope.
+      parameters:
+      - description: Page number (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Page size (default 10, max 100)
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/pagination.PaginatedResponse'
+        "500":
+          description: Failed to fetch activities
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: List active activity definitions
+      tags:
+      - activities
+  /activity/add:
+    post:
+      consumes:
+      - application/json
+      description: 'Note: this route only checks IsAuthenticated today, with no admin-style
+        permission gate (see ADR 0006 for the planned fix).'
+      parameters:
+      - description: Activity to create
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/repository.CreateActivityParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/repository.Activity'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to create activity
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Create an activity definition
+      tags:
+      - activities
+  /activity/all:
+    get:
+      description: |-
+        Returns every activity definition regardless of active state.
+        Paginated with page/page_size; the response is a
+        count/next/previous/results envelope.
+      parameters:
+      - description: Page number (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Page size (default 10, max 100)
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/pagination.PaginatedResponse'
+        "500":
+          description: Failed to fetch activities
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: List all activity definitions
+      tags:
+      - activities
+  /activity/inactive:
+    get:
+      description: |-
+        Returns activity definitions that are currently disabled, so
+        completions against them are no longer accepted. Paginated with
+        page/page_size; the response is a count/next/previous/results
+        envelope.
+      parameters:
+      - description: Page number (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Page size (default 10, max 100)
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/pagination.PaginatedResponse'
+        "500":
+          description: Failed to fetch activities
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: List inactive activity definitions
+      tags:
+      - activities
+  /api/v1/admin/service-tokens:
+    get:
+      description: Returns active service tokens across every account, as metadata
+        only. Unlike the per-account listing this is not scoped to the caller, so
+        it requires an admin permission.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/servicetoken.ServiceTokenResponse'
+            type: array
+        "500":
+          description: Failed to list service tokens
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: List all active service tokens (admin)
+      tags:
+      - service-tokens
+  /api/v1/admin/service-tokens/cleanup:
+    post:
+      description: 'Sweeps expired service tokens across all accounts. Despite the
+        name this is a soft delete: rows are retained and stamped with revoked_at,
+        not removed. Housekeeping only, since an expired token already fails authentication
+        before this runs. Returns 204 with no body on success.'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "500":
+          description: Failed to clean up expired tokens
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Delete expired service tokens (admin)
+      tags:
+      - service-tokens
+  /api/v1/service-tokens:
+    get:
+      description: Returns the caller's service tokens as metadata only. Raw token
+        values are never returned here, only at creation and rotation.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/servicetoken.ServiceTokenResponse'
+            type: array
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to list service tokens
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: List the authenticated account's own service tokens
+      tags:
+      - service-tokens
+    post:
+      consumes:
+      - application/json
+      description: Mints a service token for machine-to-machine calls, presented as
+        X-Api-Key rather than a Bearer JWT. The raw token value is returned only in
+        this response and is not recoverable afterwards; only its hash is stored.
+      parameters:
+      - description: Service token to create
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/servicetoken.ServiceTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Includes the raw token, only returned on creation
+          schema:
+            $ref: '#/definitions/servicetoken.ServiceTokenResponse'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to create service token
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Create a service token for the authenticated account
+      tags:
+      - service-tokens
+  /api/v1/service-tokens/{id}:
+    delete:
+      description: Requires revoke:service_token:own for the caller's own tokens,
+        or revoke:service_token:any for any account's token.
+      parameters:
+      - description: Service token ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Invalid id
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "403":
+          description: Not the token owner and not an admin
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Service token not found
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to revoke service token
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Revoke a service token
+      tags:
+      - service-tokens
+    get:
+      description: Requires read:service_token:own for the caller's own tokens, or
+        read:service_token:any to read any account's token.
+      parameters:
+      - description: Service token ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/servicetoken.ServiceTokenResponse'
+        "400":
+          description: Invalid token
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "403":
+          description: Not the token owner and not an admin
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Service token not found
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to fetch service token
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Get a service token by id
+      tags:
+      - service-tokens
+    put:
+      consumes:
+      - application/json
+      description: Requires update:service_token:own for the caller's own tokens,
+        or update:service_token:any to update any account's token.
+      parameters:
+      - description: Service token ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/servicetoken.ServiceTokenUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/servicetoken.ServiceTokenResponse'
+        "400":
+          description: Invalid id or request body
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "403":
+          description: Not the token owner and not an admin
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Service token not found
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to update service token
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Update a service token
+      tags:
+      - service-tokens
+  /api/v1/service-tokens/{id}/rotate:
+    post:
+      description: Issues a new raw token value for the same service token record.
+        Requires rotate:service_token:own for the caller's own tokens, or rotate:service_token:any
+        for any account's token.
+      parameters:
+      - description: Service token ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Includes the new raw token
+          schema:
+            $ref: '#/definitions/servicetoken.ServiceTokenResponse'
+        "400":
+          description: Invalid id
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "403":
+          description: Not the token owner and not an admin
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Service token not found
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to rotate service token
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Rotate a service token
+      tags:
+      - service-tokens
+  /api/v1/service-tokens/stats:
+    get:
+      description: Returns aggregate counts over the caller's own service tokens,
+        such as how many are active, expired, or revoked.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/servicetoken.ServiceTokenStats'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to fetch stats
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Get usage statistics for the authenticated account's service tokens
+      tags:
+      - service-tokens
+  /auth/{provider}:
+    get:
+      description: Redirects the client to the given OAuth2 provider to begin a login.
+        Omit "platform" (or pass anything other than "web") for the mobile flow. Pass
+        platform=web with a redirect_uri that's in the server-side allowlist for the
+        web flow.
+      parameters:
+      - description: OAuth2 provider
+        enum:
+        - google
+        - spotify
+        - apple
+        in: path
+        name: provider
+        required: true
+        type: string
+      - description: Set to 'web' for the web flow; omitted defaults to mobile
+        in: query
+        name: platform
+        type: string
+      - description: Required when platform=web; must be in the configured allowlist
+        in: query
+        name: redirect_uri
+        type: string
+      - description: Mobile deep link to redirect to after login, e.g. myapp://auth/callback
+        in: query
+        name: deep_link
+        type: string
+      - description: Device name to register on successful login
+        in: query
+        name: device_name
+        type: string
+      - description: Push notification token to register on successful login
+        in: query
+        name: device_token
+        type: string
+      produces:
+      - application/json
+      responses:
+        "302":
+          description: Redirects to the OAuth2 provider
+        "400":
+          description: Missing provider, or missing/disallowed redirect_uri
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to initiate login with the provider
+          schema:
+            $ref: '#/definitions/core.APIError'
+      summary: Start OAuth2 login
+      tags:
+      - auth
+  /auth/{provider}/callback:
+    get:
+      description: Completes an OAuth2 login started by LoginHandler. Not called directly
+        by clients — the provider redirects here (Apple posts via application/x-www-form-urlencoded).
+        On success, redirects to redirect_uri with cookies set (web) or to the deep
+        link with a one-time opaque code (mobile).
+      parameters:
+      - description: OAuth2 provider
+        enum:
+        - google
+        - spotify
+        - apple
+        in: path
+        name: provider
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "302":
+          description: Redirects to redirect_uri (web) or the deep link (mobile)
+        "400":
+          description: Missing provider or malformed/missing state
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: OAuth flow, database, or token issuance failure
+          schema:
+            $ref: '#/definitions/core.APIError'
+      summary: OAuth2 provider callback
+      tags:
+      - auth
+    post:
+      description: Completes an OAuth2 login started by LoginHandler. Not called directly
+        by clients — the provider redirects here (Apple posts via application/x-www-form-urlencoded).
+        On success, redirects to redirect_uri with cookies set (web) or to the deep
+        link with a one-time opaque code (mobile).
+      parameters:
+      - description: OAuth2 provider
+        enum:
+        - google
+        - spotify
+        - apple
+        in: path
+        name: provider
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "302":
+          description: Redirects to redirect_uri (web) or the deep link (mobile)
+        "400":
+          description: Missing provider or malformed/missing state
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: OAuth flow, database, or token issuance failure
+          schema:
+            $ref: '#/definitions/core.APIError'
+      summary: OAuth2 provider callback
+      tags:
+      - auth
+  /auth/{provider}/logout:
+    get:
+      description: Clears the goth/gothic OAuth2 session for the given provider. This
+        is not the same as token revocation — call RevokeTokenHandler too if the client
+        also wants to invalidate its JWT/refresh token.
+      parameters:
+      - description: OAuth2 provider
+        enum:
+        - google
+        - spotify
+        - apple
+        in: path
+        name: provider
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "307":
+          description: Redirects to /
+        "400":
+          description: Missing provider
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to log out from provider
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      summary: Log out of the OAuth2 provider session
+      tags:
+      - auth
+  /auth/token/exchange:
+    post:
+      consumes:
+      - application/json
+      description: Exchanges the one-time opaque code from the deep link (see CallbackHandler)
+        for the access/refresh token pair. The code is single-use with a 60-second
+        TTL and is deleted on first use.
+      parameters:
+      - description: Opaque code from the deep link
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.authCodeExchangeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.tokenResponse'
+        "400":
+          description: Missing or malformed code
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Invalid or expired code
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to retrieve auth code
+          schema:
+            $ref: '#/definitions/core.APIError'
+      summary: Exchange a mobile auth code for a token pair
+      tags:
+      - auth
+  /auth/token/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Consumes the given refresh token and issues a fresh access/refresh
+        pair. Reusing an already-rotated, revoked, or expired refresh token revokes
+        its entire token family and returns 401.
+      parameters:
+      - description: Refresh token to rotate
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.refreshTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.tokenResponse'
+        "400":
+          description: Missing or malformed refresh_token
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Refresh token invalid, expired, or reuse detected
+          schema:
+            $ref: '#/definitions/core.APIError'
+      summary: Rotate a refresh token
+      tags:
+      - auth
+  /auth/token/revoke:
+    post:
+      consumes:
+      - application/json
+      description: Blocklists the presented access token for its remaining lifetime.
+        If a refresh_token is also supplied, revokes its entire token family too;
+        refresh-family revocation failure is logged but non-fatal.
+      parameters:
+      - description: Optional refresh token to also revoke its family
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/auth.revokeTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to revoke token
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      summary: Revoke the caller's access token (and optionally a refresh token family)
+      tags:
+      - auth
   /devices/mine:
     get:
       description: Returns all devices registered to the currently authenticated user
@@ -54,7 +2030,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/service.DeviceOutput'
+              $ref: '#/definitions/device.DeviceOutput'
             type: array
         "401":
           description: Unauthorized
@@ -65,10 +2041,1600 @@ paths:
           schema:
             $ref: '#/definitions/core.APIError'
       security:
-      - BearerAuth: []
+      - BearerToken: []
+      - ApiKey: []
       summary: List authenticated user's devices
       tags:
       - devices
+  /institutions/account:
+    delete:
+      consumes:
+      - application/json
+      description: The request body's account_id must match the caller's own subject,
+        unless the caller holds manage:institutions:accounts:any.
+      parameters:
+      - description: account_id must be the caller's own, unless an admin
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/repository.RemoveAccountInstitutionParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Confirmation message
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "403":
+          description: account_id does not match the caller and caller is not an admin
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to unlink account from institution
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Unlink an account from an institution
+      tags:
+      - institutions
+    post:
+      consumes:
+      - application/json
+      description: The request body's account_id must match the caller's own subject,
+        unless the caller holds manage:institutions:accounts:any.
+      parameters:
+      - description: account_id must be the caller's own, unless an admin
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/repository.AddAccountInstitutionParams'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/repository.AddAccountInstitutionRow'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "403":
+          description: account_id does not match the caller and caller is not an admin
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to link account to institution
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Link an account to an institution
+      tags:
+      - institutions
+  /institutions/accounts:
+    get:
+      description: |-
+        Returns the accounts linked to the institution, paginated with
+        limit/offset. This is the inverse of listing an account's
+        institutions.
+      parameters:
+      - description: Institution ID
+        in: query
+        name: institution_id
+        required: true
+        type: integer
+      - description: Page size (default 10, max 100)
+        in: query
+        name: limit
+        type: integer
+      - description: Page offset (default 0)
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/repository.Account'
+            type: array
+        "400":
+          description: Missing or invalid institution_id
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to fetch accounts
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: List accounts linked to a given institution
+      tags:
+      - institutions
+  /institutions/accounts/fanout:
+    get:
+      description: 'Batches through all account/institution links and republishes
+        a connected event for each, via a worker pool. Intended for backfilling downstream
+        consumers, not routine use. Note: this route only checks IsAuthenticated today,
+        with no admin-style permission gate (see ADR 0006 for the planned fix).'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'status: fanout complete'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Failed to acquire a database connection
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Republish every institution-account connection to the event bus
+      tags:
+      - institutions
+  /institutions/all:
+    get:
+      description: |-
+        Returns a paginated list of every registered institution.
+        Paginated with limit/offset; the response is a bare array, not
+        an envelope.
+      parameters:
+      - description: Page size (default 10, max 100)
+        in: query
+        name: limit
+        type: integer
+      - description: Page offset (default 0)
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/repository.Institution'
+            type: array
+        "500":
+          description: Failed to fetch institutions
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: List institutions
+      tags:
+      - institutions
+  /institutions/delete/{id}:
+    delete:
+      description: |-
+        Permanently deletes an institution. Account links to it are
+        removed by the cascade on account_institutions. Publishes an
+        institution-deleted event. Returns 204 with no body on success.
+      parameters:
+      - description: Institution ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Invalid id
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Institution not found
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to delete institution
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Delete an institution
+      tags:
+      - institutions
+  /institutions/fanout:
+    get:
+      description: Batches through all institutions and republishes an InstitutionCreated
+        event for each, via a worker pool. Intended for backfilling downstream consumers,
+        not routine use.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Publish count message
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Failed to read institutions or publish one or more batches
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Republish every institution to the event bus
+      tags:
+      - institutions
+  /institutions/find/{id}:
+    get:
+      description: |-
+        Returns a single institution by its UUID. Responds 404 when no
+        institution carries that id.
+      parameters:
+      - description: Institution ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/repository.Institution'
+        "400":
+          description: Invalid id
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Institution not found
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Get an institution by id
+      tags:
+      - institutions
+  /institutions/for-account:
+    get:
+      description: 'Note: any authenticated caller can look up any account''s institution
+        memberships by account_id — there is no ownership check on this endpoint today.'
+      parameters:
+      - description: Account ID
+        in: query
+        name: account_id
+        required: true
+        type: string
+      - description: Page size (default 10, max 100)
+        in: query
+        name: limit
+        type: integer
+      - description: Page offset (default 0)
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/repository.Institution'
+            type: array
+        "400":
+          description: Missing or invalid account_id
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to fetch institutions
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: List institutions linked to a given account
+      tags:
+      - institutions
+  /institutions/register:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Creates an institution record. Institutions are the entities
+        accounts are linked to; creating one does not link anybody to
+        it. Publishes an institution-created event.
+      parameters:
+      - description: Institution to create
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/repository.CreateInstitutionParams'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/repository.Institution'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to create institution
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Register a new institution
+      tags:
+      - institutions
+  /institutions/search:
+    get:
+      description: |-
+        Returns institutions whose name matches the query, paginated
+        with limit/offset.
+      parameters:
+      - description: Name search query
+        in: query
+        name: q
+        required: true
+        type: string
+      - description: Page size (default 10, max 100)
+        in: query
+        name: limit
+        type: integer
+      - description: Page offset (default 0)
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/repository.Institution'
+            type: array
+        "400":
+          description: Missing query parameter 'q'
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Search failed
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Search institutions by name
+      tags:
+      - institutions
+  /institutions/update/{id}:
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Updates an institution in place. Existing account links are
+        preserved. Publishes an institution-updated event.
+      parameters:
+      - description: Institution ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Fields to update
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/repository.UpdateInstitutionParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/repository.Institution'
+        "400":
+          description: Invalid id or request body
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to update institution
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Update an institution's details
+      tags:
+      - institutions
+  /leaderboard/global:
+    get:
+      description: |-
+        Returns the global vibepoint ranking across all accounts.
+        Paginated with page/page_size; the response is a
+        count/next/previous/results envelope.
+      parameters:
+      - description: Page number (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Page size (default 10, max 100)
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/pagination.PaginatedResponse'
+        "500":
+          description: Failed to fetch leaderboard
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Get the global leaderboard
+      tags:
+      - leaderboard
+  /leaderboard/global/{user}:
+    get:
+      description: 'Note: any authenticated caller can look up any user''s rank by
+        id — there is no ownership check on this endpoint today.'
+      parameters:
+      - description: Account ID
+        in: path
+        name: user
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/repository.AccountVibepointRank'
+        "400":
+          description: Invalid user id
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to fetch rank
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Get a given user's global leaderboard rank
+      tags:
+      - leaderboard
+  /oauth/{provider}/authorize:
+    post:
+      consumes:
+      - application/json
+      description: Starts incremental authorization for the signed-in user and returns
+        a provider URL to open. The user's session, devices and tokens are untouched
+        — this grants a capability, it does not sign anyone in again. Returns already_granted
+        when the user has already granted everything asked for. A URL is returned
+        rather than a redirect because this endpoint needs the caller's Bearer token,
+        which a browser navigation cannot supply and which mobile clients must hand
+        to a Custom Tab or ASWebAuthenticationSession themselves.
+      parameters:
+      - description: OAuth2 provider
+        enum:
+        - google
+        - spotify
+        in: path
+        name: provider
+        required: true
+        type: string
+      - description: Capabilities to request and where to return the user
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/oauth.ScopeAuthorizeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/oauth.ScopeAuthorizeResponse'
+        "400":
+          description: Unknown capability, provider without incremental support, or
+            a redirect target that is not allowlisted
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Unknown provider
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      summary: Begin authorizing additional provider capabilities
+      tags:
+      - oauth
+  /oauth/{provider}/callback:
+    get:
+      description: 'Completes a scope upgrade started by the authorize endpoint. Not
+        called by clients — the provider redirects the user''s browser here. Records
+        the scopes the provider reports as granted and returns the user to the app.
+        Deliberately issues no session: no token family, no device registration, no
+        cookies, so the caller''s existing session survives the round trip.'
+      parameters:
+      - description: OAuth2 provider
+        enum:
+        - google
+        - spotify
+        in: path
+        name: provider
+        required: true
+        type: string
+      - description: Opaque state handle issued by the authorize endpoint
+        in: query
+        name: state
+        required: true
+        type: string
+      - description: Authorization code from the provider
+        in: query
+        name: code
+        type: string
+      - description: Set when the user declined
+        in: query
+        name: error
+        type: string
+      produces:
+      - application/json
+      responses:
+        "302":
+          description: Redirects to the originating app with scope_upgrade=success
+            or =denied
+        "400":
+          description: Missing, expired, replayed, or mismatched state
+          schema:
+            $ref: '#/definitions/core.APIError'
+      summary: Provider callback for incremental authorization
+      tags:
+      - oauth
+  /oauth/{provider}/grant:
+    delete:
+      description: Revokes the signed-in user's grant and destroys the stored credentials.
+        Does not sign the user out; it only ends Verisafe's access to that provider
+        on their behalf.
+      parameters:
+      - description: OAuth2 provider
+        enum:
+        - google
+        - spotify
+        - apple
+        in: path
+        name: provider
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: No grant for this provider
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      summary: Disconnect a third-party provider
+      tags:
+      - oauth
+  /oauth/{provider}/reconcile:
+    post:
+      consumes:
+      - application/json
+      description: Refreshes an account's grant purely to learn the scopes the provider
+        reports, converting a presumed scope list into a verified one. Operational
+        endpoint; the background reconciler does this automatically.
+      parameters:
+      - description: OAuth2 provider
+        enum:
+        - google
+        - spotify
+        in: path
+        name: provider
+        required: true
+        type: string
+      - description: Account to reconcile (capabilities ignored)
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/oauth.ProviderTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Malformed body or bad account_id
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "403":
+          description: Lacks manage:provider_token:any
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: No grant for this account and provider
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "503":
+          description: Provider is temporarily unavailable
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - ApiKey: []
+      summary: Force a grant to be re-verified against the provider
+      tags:
+      - oauth
+  /oauth/{provider}/token:
+    post:
+      consumes:
+      - application/json
+      description: Returns a usable provider access token for the given account, refreshing
+        it against the provider if the stored one is stale. Requires a service token
+        (X-API-Key) and the read:provider_token:any permission — a human Bearer JWT
+        is rejected even if it holds the permission. Refresh tokens are never returned.
+        When the user has not granted the requested capabilities, responds 403 with
+        a machine-readable insufficient_scope body naming what is missing and where
+        to send the user.
+      parameters:
+      - description: OAuth2 provider
+        enum:
+        - google
+        - spotify
+        in: path
+        name: provider
+        required: true
+        type: string
+      - description: Account and capabilities required
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/oauth.ProviderTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/oauth.ProviderTokenResponse'
+        "400":
+          description: Malformed body, bad account_id, or unknown capability
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Missing or invalid credentials
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "403":
+          description: Caller is not a service token, lacks the permission, or the
+            user has not granted the capability
+          schema:
+            $ref: '#/definitions/oauth.InsufficientScopeResponse'
+        "404":
+          description: Unknown provider, or the account has never connected it
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "409":
+          description: Provider cannot refresh tokens and the stored one has expired
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "503":
+          description: Provider is temporarily unavailable
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - ApiKey: []
+      summary: Obtain a third-party OAuth access token on behalf of a user
+      tags:
+      - oauth
+  /oauth/grants:
+    get:
+      description: 'Pre-flight for the broker: which providers an account has connected
+        and what each grant covers. Never includes tokens.'
+      parameters:
+      - description: Account ID
+        in: query
+        name: account_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/grants.GrantView'
+            type: array
+        "400":
+          description: Missing or malformed account_id
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "403":
+          description: Caller is not a service token or lacks the permission
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - ApiKey: []
+      summary: List an account's third-party connections
+      tags:
+      - oauth
+  /oauth/scopes:
+    get:
+      description: What each connected provider covers, plus every capability each
+        provider could offer, so a settings UI can render connect toggles without
+        knowing the provider list. Never includes tokens.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/oauth.ScopesResponse'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      summary: List the signed-in user's third-party connections
+      tags:
+      - oauth
+  /permissions:
+    get:
+      description: |-
+        Returns a paginated list of every permission defined in the
+        system. Paginated with limit/offset; the response is a bare
+        array, not an envelope.
+        Requires the read:permission:any permission.
+      parameters:
+      - description: Page size (default 10, max 100)
+        in: query
+        name: limit
+        type: integer
+      - description: Page offset (default 0)
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/repository.Permission'
+            type: array
+        "500":
+          description: Failed to fetch permissions
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: List permissions
+      tags:
+      - permissions
+  /permissions/{id}:
+    get:
+      description: |-
+        Returns a single permission by its UUID. Responds 404 when no
+        permission carries that id.
+        Requires the read:permission:any permission.
+      parameters:
+      - description: Permission ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/repository.Permission'
+        "400":
+          description: Invalid id
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Permission not found
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to fetch permission
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Get a permission by id
+      tags:
+      - permissions
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Updates a permission in place. Every role holding it, and every
+        account holding those roles, sees the change immediately.
+        Requires the update:permission:any permission.
+      parameters:
+      - description: Fields to update (id identifies the permission)
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/repository.UpdatePermissionParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/repository.Permission'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to update permission
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Update a permission
+      tags:
+      - permissions
+  /permissions/assign/{perm_id}/{role_id}:
+    get:
+      description: |-
+        Attaches a permission to a role, granting it to every account
+        that holds the role. Not idempotent: role_permissions is keyed
+        on (role_id, permission_id), so re-granting a permission the
+        role already holds fails the primary key and returns 500.
+        Requires the assign:permission:role permission.
+      parameters:
+      - description: Permission ID
+        in: path
+        name: perm_id
+        required: true
+        type: string
+      - description: Role ID
+        in: path
+        name: role_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Confirmation message
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid perm_id or role_id
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to assign permission
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Grant a permission to a role
+      tags:
+      - permissions
+  /permissions/create:
+    post:
+      consumes:
+      - application/json
+      description: Newly created permissions are automatically granted to the "system"
+        and "Administrator" roles by database triggers — see docs/RBAC.md.
+      parameters:
+      - description: Permission to create
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/repository.CreatePermissionParams'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/repository.Permission'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to create permission
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Create a permission
+      tags:
+      - permissions
+  /permissions/revoke/{perm_id}/{role_id}:
+    delete:
+      description: |-
+        Detaches a permission from a role, withdrawing it from every
+        account that held it only through this role. Accounts holding
+        the same permission via another role keep it.
+        Requires the revoke:permission:role permission.
+      parameters:
+      - description: Permission ID
+        in: path
+        name: perm_id
+        required: true
+        type: string
+      - description: Role ID
+        in: path
+        name: role_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Confirmation message
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid perm_id or role_id
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to revoke permission
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Revoke a permission from a role
+      tags:
+      - permissions
+  /permissions/user/{id}:
+    get:
+      description: |-
+        Returns the permissions the account effectively holds, resolved
+        through every role assigned to it. Permissions are never
+        attached to an account directly, only via a role.
+        Requires the read:permission:user permission.
+      parameters:
+      - description: Account ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/repository.UserPermissionsView'
+            type: array
+        "400":
+          description: Invalid id
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to fetch permissions
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: List a given user's effective permissions
+      tags:
+      - permissions
+  /ping:
+    get:
+      description: |-
+        Returns 200 with a fixed message whenever the process is
+        serving. This is a liveness check only: it does not touch the
+        database, Redis, or RabbitMQ, so a 200 here does not imply any
+        dependency is reachable. Unauthenticated by design.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Fixed liveness message
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Liveness probe
+      tags:
+      - health
+  /roles:
+    get:
+      description: |-
+        Returns a paginated list of every role defined in the system.
+        Paginated with limit/offset; the response is a bare array, not
+        an envelope.
+        Requires the read:role:any permission.
+      parameters:
+      - description: Page size (default 10, max 100)
+        in: query
+        name: limit
+        type: integer
+      - description: Page offset (default 0)
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/repository.Role'
+            type: array
+        "500":
+          description: Failed to fetch roles
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: List roles
+      tags:
+      - roles
+  /roles/{id}:
+    get:
+      description: |-
+        Returns a single role by its UUID. Responds 404 when no role
+        carries that id.
+        Requires the read:role:any permission.
+      parameters:
+      - description: Role ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/repository.Role'
+        "400":
+          description: Invalid id
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Role not found
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to fetch role
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Get a role by id
+      tags:
+      - roles
+    patch:
+      consumes:
+      - application/json
+      description: The path id is the authoritative resource identifier — any id in
+        the request body is overwritten with it.
+      parameters:
+      - description: Role ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/repository.UpdateRoleParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/repository.Role'
+        "400":
+          description: Invalid id or request body
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to update role
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Update a role
+      tags:
+      - roles
+  /roles/assign/{user_id}/{role_id}:
+    get:
+      description: |-
+        Grants a role to an account, transitively granting the account
+        every permission that role holds. Not idempotent: user_roles is
+        keyed on (user_id, role_id), so re-assigning a role the account
+        already holds fails the primary key and returns 500.
+        Requires the assign:role:any permission.
+      parameters:
+      - description: Account ID
+        in: path
+        name: user_id
+        required: true
+        type: string
+      - description: Role ID
+        in: path
+        name: role_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Confirmation message
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid user_id or role_id
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to assign role
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Assign a role to a user
+      tags:
+      - roles
+  /roles/create:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Creates a new role. Roles are the unit RBAC permissions attach
+        to: assigning a role to an account grants that account every
+        permission the role holds.
+        Requires the create:role permission.
+      parameters:
+      - description: Role to create
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/repository.CreateRoleParams'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/repository.Role'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to create role
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Create a role
+      tags:
+      - roles
+  /roles/permissions/{id}:
+    get:
+      description: |-
+        Returns every permission attached to the given role. These are
+        the permissions an account inherits when the role is assigned
+        to it.
+        Requires the read:role:permissions permission.
+      parameters:
+      - description: Role ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/repository.RolePermissionsView'
+            type: array
+        "400":
+          description: Invalid id
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to fetch permissions
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: List permissions granted to a role
+      tags:
+      - roles
+  /roles/revoke/{user_id}/{role_id}:
+    delete:
+      description: |-
+        Removes a role from an account, withdrawing every permission
+        the account held only through that role. Permissions the
+        account also holds via another role are unaffected.
+        Requires the revoke:role:any permission.
+      parameters:
+      - description: Account ID
+        in: path
+        name: user_id
+        required: true
+        type: string
+      - description: Role ID
+        in: path
+        name: role_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Confirmation message
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid user_id or role_id
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to revoke role
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Revoke a role from a user
+      tags:
+      - roles
+  /roles/user/{id}:
+    get:
+      description: |-
+        Returns every role currently assigned to the given account.
+        Requires the read:role:any permission.
+      parameters:
+      - description: Account ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/repository.UserRolesView'
+            type: array
+        "400":
+          description: Invalid id
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to fetch roles
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: List a given user's roles
+      tags:
+      - roles
+  /socials/me:
+    get:
+      description: Provider access and refresh tokens are never included; those are
+        brokered through /oauth/{provider}/token instead.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/social.socialResponse'
+            type: array
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to fetch social connections
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: List the authenticated user's own linked social accounts
+      tags:
+      - socials
+  /socials/user/{user_id}:
+    get:
+      description: Provider access and refresh tokens are never included; those are
+        brokered through /oauth/{provider}/token instead.
+      parameters:
+      - description: Account ID
+        in: path
+        name: user_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/social.socialResponse'
+            type: array
+        "400":
+          description: Invalid user_id
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to fetch social connections
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: List a given user's linked social accounts
+      tags:
+      - socials
+  /streaks/milestone/{id}:
+    delete:
+      description: 'Note: this route only checks IsAuthenticated today, with no admin-style
+        permission gate (see ADR 0006 for the planned fix).'
+      parameters:
+      - description: Milestone ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Confirmation message
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid id
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to delete milestone
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Delete a streak milestone
+      tags:
+      - streaks
+  /streaks/milestone/active:
+    get:
+      description: |-
+        Returns the streak milestones users can currently reach.
+        Paginated with page/page_size; the response is a
+        count/next/previous/results envelope.
+      parameters:
+      - description: Page number (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Page size (default 10, max 100)
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/pagination.PaginatedResponse'
+        "500":
+          description: Failed to fetch milestones
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: List active streak milestones
+      tags:
+      - streaks
+  /streaks/milestone/create:
+    post:
+      consumes:
+      - application/json
+      description: 'Note: this route only checks IsAuthenticated today, with no admin-style
+        permission gate (see ADR 0006 for the planned fix).'
+      parameters:
+      - description: Milestone to create
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/repository.CreateStreakMilestoneParams'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/repository.StreakMilestone'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to create milestone
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Create a streak milestone
+      tags:
+      - streaks
+  /users/activity/complete:
+    post:
+      consumes:
+      - application/json
+      description: The request body's account_id must match the caller's own subject.
+      parameters:
+      - description: account_id must be the caller's own
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/repository.RecordActivityCompletionParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Confirmation message
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "403":
+          description: account_id does not match the caller
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to record completion
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Record a completed activity for the authenticated user
+      tags:
+      - streaks
+  /users/activity/completions/for-user/{id}:
+    get:
+      description: 'Note: any authenticated caller can view any other user''s activity
+        completions by id — there is no ownership check on this endpoint today.'
+      parameters:
+      - description: Account ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Page number (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Page size (default 10, max 100)
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/pagination.PaginatedResponse'
+        "400":
+          description: Invalid id
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to fetch completions
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: List a given user's completed activities
+      tags:
+      - activities
 securityDefinitions:
   ApiKey:
     in: header

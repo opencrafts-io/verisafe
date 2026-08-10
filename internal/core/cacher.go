@@ -9,11 +9,23 @@ import (
 // Cacher defines a simple key-value cache interface.
 // The default implementation uses Redis, but any backend can be swapped in —
 // including an in-memory mock for testing.
-// mockgen -source=cacher.go -destination=mocks/cacher.go -package=mockscore
+//
+//go:generate go tool mockgen -source=cacher.go -destination=mocks/cacher.go -package=mockscore
 type Cacher interface {
 	// Set stores a value under the given key with an optional TTL.
 	// Pass 0 for ttl to store indefinitely.
 	Set(ctx context.Context, key string, value any, ttl time.Duration) error
+
+	// SetNX stores value under key only if the key does not already exist,
+	// and reports whether it stored. Unlike Exists followed by Set, this is
+	// atomic, which is what makes it usable as a short-lived distributed lock
+	// — the TTL is the lock lease.
+	SetNX(
+		ctx context.Context,
+		key string,
+		value any,
+		ttl time.Duration,
+	) (bool, error)
 
 	// Get retrieves a value by key into dest.
 	// Returns ErrCacheMiss if the key does not exist.

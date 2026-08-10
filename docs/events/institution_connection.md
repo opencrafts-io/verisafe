@@ -36,7 +36,7 @@ You will receive messages as JSON strings with the following structure:
 
 ```json
 {
-  "meta": {
+  "metadata": {
     "event_type": "user.institution.connected",
     "timestamp": "2024-04-03T14:30:00Z",
     "source_service_id": "io.opencrafts.verisafe",
@@ -87,10 +87,10 @@ When you consume a message, you must validate it before processing:
 1. **JSON Parsing**: Parse the message body as JSON. If parsing fails, discard the message and log the error.
 
 2. **Required Fields**: Verify that all of the following fields are present and non-empty:
-   - `meta.event_type`
-   - `meta.timestamp`
-   - `meta.source_service_id`
-   - `meta.request_id`
+   - `metadata.event_type`
+   - `metadata.timestamp`
+   - `metadata.source_service_id`
+   - `metadata.request_id`
    - `institution_connection.account_id`
    - `institution_connection.institution_id`
 
@@ -102,7 +102,7 @@ When you consume a message, you must validate it before processing:
 
 6. **Request ID Format**: Verify that `request_id` is a valid UUID v4.
 
-7. **Timestamp Format**: Verify that `meta.timestamp` is a valid ISO 8601 datetime string.
+7. **Timestamp Format**: Verify that `metadata.timestamp` is a valid ISO 8601 datetime string.
 
 8. **Data Existence**: After passing the above checks, verify that the referenced entities exist in your system:
    - The User identified by `account_id` must exist
@@ -132,8 +132,8 @@ As a consumer, when you receive a valid message, you learn that a user-instituti
    - Synchronize state between services
 
 In both cases:
-- The timestamp (`meta.timestamp`) indicates when the event occurred
-- The request_id (`meta.request_id`) can be used for correlation in your logs and with Verisafe support
+- The timestamp (`metadata.timestamp`) indicates when the event occurred
+- The request_id (`metadata.request_id`) can be used for correlation in your logs and with Verisafe support
 
 ## Idempotency
 
@@ -149,7 +149,7 @@ This means your consumer should safely handle receiving the same message twice w
 
 ```json
 {
-  "meta": {
+  "metadata": {
     "event_type": "user.institution.connected",
     "timestamp": "2024-04-03T14:30:00Z",
     "source_service_id": "io.opencrafts.verisafe",
@@ -166,7 +166,7 @@ This means your consumer should safely handle receiving the same message twice w
 
 ```json
 {
-  "meta": {
+  "metadata": {
     "event_type": "user.institution.disconnected",
     "timestamp": "2024-04-03T14:35:00Z",
     "source_service_id": "io.opencrafts.verisafe",
@@ -183,7 +183,7 @@ This means your consumer should safely handle receiving the same message twice w
 
 ```json
 {
-  "meta": {
+  "metadata": {
     "event_type": "user.institution.updated",
     "timestamp": "2024-04-03T14:30:00Z",
     "source_service_id": "io.opencrafts.verisafe",
@@ -202,7 +202,7 @@ This means your consumer should safely handle receiving the same message twice w
 
 ```json
 {
-  "meta": {
+  "metadata": {
     "event_type": "user.institution.connected",
     "timestamp": "2024-04-03T14:30:00Z",
     "source_service_id": "io.opencrafts.different.service",
@@ -221,7 +221,7 @@ This means your consumer should safely handle receiving the same message twice w
 
 ```json
 {
-  "meta": {
+  "metadata": {
     "event_type": "user.institution.connected",
     "timestamp": "2024-04-03T14:30:00Z",
     "source_service_id": "io.opencrafts.verisafe",
@@ -239,7 +239,7 @@ This means your consumer should safely handle receiving the same message twice w
 
 ```json
 {
-  "meta": {
+  "metadata": {
     "event_type": "user.institution.connected",
     "timestamp": "2024-04-03T14:30:00Z",
     "source_service_id": "io.opencrafts.verisafe",
@@ -258,7 +258,7 @@ This means your consumer should safely handle receiving the same message twice w
 
 ```json
 {
-  "meta": {
+  "metadata": {
     "event_type": "user.institution.connected",
     "timestamp": "2024-04-03T14:30:00Z",
     "source_service_id": "io.opencrafts.verisafe",
@@ -277,7 +277,7 @@ This means your consumer should safely handle receiving the same message twice w
 
 ```json
 {
-  "meta": {
+  "metadata": {
     "event_type": "user.institution.connected",
     "timestamp": "2024-04-03T14:30:00Z",
     "source_service_id": "io.opencrafts.verisafe",
@@ -296,7 +296,7 @@ This means your consumer should safely handle receiving the same message twice w
 
 ```json
 {
-  "meta": {
+  "metadata": {
     "event_type": "user.institution.disconnected",
     "timestamp": "2024-04-03T14:30:00Z",
     "source_service_id": "io.opencrafts.verisafe",

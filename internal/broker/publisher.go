@@ -9,16 +9,7 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-// MessagePublisher defines the contract for publishing messages to RabbitMQ
-type MessagePublisher interface {
-	Publish(
-		ctx context.Context,
-		exchange, routingKey string,
-		message any,
-	) error
-}
-
-// Publisher implements MessagePublisher
+// Publisher publishes JSON messages to a RabbitMQ exchange.
 type Publisher struct {
 	conn   Connection
 	logger *slog.Logger

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/netip"
 	"strings"
@@ -21,10 +22,12 @@ import (
 	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/eventbus"
 	"github.com/opencrafts-io/verisafe/internal/geo"
-	"github.com/opencrafts-io/verisafe/internal/handlers"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
+	"github.com/opencrafts-io/verisafe/internal/providers"
 	"github.com/opencrafts-io/verisafe/internal/repository"
-	"github.com/opencrafts-io/verisafe/internal/service"
+	"github.com/opencrafts-io/verisafe/internal/secrets"
+	devicesvc "github.com/opencrafts-io/verisafe/internal/service/device"
+	grantsvc "github.com/opencrafts-io/verisafe/internal/service/grants"
 	"github.com/opencrafts-io/verisafe/internal/tokens"
 )
 
@@ -67,21 +70,27 @@ type tokenResponse struct {
 }
 
 type AuthHandler struct {
-	geoLocator *geo.GeoIPLocater
+	geoLocator geo.IPLocater
 	auth       *Auth
 	db         core.IDBProvider
 	cacher     core.Cacher
-	eventBus   *eventbus.UserEventBus
+	eventBus   eventbus.UserPublisher
 	logger     *slog.Logger
+
+	// grants builds a GrantService bound to the caller's transaction, so a
+	// login can mirror provider credentials into oauth_grants. Nil disables
+	// the mirroring, which keeps the handler constructible in tests that do
+	// not care about it.
+	grants func(repository.Querier) grantsvc.GrantService
 }
 
 func NewAuthHandler(
 	auth *Auth,
 	db core.IDBProvider,
 	cacher core.Cacher,
-	eventBus *eventbus.UserEventBus,
+	eventBus eventbus.UserPublisher,
 	logger *slog.Logger,
-	geoLocator *geo.GeoIPLocater,
+	geoLocator geo.IPLocater,
 ) *AuthHandler {
 	return &AuthHandler{
 		auth:       auth,
@@ -93,22 +102,43 @@ func NewAuthHandler(
 	}
 }
 
-func (h *AuthHandler) RegisterHandlers(router *http.ServeMux) {
+// WithGrantRecording enables mirroring provider credentials into oauth_grants
+// on every login.
+func (h *AuthHandler) WithGrantRecording(
+	registry *providers.Registry,
+	sealer *secrets.Sealer,
+	exchanger providers.TokenExchanger,
+) *AuthHandler {
+	h.grants = func(repo repository.Querier) grantsvc.GrantService {
+		return grantsvc.NewGrantService(
+			repo,
+			h.cacher,
+			registry,
+			sealer,
+			exchanger,
+			h.auth.config,
+			h.logger,
+		)
+	}
+	return h
+}
+
+func (h *AuthHandler) RegisterHandlers(router core.Router) {
 	router.HandleFunc("GET /auth/{provider}", h.LoginHandler)
 	router.HandleFunc("/auth/{provider}/callback", h.CallbackHandler)
 	router.Handle(
 		"POST /auth/token/exchange",
-		handlers.AppHandler(h.ExchangeAuthCodeHandler),
+		core.AppHandler(h.ExchangeAuthCodeHandler),
 	)
 	router.Handle(
 		"POST /auth/token/refresh",
-		handlers.AppHandler(h.RefreshTokenHandler),
+		core.AppHandler(h.RefreshTokenHandler),
 	)
 	router.Handle(
 		"POST /auth/token/revoke",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(h.auth.config, h.db, h.cacher, h.logger),
-		)(handlers.AppHandler(h.RevokeTokenHandler)),
+		)(core.AppHandler(h.RevokeTokenHandler)),
 	)
 	router.Handle(
 		"GET /auth/{provider}/logout",
@@ -150,11 +180,27 @@ func (h *AuthHandler) storeAuthCode(
 	)
 }
 
+// LoginHandler godoc
+//
+// @Summary      Start OAuth2 login
+// @Description  Redirects the client to the given OAuth2 provider to begin a login. Omit "platform" (or pass anything other than "web") for the mobile flow. Pass platform=web with a redirect_uri that's in the server-side allowlist for the web flow.
+// @Tags         auth
+// @Produce      json
+// @Param        provider      path   string  true   "OAuth2 provider"  Enums(google, spotify, apple)
+// @Param        platform      query  string  false  "Set to 'web' for the web flow; omitted defaults to mobile"
+// @Param        redirect_uri  query  string  false  "Required when platform=web; must be in the configured allowlist"
+// @Param        deep_link     query  string  false  "Mobile deep link to redirect to after login, e.g. myapp://auth/callback"
+// @Param        device_name   query  string  false  "Device name to register on successful login"
+// @Param        device_token  query  string  false  "Push notification token to register on successful login"
+// @Success      302  "Redirects to the OAuth2 provider"
+// @Failure      400  {object}  core.APIError  "Missing provider, or missing/disallowed redirect_uri"
+// @Failure      500  {object}  core.APIError  "Failed to initiate login with the provider"
+// @Router       /auth/{provider} [get]
 func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	provider, err := GetProviderName(r)
 	if err != nil {
 		h.logger.Warn("missing provider in login request", "error", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		core.WriteError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -165,10 +211,10 @@ func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		platform = authPlatformWebValue
 		redirectURI = r.URL.Query().Get("redirect_uri")
 		if redirectURI == "" {
-			http.Error(
+			core.WriteError(
 				w,
-				"missing redirect_uri for web platform",
 				http.StatusBadRequest,
+				"missing redirect_uri for web platform",
 			)
 			return
 		}
@@ -177,7 +223,7 @@ func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 			redirectURI,
 			h.auth.config.JWTConfig.AllowedRedirectURIs,
 		) {
-			http.Error(w, "redirect_uri not allowed", http.StatusBadRequest)
+			core.WriteError(w, http.StatusBadRequest, "redirect_uri not allowed")
 			return
 		}
 	}
@@ -200,25 +246,61 @@ func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	q.Set("state", state)
 	r.URL.RawQuery = q.Encode()
 
-	url, err := gothic.GetAuthURL(w, r)
+	authURL, err := gothic.GetAuthURL(w, r)
 	if err != nil {
 		h.logger.Error("failed to get auth URL from provider", "error", err)
-		http.Error(
+		core.WriteError(
 			w,
-			"failed to initiate login",
 			http.StatusInternalServerError,
+			"failed to initiate login",
 		)
 		return
 	}
 
-	http.Redirect(w, r, url, http.StatusFound)
+	// goth binds its auth-code options at provider construction and exposes no
+	// generic setter, so include_granted_scopes has to be applied to the URL
+	// it produced.
+	//
+	// This matters most once logins request only identity scopes: without it,
+	// a returning user who already granted Calendar would complete a new,
+	// narrower authorization and could be silently downgraded. With it, the
+	// tokens Google issues carry the union of previously granted and newly
+	// requested scopes.
+	if descriptor, ok := h.auth.registry.Get(provider); ok {
+		decorated, err := providers.DecorateAuthURL(descriptor, authURL)
+		if err != nil {
+			// Never fail a login over a decoration failure — the undecorated
+			// URL is still a valid authorization request.
+			h.logger.Error(
+				"failed to decorate auth URL, continuing undecorated",
+				slog.String("provider", provider),
+				slog.Any("error", err),
+			)
+		} else {
+			authURL = decorated
+		}
+	}
+
+	http.Redirect(w, r, authURL, http.StatusFound)
 }
 
+// CallbackHandler godoc
+//
+// @Summary      OAuth2 provider callback
+// @Description  Completes an OAuth2 login started by LoginHandler. Not called directly by clients — the provider redirects here (Apple posts via application/x-www-form-urlencoded). On success, redirects to redirect_uri with cookies set (web) or to the deep link with a one-time opaque code (mobile).
+// @Tags         auth
+// @Produce      json
+// @Param        provider  path  string  true  "OAuth2 provider"  Enums(google, spotify, apple)
+// @Success      302  "Redirects to redirect_uri (web) or the deep link (mobile)"
+// @Failure      400  {object}  core.APIError  "Missing provider or malformed/missing state"
+// @Failure      500  {object}  core.APIError  "OAuth flow, database, or token issuance failure"
+// @Router       /auth/{provider}/callback [get]
+// @Router       /auth/{provider}/callback [post]
 func (h *AuthHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		if err := r.ParseForm(); err != nil {
 			h.logger.Error("failed to parse Apple callback form", "error", err)
-			http.Error(w, "invalid request", http.StatusBadRequest)
+			core.WriteError(w, http.StatusBadRequest, "invalid request")
 			return
 		}
 	}
@@ -226,20 +308,20 @@ func (h *AuthHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	provider, err := GetProviderName(r)
 	if err != nil {
 		h.logger.Warn("missing provider in callback", "error", err)
-		http.Error(w, "missing provider", http.StatusBadRequest)
+		core.WriteError(w, http.StatusBadRequest, "missing provider")
 		return
 	}
 
 	stateData, err := decodeState(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		core.WriteError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	gothUser, err := gothic.CompleteUserAuth(w, r)
 	if err != nil {
 		h.logger.Error("OAuth flow failed", slog.Any("error", err))
-		http.Error(w, "authentication failed", http.StatusInternalServerError)
+		core.WriteError(w, http.StatusInternalServerError, "authentication failed")
 		return
 	}
 
@@ -253,7 +335,7 @@ func (h *AuthHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 			"failed to acquire DB connection",
 			slog.Any("error", err),
 		)
-		http.Error(w, "database error", http.StatusInternalServerError)
+		core.WriteError(w, http.StatusInternalServerError, "database error")
 		return
 	}
 
@@ -261,7 +343,7 @@ func (h *AuthHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = core.WithTransaction(r.Context(), conn, func(tx pgx.Tx) error {
 		repo := repository.New(tx)
-		deviceSvc := service.NewDeviceService(repo)
+		deviceSvc := devicesvc.NewDeviceService(repo)
 		tokenSvc := tokens.NewTokenService(repo, h.cacher, h.auth.config)
 
 		account, err := h.upsertAccount(r, repo, gothUser)
@@ -279,13 +361,49 @@ func (h *AuthHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 			return err
 		}
 
-		// Parse IP from request
-		ip, err := netip.ParseAddr(strings.Split(r.RemoteAddr, ":")[0])
+		// Mirror the provider credentials into oauth_grants, which is what the
+		// broker and the incremental flow read. Scopes are marked unverified:
+		// goth discards the token response's scope field, so what we have here
+		// is what we *asked* for, not what the provider confirmed. The first
+		// broker call refreshes and learns the truth.
+		if h.grants != nil {
+			if err := h.grants(repo).RecordGrant(
+				r.Context(),
+				grantsvc.RecordGrantInput{
+					AccountID:      account.ID,
+					Provider:       provider,
+					ExternalUserID: gothUser.UserID,
+					AccessToken:    gothUser.AccessToken,
+					RefreshToken:   gothUser.RefreshToken,
+					ExpiresAt:      gothUser.ExpiresAt,
+					GrantedScopes:  h.auth.registry.LoginScopesFor(provider),
+					ScopesVerified: false,
+				},
+			); err != nil {
+				// Non-fatal: failing a login because the grant mirror failed
+				// would trade a working sign-in for a feature nobody has asked
+				// for yet at this point in the request.
+				h.logger.Error(
+					"failed to record oauth grant at login",
+					slog.String("provider", provider),
+					slog.Any("error", err),
+				)
+			}
+		}
+
+		// Parse IP from request. net.SplitHostPort (not a naive strings.Split
+		// on ":") is required here since IPv6 addresses contain multiple
+		// colons themselves.
+		host, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			return fmt.Errorf("split remote addr: %w", err)
+		}
+		ip, err := netip.ParseAddr(host)
 		if err != nil {
 			return fmt.Errorf("parse remote addr: %w", err)
 		}
 
-		input := service.DeviceRegistrationInput{
+		input := devicesvc.DeviceRegistrationInput{
 			UserID:      account.ID,
 			DeviceName:  stateData.DeviceName,
 			Platform:    stateData.Platform,
@@ -329,7 +447,7 @@ func (h *AuthHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		h.logger.Error("callback transaction failed", slog.Any("error", err))
-		http.Error(w, "authentication failed", http.StatusInternalServerError)
+		core.WriteError(w, http.StatusInternalServerError, "authentication failed")
 		return
 	}
 
@@ -340,6 +458,18 @@ func (h *AuthHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// RefreshTokenHandler godoc
+//
+// @Summary      Rotate a refresh token
+// @Description  Consumes the given refresh token and issues a fresh access/refresh pair. Reusing an already-rotated, revoked, or expired refresh token revokes its entire token family and returns 401.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body      auth.refreshTokenRequest  true  "Refresh token to rotate"
+// @Success      200  {object}  auth.tokenResponse
+// @Failure      400  {object}  core.APIError  "Missing or malformed refresh_token"
+// @Failure      401  {object}  core.APIError  "Refresh token invalid, expired, or reuse detected"
+// @Router       /auth/token/refresh [post]
 func (h *AuthHandler) RefreshTokenHandler(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -386,11 +516,24 @@ func (h *AuthHandler) RefreshTokenHandler(
 	return nil
 }
 
+// RevokeTokenHandler godoc
+//
+// @Summary      Revoke the caller's access token (and optionally a refresh token family)
+// @Description  Blocklists the presented access token for its remaining lifetime. If a refresh_token is also supplied, revokes its entire token family too; refresh-family revocation failure is logged but non-fatal.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body  auth.revokeTokenRequest  false  "Optional refresh token to also revoke its family"
+// @Success      204  "No Content"
+// @Failure      401  {object}  core.APIError  "Missing or invalid claims"
+// @Failure      500  {object}  core.APIError  "Failed to revoke token"
+// @Security     BearerToken
+// @Router       /auth/token/revoke [post]
 func (h *AuthHandler) RevokeTokenHandler(
 	w http.ResponseWriter,
 	r *http.Request,
 ) error {
-	claims, ok := r.Context().Value(middleware.AuthUserClaims).(*tokens.VerisafeClaims)
+	claims, ok := middleware.ClaimsFromContext(r.Context())
 	if !ok || claims == nil {
 		return fmt.Errorf("%w: missing claims", core.ErrUnauthorized)
 	}
@@ -408,7 +551,7 @@ func (h *AuthHandler) RevokeTokenHandler(
 		return fmt.Errorf("%w: failed to acquire connection", core.ErrInternal)
 	}
 
-	remaining := time.Until(claims.RegisteredClaims.ExpiresAt.Time)
+	remaining := time.Until(claims.ExpiresAt.Time)
 
 	err = core.WithTransaction(r.Context(), conn, func(tx pgx.Tx) error {
 		tokenSvc := tokens.NewTokenService(
@@ -451,11 +594,23 @@ func (h *AuthHandler) RevokeTokenHandler(
 	return nil
 }
 
+// LogoutHandler godoc
+//
+// @Summary      Log out of the OAuth2 provider session
+// @Description  Clears the goth/gothic OAuth2 session for the given provider. This is not the same as token revocation — call RevokeTokenHandler too if the client also wants to invalidate its JWT/refresh token.
+// @Tags         auth
+// @Produce      json
+// @Param        provider  path  string  true  "OAuth2 provider"  Enums(google, spotify, apple)
+// @Success      307  "Redirects to /"
+// @Failure      400  {object}  core.APIError  "Missing provider"
+// @Failure      500  {object}  core.APIError  "Failed to log out from provider"
+// @Security     BearerToken
+// @Router       /auth/{provider}/logout [get]
 func (h *AuthHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	provider, err := GetProviderName(r)
 	if err != nil {
 		h.logger.Warn("missing provider in logout request", "error", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		core.WriteError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -465,7 +620,7 @@ func (h *AuthHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 			slog.String("provider", provider),
 			slog.Any("error", err),
 		)
-		http.Error(w, "logout failed", http.StatusInternalServerError)
+		core.WriteError(w, http.StatusInternalServerError, "logout failed")
 		return
 	}
 
@@ -473,6 +628,19 @@ func (h *AuthHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 }
 
+// ExchangeAuthCodeHandler godoc
+//
+// @Summary      Exchange a mobile auth code for a token pair
+// @Description  Exchanges the one-time opaque code from the deep link (see CallbackHandler) for the access/refresh token pair. The code is single-use with a 60-second TTL and is deleted on first use.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body      auth.authCodeExchangeRequest  true  "Opaque code from the deep link"
+// @Success      200  {object}  auth.tokenResponse
+// @Failure      400  {object}  core.APIError  "Missing or malformed code"
+// @Failure      401  {object}  core.APIError  "Invalid or expired code"
+// @Failure      500  {object}  core.APIError  "Failed to retrieve auth code"
+// @Router       /auth/token/exchange [post]
 func (h *AuthHandler) ExchangeAuthCodeHandler(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -565,6 +733,8 @@ func (h *AuthHandler) upsertSocialConnection(
 		return fmt.Errorf("lookup social connection: %w", err)
 	}
 
+	expiresAt := providerTokenExpiry(user.ExpiresAt)
+
 	if errors.Is(err, pgx.ErrNoRows) {
 		_, err = repo.CreateSocial(r.Context(), repository.CreateSocialParams{
 			UserID:            user.UserID,
@@ -581,7 +751,7 @@ func (h *AuthHandler) upsertSocialConnection(
 			AccessToken:       &user.AccessToken,
 			AccessTokenSecret: &user.AccessTokenSecret,
 			RefreshToken:      &user.RefreshToken,
-			ExpiresAt:         pgtype.Timestamp{Time: user.ExpiresAt},
+			ExpiresAt:         expiresAt,
 		})
 		if err != nil {
 			return fmt.Errorf("create social connection: %w", err)
@@ -603,7 +773,7 @@ func (h *AuthHandler) upsertSocialConnection(
 		AccessToken:       user.AccessToken,
 		AccessTokenSecret: user.AccessTokenSecret,
 		RefreshToken:      user.RefreshToken,
-		ExpiresAt:         pgtype.Timestamp{Time: user.ExpiresAt},
+		ExpiresAt:         expiresAt,
 	})
 	if err != nil {
 		return fmt.Errorf("update social connection: %w", err)
@@ -620,6 +790,29 @@ func (h *AuthHandler) upsertSocialConnection(
 	return nil
 }
 
+// providerTokenExpiry converts a provider-reported access token expiry into
+// the pgtype value the socials queries expect.
+//
+// Two traps live here. The first is that pgtype.Timestamp zero-values to
+// Valid:false, which encodes as SQL NULL — the original code built the value
+// without setting Valid, so socials.expires_at was silently NULL on every
+// login since the column was introduced.
+//
+// The second is why this cannot simply set Valid:true unconditionally: goth
+// reports a zero time for providers and flows that return no expiry, and
+// UpdateSocial does `expires_at = COALESCE($3, expires_at)`. Writing a valid
+// zero time would overwrite a previously-good expiry with year 1. Leaving it
+// invalid keeps NULL flowing into COALESCE, which preserves the stored value.
+//
+// The column is TIMESTAMP without a zone, so the value is normalized to UTC
+// rather than stored in whatever zone the process happens to run in.
+func providerTokenExpiry(expiresAt time.Time) pgtype.Timestamp {
+	if expiresAt.IsZero() {
+		return pgtype.Timestamp{}
+	}
+	return pgtype.Timestamp{Time: expiresAt.UTC(), Valid: true}
+}
+
 func (h *AuthHandler) handleMobileCallback(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -629,13 +822,13 @@ func (h *AuthHandler) handleMobileCallback(
 	code, err := generateOpaqueCode()
 	if err != nil {
 		h.logger.Error("failed to generate auth code", slog.Any("error", err))
-		http.Error(w, "authentication failed", http.StatusInternalServerError)
+		core.WriteError(w, http.StatusInternalServerError, "authentication failed")
 		return
 	}
 
 	if err := h.storeAuthCode(r.Context(), code, pair); err != nil {
 		h.logger.Error("failed to store auth code", slog.Any("error", err))
-		http.Error(w, "authentication failed", http.StatusInternalServerError)
+		core.WriteError(w, http.StatusInternalServerError, "authentication failed")
 		return
 	}
 
