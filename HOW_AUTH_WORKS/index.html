@@ -1,0 +1,2234 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://opencrafts-io.github.io/verisafe/HOW_AUTH_WORKS/">
+      
+      
+        <link rel="prev" href="../BOT_ACCOUNT_CREATION/">
+      
+      
+        <link rel="next" href="../OAUTH_SCOPES/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>How auth works - Verisafe Docs</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Google+Sans:300,300i,400,400i,700,700i%7CGoogle+Sans+Code:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Google Sans";--md-code-font:"Google Sans Code"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#how-auth-works" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Verisafe Docs" class="md-header__button md-logo" aria-label="Verisafe Docs" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Verisafe Docs
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              How auth works
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="light-blue" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Verisafe Docs" class="md-nav__button md-logo" aria-label="Verisafe Docs" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Verisafe Docs
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Introduction to Verisafe
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUTHENTICATION/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../BOT_ACCOUNT_CREATION/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bot Account Creation Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How auth works
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How auth works
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-one-thing-to-understand-first" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The one thing to understand first
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#part-1-signing-in" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Part 1: Signing in
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Part 1: Signing in">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The flow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#web-vs-mobile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Web vs mobile
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#part-2-the-two-tokens-you-get" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Part 2: The two tokens you get
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Part 2: The two tokens you get">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#access-token-short-lived-proves-who-you-are" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Access token — short-lived, proves who you are
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#refresh-token-long-lived-used-to-get-a-new-access-token" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Refresh token — long-lived, used to get a new access token
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#refreshing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Refreshing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-families-exist-catching-a-stolen-token" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why families exist: catching a stolen token
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#logging-out" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Logging out
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#part-3-how-a-request-gets-authenticated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Part 3: How a request gets authenticated
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Part 3: How a request gets authenticated">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#reading-the-result-in-a-handler" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reading the result in a handler
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#part-4-permissions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Part 4: Permissions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Part 4: Permissions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#own-vs-any" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        own vs any
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#adding-a-permission" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adding a permission
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#part-5-getting-at-google-on-a-users-behalf" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Part 5: Getting at Google on a user's behalf
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Part 5: Getting at Google on a user&#39;s behalf">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#capabilities-not-scopes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Capabilities, not scopes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#asking-for-a-token" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Asking for a token
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#refresh-happens-automatically" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Refresh happens automatically
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#asking-the-user-for-more-access" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Asking the user for more access
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verified-vs-presumed-scopes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "verified" vs "presumed" scopes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-gotchas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common gotchas
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-things-live" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where things live
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Next
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../OAUTH_SCOPES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Third-party OAuth: scopes, grants and token brokering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../RABBITMQ_INTEGRATION/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RabbitMQ Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../RBAC/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roles and Permissions (RBAC)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../SERVICE_INTEGRATION/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integrating a service with the token broker
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../SERVICE_TOKENS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Service Tokens Implementation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adrs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Adrs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adrs/0001-verisafe-authentication-and-token-strategy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    1. Verisafe authentication and token strategy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adrs/0002-adopt-swagger-openapi-for-api-documentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2. Adopt Swagger/OpenAPI for API Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adrs/0003-standardize-http-error-responses/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    3. Standardize HTTP error responses
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adrs/0004-apple-client-secret-lifecycle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    4. Apple client secret lifecycle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adrs/0005-rbac-handler-bug-fixes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    5. RBAC handler bug fixes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adrs/0006-endpoint-permission-enforcement-rollout/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    6. Endpoint permission enforcement rollout
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adrs/0007-authorization-ownership-checks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    7. Authorization ownership checks for account-scoped endpoints
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adrs/0008-incremental-oauth-scopes-and-token-brokering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Incremental OAuth scopes and provider token brokering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adrs/0009-handler-service-layering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    9. Handler and service layering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adrs/adr_template/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    {title}
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Events
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Events
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../events/institution_connection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Institution Connection Event Schema - Consumer Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-one-thing-to-understand-first" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The one thing to understand first
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#part-1-signing-in" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Part 1: Signing in
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Part 1: Signing in">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The flow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#web-vs-mobile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Web vs mobile
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#part-2-the-two-tokens-you-get" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Part 2: The two tokens you get
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Part 2: The two tokens you get">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#access-token-short-lived-proves-who-you-are" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Access token — short-lived, proves who you are
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#refresh-token-long-lived-used-to-get-a-new-access-token" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Refresh token — long-lived, used to get a new access token
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#refreshing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Refreshing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-families-exist-catching-a-stolen-token" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why families exist: catching a stolen token
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#logging-out" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Logging out
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#part-3-how-a-request-gets-authenticated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Part 3: How a request gets authenticated
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Part 3: How a request gets authenticated">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#reading-the-result-in-a-handler" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reading the result in a handler
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#part-4-permissions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Part 4: Permissions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Part 4: Permissions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#own-vs-any" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        own vs any
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#adding-a-permission" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adding a permission
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#part-5-getting-at-google-on-a-users-behalf" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Part 5: Getting at Google on a user's behalf
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Part 5: Getting at Google on a user&#39;s behalf">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#capabilities-not-scopes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Capabilities, not scopes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#asking-for-a-token" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Asking for a token
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#refresh-happens-automatically" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Refresh happens automatically
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#asking-the-user-for-more-access" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Asking the user for more access
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verified-vs-presumed-scopes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "verified" vs "presumed" scopes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-gotchas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common gotchas
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-things-live" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where things live
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Next
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="how-auth-works">How auth works</h1>
+<p>A walkthrough of authentication and authorization in Verisafe. Start here — it explains the whole
+picture in plain language. Once you need exact request/response shapes, go to
+<a href="../AUTHENTICATION/">AUTHENTICATION.md</a>, <a href="../OAUTH_SCOPES/">OAUTH_SCOPES.md</a>, <a href="../RBAC/">RBAC.md</a> and
+<a href="../SERVICE_TOKENS/">SERVICE_TOKENS.md</a>.</p>
+<hr />
+<h2 id="the-one-thing-to-understand-first">The one thing to understand first</h2>
+<p>There are <strong>two completely separate kinds of token</strong> in this codebase, and almost every point of
+confusion comes from mixing them up.</p>
+<pre><code>┌──────────────────────────────────┐   ┌──────────────────────────────────┐
+│  Verisafe tokens                 │   │  Provider tokens                 │
+│                                  │   │                                  │
+│  &quot;Who is this caller?&quot;           │   │  &quot;What may we do at Google       │
+│                                  │   │   on this user's behalf?&quot;        │
+│                                  │   │                                  │
+│  Issued BY Verisafe              │   │  Issued BY Google / Spotify      │
+│  Given TO apps and services      │   │  Kept INSIDE Verisafe, never     │
+│                                  │   │    handed out                    │
+│                                  │   │                                  │
+│  Tables: issued_tokens,          │   │  Table: oauth_grants             │
+│          refresh_tokens          │   │                                  │
+└──────────────────────────────────┘   └──────────────────────────────────┘
+</code></pre>
+<p>Google appears on both sides, which is what makes this confusing at first:</p>
+<ul>
+<li>At <strong>sign-in</strong>, Google tells us <em>who you are</em>. We then forget Google's token and issue our own.</li>
+<li>Later, Google is a <strong>thing we want access to</strong> (your calendar). That's a separate permission the
+  user grants separately.</li>
+</ul>
+<p>Signing in with Google does <strong>not</strong> mean we can read your calendar. Those are two different questions
+with two different answers, stored in two different places.</p>
+<hr />
+<h2 id="part-1-signing-in">Part 1: Signing in</h2>
+<h3 id="the-flow">The flow</h3>
+<pre><code>  App                    Verisafe                  Google
+   │                        │                        │
+   │  GET /auth/google      │                        │
+   │───────────────────────&gt;│                        │
+   │                        │                        │
+   │   302 to Google ───────────────────────────────&gt;│
+   │                        │                        │
+   │                        │      user logs in      │
+   │                        │                        │
+   │                        │&lt;─── 302 with ?code ────│
+   │                        │                        │
+   │                        │  swap code for profile │
+   │                        │───────────────────────&gt;│
+   │                        │&lt;───────────────────────│
+   │                        │
+   │                        │  ┌──────────────────────────────┐
+   │                        │  │ ONE DATABASE TRANSACTION:    │
+   │                        │  │  1. find/create account      │
+   │                        │  │  2. save social profile      │
+   │                        │  │  3. save provider tokens     │
+   │                        │  │  4. register the device      │
+   │                        │  │  5. issue OUR token pair     │
+   │                        │  └──────────────────────────────┘
+   │                        │
+   │&lt;── cookies (web) or deep link with a code (mobile)
+</code></pre>
+<p>All five steps are in one transaction, so a login either fully happens or doesn't happen at all. You
+never end up with an account row but no tokens.</p>
+<p>Code: <code>LoginHandler</code> and <code>CallbackHandler</code> in <code>internal/auth/auth_handler.go</code>.</p>
+<h3 id="web-vs-mobile">Web vs mobile</h3>
+<p>The last step differs by platform:</p>
+<p><strong>Web</strong> — the tokens are set as cookies and the browser is redirected back to your app:</p>
+<pre><code class="language-go">http.SetCookie(w, &amp;http.Cookie{
+    Name:     &quot;access_token&quot;,
+    Value:    pair.AccessToken,
+    HttpOnly: true,                    // JavaScript cannot read it
+    Secure:   true,                    // HTTPS only
+    SameSite: http.SameSiteStrictMode, // not sent from other sites
+})
+</code></pre>
+<p><strong>Mobile</strong> — cookies don't work well in a mobile browser handoff, and putting tokens in a URL is
+unsafe (URLs land in logs and browser history). So we hand over a <strong>one-time code</strong> instead:</p>
+<pre><code>Verisafe stores the tokens in Redis for 60 seconds under a random code,
+then redirects to:  myapp://auth/callback?code=8f3a...
+
+The app then swaps that code for the real tokens:
+
+    POST /auth/token/exchange
+    { &quot;code&quot;: &quot;8f3a...&quot; }
+
+    → { &quot;access_token&quot;: &quot;...&quot;, &quot;refresh_token&quot;: &quot;...&quot;, ... }
+</code></pre>
+<p>The code works exactly once and expires after 60 seconds.</p>
+<hr />
+<h2 id="part-2-the-two-tokens-you-get">Part 2: The two tokens you get</h2>
+<h3 id="access-token-short-lived-proves-who-you-are">Access token — short-lived, proves who you are</h3>
+<p>A JWT, signed with a shared secret. Here's literally how it's built
+(<code>internal/tokens/token_service.go</code>):</p>
+<pre><code class="language-go">claims := jwt.RegisteredClaims{
+    ID:        jti.String(),       // unique id for THIS token
+    Subject:   userID.String(),    // which account
+    Issuer:    &quot;https://verisafe.opencrafts.io/&quot;,
+    Audience:  []string{&quot;https://academia.opencrafts.io/&quot;},
+    IssuedAt:  jwt.NewNumericDate(time.Now()),
+    ExpiresAt: jwt.NewNumericDate(expiry),
+}
+token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+return token.SignedString([]byte(ts.config.JWTConfig.ApiSecret))
+</code></pre>
+<p>Notice what is <strong>not</strong> in there: no roles, no permissions, no email, no scopes. Just "this is account
+X, and this token is valid until Y".</p>
+<blockquote>
+<p><strong>Why so empty?</strong> Because the middleware already reads roles and permissions from the database on
+every request (see Part 3). Putting them in the token would save nothing and would go stale the
+moment someone's permissions changed.</p>
+</blockquote>
+<p>Lifetime: <code>EXPIRE_DELTA</code> minutes. Short, typically minutes — because a JWT can't be un-issued.</p>
+<h3 id="refresh-token-long-lived-used-to-get-a-new-access-token">Refresh token — long-lived, used to get a new access token</h3>
+<p>Not a JWT. Just 32 random bytes. Two things matter:</p>
+<p><strong>1. We store only a hash of it.</strong> Same idea as passwords — if the database leaks, the stored value
+is useless:</p>
+<pre><code class="language-go">rawRefreshToken, _ := generateOpaqueToken()  // 32 random bytes
+tokenHash := hashToken(rawRefreshToken)      // SHA-256
+
+// The hash goes in the database. The raw value goes to the user and
+// is never stored anywhere.
+</code></pre>
+<p><strong>2. Every login starts a "family".</strong> All refresh tokens descended from one login share a
+<code>family_id</code>. This is what makes theft detectable — see below.</p>
+<p>Lifetime: <code>REFRESH_EXPIRE_DELTA</code> days.</p>
+<h3 id="refreshing">Refreshing</h3>
+<pre><code>POST /auth/token/refresh
+{ &quot;refresh_token&quot;: &quot;abc...&quot; }
+
+→ { &quot;access_token&quot;: &quot;new...&quot;, &quot;refresh_token&quot;: &quot;new...&quot;, ... }
+</code></pre>
+<p>The old refresh token is <strong>consumed</strong> — it stops working. You always get a fresh pair back.</p>
+<h3 id="why-families-exist-catching-a-stolen-token">Why families exist: catching a stolen token</h3>
+<p>Suppose an attacker steals a refresh token.</p>
+<pre><code>  Real user                     Attacker
+      │                             │
+      │                             │  uses stolen token
+      │                             │─────────────────────&gt; ✓ works, gets new pair
+      │                             │
+      │  uses their token           │
+      │  (now already consumed)     │
+      │──────────────────────────────────────────────────&gt; ✗ already used!
+      │
+      │        Verisafe: &quot;this token was already consumed — something is wrong&quot;
+      │        → revokes the ENTIRE family
+      │        → both the user and the attacker are logged out
+</code></pre>
+<p>The alternative — silently ignoring reuse — would let the attacker keep rotating forever without
+anyone noticing. Logging both parties out is deliberately noisy: the real user re-logs in, the
+attacker can't.</p>
+<pre><code class="language-go">existing, err := ts.repo.ClaimRefreshToken(ctx, tokenHash)
+if err != nil {
+    if errors.Is(err, pgx.ErrNoRows) {
+        // Already used, revoked, or never existed — kill the whole family.
+        token, err := ts.repo.GetRefreshTokenByHash(ctx, tokenHash)
+        if err == nil {
+            _ = ts.RevokeFamily(ctx, token.FamilyID)
+        }
+        return nil, errors.New(&quot;refresh token reuse detected: please re-login&quot;)
+    }
+    ...
+}
+</code></pre>
+<blockquote>
+<p><strong>Heads up:</strong> an <em>expired</em> token takes the same path and gives the same message. A user coming back
+after a long holiday sees "reuse detected" and it usually just means "log in again" — not a breach.</p>
+</blockquote>
+<h3 id="logging-out">Logging out</h3>
+<p>Two different things, often confused:</p>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>POST /auth/token/revoke</code></td>
+<td>Kills Verisafe's tokens. <strong>This is the real logout.</strong></td>
+</tr>
+<tr>
+<td><code>GET /auth/{provider}/logout</code></td>
+<td>Only clears the Google/Spotify session cookie. Does <strong>not</strong> touch our tokens.</td>
+</tr>
+</tbody>
+</table>
+<p>A full sign-out calls both.</p>
+<p>Access tokens are stateless, so revoking one means remembering to reject it. Its <code>jti</code> goes into
+Redis for however long the token had left:</p>
+<pre><code class="language-go">key := fmt.Sprintf(&quot;blocklist:%s&quot;, jti.String())
+return ts.cacher.Set(ctx, key, &quot;revoked&quot;, remainingTTL)
+</code></pre>
+<p>Once the token would have expired anyway, the entry disappears on its own.</p>
+<hr />
+<h2 id="part-3-how-a-request-gets-authenticated">Part 3: How a request gets authenticated</h2>
+<p>Every protected endpoint runs <code>middleware.IsAuthenticated</code> first. It accepts <strong>two</strong> kinds of caller.</p>
+<pre><code>  Incoming request
+        │
+        ├── Authorization: Bearer &lt;jwt&gt;   ──&gt; a HUMAN
+        │      • check signature + expiry
+        │      • check the Redis blocklist
+        │
+        └── X-API-Key: vst_...            ──&gt; a SERVICE (bot)
+               • look up by hash
+               • not revoked? not expired? under max uses?
+               • IP allowed? user-agent matches?
+               • account type must be `bot`
+        │
+        ▼
+  Load roles + permissions from the database
+        │
+        ▼
+  Put them on the request context
+</code></pre>
+<pre><code class="language-go">switch {
+case strings.HasPrefix(authHeader, &quot;Bearer &quot;):
+    rawToken := strings.TrimPrefix(authHeader, &quot;Bearer &quot;)
+    parsedClaims, err := tokenSvc.ValidateAccessToken(r.Context(), rawToken)
+    ...
+
+case apiKey != &quot;&quot;:
+    serviceToken, err := repo.GetServiceTokenByHash(r.Context(), tokens.HashToken(apiKey))
+    ...
+}
+
+// Both paths end up here:
+ctx = context.WithValue(ctx, AuthUserClaims, claims)
+ctx = context.WithValue(ctx, AuthUserRoles, roles)
+ctx = context.WithValue(ctx, AuthUserPerms, perms)
+</code></pre>
+<h3 id="reading-the-result-in-a-handler">Reading the result in a handler</h3>
+<p>Always use the helpers. A raw type assertion panics if the middleware didn't run:</p>
+<pre><code class="language-go">// Good
+claims, ok := middleware.ClaimsFromContext(r.Context())
+if !ok || claims == nil {
+    return fmt.Errorf(&quot;%w: missing claims&quot;, core.ErrUnauthorized)
+}
+accountID, err := uuid.Parse(claims.Subject)   // who is calling
+
+perms := middleware.PermissionsFromContext(r.Context())
+isService := middleware.IsServiceToken(r.Context())
+
+// Bad — panics when IsAuthenticated hasn't run
+perms := r.Context().Value(middleware.AuthUserPerms).([]string)
+</code></pre>
+<hr />
+<h2 id="part-4-permissions">Part 4: Permissions</h2>
+<p>Permissions are plain strings shaped <code>verb:resource:scope</code>:</p>
+<pre><code>read:account:own      read your own account
+read:account:any      read anybody's account
+create:role           create a role (no scope — creation has no owner yet)
+</code></pre>
+<p>You attach them to a route:</p>
+<pre><code class="language-go">router.Handle(&quot;GET /socials/me&quot;,
+    middleware.CreateStack(
+        middleware.IsAuthenticated(sh.Cfg, sh.DB, sh.Cacher, sh.Logger),
+        middleware.HasPermission([]string{&quot;read:account:own&quot;}),
+    )(http.HandlerFunc(sh.GetAllUserSocials)),
+)
+</code></pre>
+<p>Order matters — <code>IsAuthenticated</code> must come first, because <code>HasPermission</code> reads what it put on the
+context.</p>
+<p>The check itself is unforgiving on purpose: exact string match, and you need <strong>all</strong> listed
+permissions, not any:</p>
+<pre><code class="language-go">for _, required := range permissions {
+    if !slices.Contains(perms, required) {
+        w.WriteHeader(http.StatusForbidden)
+        ...
+        return
+    }
+}
+next.ServeHTTP(w, r)
+</code></pre>
+<h3 id="own-vs-any"><code>own</code> vs <code>any</code></h3>
+<p>The route requires the <code>:own</code> version. Handlers that let admins act on anyone check for <code>:any</code>
+themselves:</p>
+<pre><code class="language-go">perms := middleware.PermissionsFromContext(r.Context())
+isAdmin := slices.Contains(perms, &quot;read:account:any&quot;)
+
+if !isAdmin &amp;&amp; targetID.String() != claims.Subject {
+    return fmt.Errorf(&quot;%w: you can only read your own account&quot;, core.ErrForbidden)
+}
+</code></pre>
+<h3 id="adding-a-permission">Adding a permission</h3>
+<p>Permissions live in the database, added by a migration. Two things trip people up:</p>
+<ol>
+<li>A trigger auto-grants every new permission to <code>system</code> and <code>Administrator</code> — <strong>and nobody else</strong>.</li>
+<li>If regular users need it, grant it to the <code>user</code> role explicitly. Every account has that role
+   automatically (another trigger does it at signup), so no backfill is needed:</li>
+</ol>
+<pre><code class="language-sql">INSERT INTO permissions (name, description)
+VALUES ('read:widget:own', 'Permission to read your own widgets')
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r, permissions p
+WHERE r.name = 'user' AND p.name = 'read:widget:own'
+ON CONFLICT DO NOTHING;
+</code></pre>
+<p>Forget the second block and you've locked every normal user out of your new endpoint.</p>
+<hr />
+<h2 id="part-5-getting-at-google-on-a-users-behalf">Part 5: Getting at Google on a user's behalf</h2>
+<p>Now the other half. Say the calendar service wants to read a user's Google Calendar.</p>
+<blockquote>
+<p>If you're actually building that service, <a href="../SERVICE_INTEGRATION/">SERVICE_INTEGRATION.md</a> has the
+setup steps and a working client. This section explains the idea.</p>
+</blockquote>
+<h3 id="capabilities-not-scopes">Capabilities, not scopes</h3>
+<p>You ask for <code>"calendar"</code>, not <code>https://www.googleapis.com/auth/calendar</code>. The mapping lives in one
+place, <code>internal/providers/descriptors.go</code>:</p>
+<pre><code class="language-go">Capabilities: map[Capability][]string{
+    CapabilityIdentity: {googleScopeEmail, googleScopeProfile},
+    CapabilityCalendar: {googleScopeCalendar},
+    CapabilityTasks:    {googleScopeTasks},
+},
+</code></pre>
+<p>This is also why adding Microsoft later is one block of config rather than a refactor — nothing else
+in the codebase knows what a Google scope string looks like.</p>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>Capabilities</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>google</code></td>
+<td><code>identity</code>, <code>calendar</code>, <code>tasks</code></td>
+</tr>
+<tr>
+<td><code>spotify</code></td>
+<td><code>identity</code>, <code>playback</code>, <code>playlist</code>, <code>library</code></td>
+</tr>
+<tr>
+<td><code>apple</code></td>
+<td><code>identity</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>A capability is meaningless on its own — it's always "this capability, at this provider".</strong> <code>identity</code>
+shows up under all three, but it's a different thing each time:</p>
+<table>
+<thead>
+<tr>
+<th><code>identity</code> at</th>
+<th>means</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>google</td>
+<td><code>userinfo.email</code> + <code>userinfo.profile</code></td>
+</tr>
+<tr>
+<td>spotify</td>
+<td><code>user-read-email</code> + <code>user-read-private</code></td>
+</tr>
+<tr>
+<td>apple</td>
+<td><code>name</code> + <code>email</code></td>
+</tr>
+</tbody>
+</table>
+<p>You never have to spell out which one you mean, because the provider is always right there — in the
+URL when you ask, and in a <code>provider</code> field on every grant when you read:</p>
+<pre><code>POST /oauth/spotify/token   { &quot;capabilities&quot;: [&quot;identity&quot;] }   ← Spotify's
+POST /oauth/google/token    { &quot;capabilities&quot;: [&quot;identity&quot;] }   ← Google's
+</code></pre>
+<p>A user can have <code>identity</code> at all three at once. They're three separate grants — disconnecting Google
+doesn't touch Spotify.</p>
+<h3 id="asking-for-a-token">Asking for a token</h3>
+<pre><code>POST /oauth/google/token
+X-API-Key: vst_...
+{ &quot;account_id&quot;: &quot;9f1c...&quot;, &quot;capabilities&quot;: [&quot;calendar&quot;] }
+</code></pre>
+<p>Two possible answers:</p>
+<p><strong>The user granted it:</strong></p>
+<pre><code class="language-json">{
+  &quot;access_token&quot;: &quot;ya29...&quot;,
+  &quot;expires_at&quot;: &quot;2026-07-27T13:31:00Z&quot;,
+  &quot;granted_scopes&quot;: [&quot;https://www.googleapis.com/auth/calendar&quot;],
+  &quot;scopes_verified&quot;: true,
+  &quot;refreshed&quot;: false
+}
+</code></pre>
+<p><strong>They didn't:</strong></p>
+<pre><code class="language-json">HTTP/1.1 403
+{
+  &quot;error&quot;: &quot;insufficient_scope&quot;,
+  &quot;missing_capabilities&quot;: [&quot;calendar&quot;],
+  &quot;authorization_url&quot;: &quot;https://verisafe.opencrafts.io/oauth/google/authorize&quot;,
+  &quot;authorization_method&quot;: &quot;POST&quot;,
+  &quot;authorization_body&quot;: { &quot;capabilities&quot;: [&quot;calendar&quot;] }
+}
+</code></pre>
+<p>That second response is a set of instructions: relay it to your client, which asks the user to
+authorize, then retry.</p>
+<p>Note you get an <strong>access token only</strong>. The refresh token stays inside Verisafe. If your service is
+ever compromised, the attacker loses access within the hour instead of holding permanent reach into
+someone's Google account.</p>
+<h3 id="refresh-happens-automatically">Refresh happens automatically</h3>
+<p>Google access tokens die after about an hour. You never handle that:</p>
+<pre><code>broker receives a request
+    │
+    ├─ token still fresh?  ──&gt; hand it over
+    │
+    └─ stale or unknown?   ──&gt; refresh against Google
+                                store the new one
+                                hand it over
+</code></pre>
+<p>Refresh is <strong>lazy</strong> — only when someone actually asks. Refreshing everyone's tokens on a timer would
+mean tens of thousands of pointless calls to Google per day to save a fraction of a second on the one
+request that needed it.</p>
+<h3 id="asking-the-user-for-more-access">Asking the user for more access</h3>
+<pre><code>  App                       Verisafe                   Google
+   │                            │                         │
+   │ POST /oauth/google/authorize                         │
+   │ Authorization: Bearer &lt;user jwt&gt;                     │
+   │ { &quot;capabilities&quot;: [&quot;calendar&quot;] }                     │
+   │───────────────────────────&gt;│                         │
+   │&lt;── { authorization_url } ──│                         │
+   │                            │                         │
+   │  open that URL ─────────────────────────────────────&gt;│
+   │                            │      user approves      │
+   │                            │&lt;── GET /oauth/google/callback
+   │                            │                         │
+   │                            │  save what was granted  │
+   │                            │                         │
+   │&lt;─ back to your app: ?scope_upgrade=success&amp;granted=calendar
+</code></pre>
+<p><strong>The user's login is untouched by this.</strong> No new session, no new device, no new tokens. They were
+signed in before and they're signed in after — they just granted one extra thing. That's why it's a
+separate endpoint from the login callback, which <em>does</em> create a session.</p>
+<p>Why a URL instead of a redirect? Because this endpoint needs the user's <code>Authorization</code> header, and a
+browser navigating to a URL can't send one. Mobile apps also need the URL themselves to open it in a
+Custom Tab.</p>
+<h3 id="verified-vs-presumed-scopes">"verified" vs "presumed" scopes</h3>
+<p>You'll see <code>scopes_verified</code> in responses. Here's what it means.</p>
+<p>No provider offers an API that answers "what did this user grant me?". You only learn scopes when you
+exchange or refresh a token. So for accounts that existed before this system was built, we recorded
+what logins <em>used to ask for</em> — an educated guess, marked <strong>presumed</strong>.</p>
+<p>The rule this leads to:</p>
+<blockquote>
+<p><strong>Never refuse based on a guess.</strong> If the grant is verified and a scope is missing, that's a real
+refusal. If it's only presumed, try the refresh anyway and let Google decide.</p>
+</blockquote>
+<p>Worst case a wrong guess costs one extra round trip. It can never wrongly refuse someone who does
+have access. And because those old records have no known expiry, the first real request refreshes
+them — which is exactly when Google tells us the truth. The guesses fix themselves through normal
+use.</p>
+<hr />
+<h2 id="common-gotchas">Common gotchas</h2>
+<p><strong>"reuse detected" on a user who did nothing wrong</strong> — their refresh token probably just expired.
+Same code path, same message. Check the age before assuming an attack.</p>
+<p><strong>403 from a brand-new endpoint, for everyone</strong> — you added a permission but didn't grant it to the
+<code>user</code> role. See Part 4.</p>
+<p><strong>403 from the broker for a service</strong> — service accounts don't inherit new permissions. Assign the
+<code>oauth-token-broker</code> role to that specific account: <code>GET /roles/assign/{account_id}/{role_id}</code>.</p>
+<p><strong>Panic reading permissions</strong> — you used <code>.([]string)</code> instead of
+<code>middleware.PermissionsFromContext</code>.</p>
+<p><strong>Logout "didn't work"</strong> — you called the provider logout, which only clears Google's session. Call
+<code>POST /auth/token/revoke</code>.</p>
+<p><strong>Broker says <code>insufficient_scope</code> for a user who definitely has access</strong> — check <code>scopes_verified</code>.
+If false, call again; the first call converts the guess into fact.</p>
+<hr />
+<h2 id="where-things-live">Where things live</h2>
+<table>
+<thead>
+<tr>
+<th>I want to...</th>
+<th>Look at</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Change the login flow</td>
+<td><code>internal/auth/auth_handler.go</code></td>
+</tr>
+<tr>
+<td>Change token issuing, refresh, revocation</td>
+<td><code>internal/tokens/token_service.go</code></td>
+</tr>
+<tr>
+<td>Change who can call an endpoint</td>
+<td>that handler's <code>RegisterHandlers</code></td>
+</tr>
+<tr>
+<td>Change how requests are authenticated</td>
+<td><code>internal/middleware/auth_middleware.go</code></td>
+</tr>
+<tr>
+<td>Add an OAuth provider</td>
+<td><code>internal/providers/descriptors.go</code></td>
+</tr>
+<tr>
+<td>Change provider token storage or refresh</td>
+<td><code>internal/service/oauth_grant_service.go</code></td>
+</tr>
+<tr>
+<td>Change the token broker API</td>
+<td><code>internal/handlers/oauth_broker_handler.go</code></td>
+</tr>
+<tr>
+<td>Change the "grant more access" flow</td>
+<td><code>internal/handlers/oauth_scope_handler.go</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="next">Next</h2>
+<ul>
+<li><a href="../SERVICE_INTEGRATION/">SERVICE_INTEGRATION.md</a> — building a service that needs a Google or Spotify token</li>
+<li><a href="../AUTHENTICATION/">AUTHENTICATION.md</a> — exact endpoints and payloads for login and tokens</li>
+<li><a href="../OAUTH_SCOPES/">OAUTH_SCOPES.md</a> — the <code>/oauth/*</code> API and how to operate it</li>
+<li><a href="../RBAC/">RBAC.md</a> — the full permission list</li>
+<li><a href="../SERVICE_TOKENS/">SERVICE_TOKENS.md</a> — creating and managing service tokens</li>
+<li><a href="../adrs/0001-verisafe-authentication-and-token-strategy/">ADR 0001</a> — why tokens work this way</li>
+<li><a href="../adrs/0008-incremental-oauth-scopes-and-token-brokering/">ADR 0008</a> — why provider access works this way</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../BOT_ACCOUNT_CREATION/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Bot Account Creation Guide">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Bot Account Creation Guide
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../OAUTH_SCOPES/" class="md-footer__link md-footer__link--next" aria-label="Next: Third-party OAuth: scopes, grants and token brokering">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Third-party OAuth: scopes, grants and token brokering
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2025 Open Crafts Interactive Ltd
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+    <a href="https://github.com/opencrafts-io" target="_blank" rel="noopener" title="Github" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+    <a href="mailto:developers@opencrafts.io" target="_blank" rel="noopener" title="Email" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M536.4-26.3c9.8-3.5 20.6-1 28 6.3s9.8 18.2 6.3 28l-178 496.9c-5 13.9-18.1 23.1-32.8 23.1-14.2 0-27-8.6-32.3-21.7l-64.2-158c-4.5-11-2.5-23.6 5.2-32.6l94.5-112.4c5.1-6.1 4.7-15-.9-20.6s-14.6-6-20.6-.9l-112.4 94.3c-9.1 7.6-21.6 9.6-32.6 5.2L38.1 216.8c-13.1-5.3-21.7-18.1-21.7-32.3 0-14.7 9.2-27.8 23.1-32.8z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["header.autohide", "navigation.footer"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

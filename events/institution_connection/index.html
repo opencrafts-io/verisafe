@@ -1,0 +1,2069 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://opencrafts-io.github.io/verisafe/events/institution_connection/">
+      
+      
+        <link rel="prev" href="../../adrs/adr_template/">
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Institution Connection Event Schema - Consumer Guide - Verisafe Docs</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Google+Sans:300,300i,400,400i,700,700i%7CGoogle+Sans+Code:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Google Sans";--md-code-font:"Google Sans Code"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#institution-connection-event-schema-consumer-guide" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Verisafe Docs" class="md-header__button md-logo" aria-label="Verisafe Docs" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Verisafe Docs
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Institution Connection Event Schema - Consumer Guide
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="light-blue" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Verisafe Docs" class="md-nav__button md-logo" aria-label="Verisafe Docs" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Verisafe Docs
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Introduction to Verisafe
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../AUTHENTICATION/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../BOT_ACCOUNT_CREATION/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bot Account Creation Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../HOW_AUTH_WORKS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How auth works
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../OAUTH_SCOPES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Third-party OAuth: scopes, grants and token brokering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../RABBITMQ_INTEGRATION/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RabbitMQ Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../RBAC/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roles and Permissions (RBAC)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../SERVICE_INTEGRATION/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integrating a service with the token broker
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../SERVICE_TOKENS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Service Tokens Implementation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adrs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Adrs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adrs/0001-verisafe-authentication-and-token-strategy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    1. Verisafe authentication and token strategy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adrs/0002-adopt-swagger-openapi-for-api-documentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2. Adopt Swagger/OpenAPI for API Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adrs/0003-standardize-http-error-responses/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    3. Standardize HTTP error responses
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adrs/0004-apple-client-secret-lifecycle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    4. Apple client secret lifecycle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adrs/0005-rbac-handler-bug-fixes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    5. RBAC handler bug fixes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adrs/0006-endpoint-permission-enforcement-rollout/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    6. Endpoint permission enforcement rollout
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adrs/0007-authorization-ownership-checks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    7. Authorization ownership checks for account-scoped endpoints
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adrs/0008-incremental-oauth-scopes-and-token-brokering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Incremental OAuth scopes and provider token brokering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adrs/0009-handler-service-layering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    9. Handler and service layering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adrs/adr_template/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    {title}
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Events
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Events
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Institution Connection Event Schema - Consumer Guide
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Institution Connection Event Schema - Consumer Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#supported-events" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Supported Events
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#queue-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Queue Configuration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Queue Configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#verisafe-publishes-messages-with-the-following-routing-keys" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verisafe publishes messages with the following routing keys:
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#message-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Message Structure
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#metadata-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metadata Schema
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Metadata Schema">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#meta-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Meta Fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#institution-connection-payload-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Institution Connection Payload Schema
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#validation-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation Rules
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#processing-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Processing Behavior
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#idempotency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Idempotency
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-valid-message-user-connected" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: Valid Message - User Connected
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-valid-message-user-disconnected" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: Valid Message - User Disconnected
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-invalid-message-wrong-event-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: Invalid Message - Wrong Event Type
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-invalid-message-wrong-source-service" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: Invalid Message - Wrong Source Service
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-invalid-message-missing-required-field" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: Invalid Message - Missing Required Field
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-invalid-message-malformed-account-id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: Invalid Message - Malformed Account ID
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-invalid-message-malformed-request-id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: Invalid Message - Malformed Request ID
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-validation-passes-user-not-found" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: Validation Passes - User Not Found
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-validation-passes-institution-not-found" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: Validation Passes - Institution Not Found
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#error-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Error Handling
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Error Handling">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#validation-failures" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation Failures
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-not-found" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Not Found
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#processing-failures" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Processing Failures
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#consumer-implementation-guidelines" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consumer Implementation Guidelines
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#supported-events" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Supported Events
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#queue-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Queue Configuration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Queue Configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#verisafe-publishes-messages-with-the-following-routing-keys" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verisafe publishes messages with the following routing keys:
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#message-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Message Structure
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#metadata-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metadata Schema
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Metadata Schema">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#meta-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Meta Fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#institution-connection-payload-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Institution Connection Payload Schema
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#validation-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation Rules
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#processing-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Processing Behavior
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#idempotency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Idempotency
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-valid-message-user-connected" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: Valid Message - User Connected
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-valid-message-user-disconnected" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: Valid Message - User Disconnected
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-invalid-message-wrong-event-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: Invalid Message - Wrong Event Type
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-invalid-message-wrong-source-service" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: Invalid Message - Wrong Source Service
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-invalid-message-missing-required-field" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: Invalid Message - Missing Required Field
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-invalid-message-malformed-account-id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: Invalid Message - Malformed Account ID
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-invalid-message-malformed-request-id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: Invalid Message - Malformed Request ID
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-validation-passes-user-not-found" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: Validation Passes - User Not Found
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-validation-passes-institution-not-found" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: Validation Passes - Institution Not Found
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#error-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Error Handling
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Error Handling">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#validation-failures" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation Failures
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-not-found" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Not Found
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#processing-failures" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Processing Failures
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#consumer-implementation-guidelines" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consumer Implementation Guidelines
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="institution-connection-event-schema-consumer-guide">Institution Connection Event Schema - Consumer Guide</h1>
+<h2 id="overview">Overview</h2>
+<p>This queue delivers events when users connect or disconnect their accounts from institutions in the Verisafe service. As a consumer service, you will receive notifications whenever a user establishes or terminates a connection between their account and an institution.</p>
+<p>Only <strong>Verisafe</strong> publishes to this queue. All other services are consumers.</p>
+<h2 id="supported-events">Supported Events</h2>
+<p>This queue delivers two event types:
+- <code>user.institution.connected</code> - User connected their account to an institution
+- <code>user.institution.disconnected</code> - User disconnected their account from an institution</p>
+<h2 id="queue-configuration">Queue Configuration</h2>
+<p>To consume messages from this queue, use the following configuration:</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Exchange Name</td>
+<td><code>verisafe.events.topic</code></td>
+</tr>
+<tr>
+<td>Exchange Type</td>
+<td><code>topic</code></td>
+</tr>
+<tr>
+<td>Routing Key</td>
+<td><code>user.institution.*</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="verisafe-publishes-messages-with-the-following-routing-keys">Verisafe publishes messages with the following routing keys:</h3>
+<ul>
+<li>user.institution.connected (for user.institution.connected events)</li>
+<li>user.institution.disconnected (for user.institution.disconnected events)</li>
+</ul>
+<p>Both match the consumer pattern: verisafe.institution.connection.*</p>
+<h2 id="message-structure">Message Structure</h2>
+<p>You will receive messages as JSON strings with the following structure:</p>
+<pre><code class="language-json">{
+  &quot;metadata&quot;: {
+    &quot;event_type&quot;: &quot;user.institution.connected&quot;,
+    &quot;timestamp&quot;: &quot;2024-04-03T14:30:00Z&quot;,
+    &quot;source_service_id&quot;: &quot;io.opencrafts.verisafe&quot;,
+    &quot;request_id&quot;: &quot;550e8400-e29b-41d4-a716-446655440000&quot;
+  },
+  &quot;institution_connection&quot;: {
+    &quot;account_id&quot;: &quot;550e8400-e29b-41d4-a716-446655440001&quot;,
+    &quot;institution_id&quot;: 12345
+  }
+}
+</code></pre>
+<p>The <code>event_type</code> can be either:
+- <code>"user.institution.connected"</code> - When a user connects to an institution
+- <code>"user.institution.disconnected"</code> - When a user disconnects from an institution</p>
+<h2 id="metadata-schema">Metadata Schema</h2>
+<pre><code class="language-go">type InstitutionEventMetaData struct {
+    EventType       string    `json:&quot;event_type&quot;`
+    Timestamp       time.Time `json:&quot;timestamp&quot;`
+    SourceServiceID string    `json:&quot;source_service_id&quot;`
+    RequestID       string    `json:&quot;request_id&quot;`
+}
+</code></pre>
+<h3 id="meta-fields">Meta Fields</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Constraint</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>event_type</code></td>
+<td>string</td>
+<td>YES</td>
+<td>Must be <code>"user.institution.connected"</code> or <code>"user.institution.disconnected"</code></td>
+<td>Identifies the event type. Only these two values are accepted.</td>
+</tr>
+<tr>
+<td><code>timestamp</code></td>
+<td>string (ISO 8601)</td>
+<td>YES</td>
+<td>Valid RFC3339/ISO 8601 datetime</td>
+<td>The UTC timestamp when the event was generated. Example: <code>"2024-04-03T14:30:00Z"</code></td>
+</tr>
+<tr>
+<td><code>source_service_id</code></td>
+<td>string</td>
+<td>YES</td>
+<td>Must be exactly <code>"io.opencrafts.verisafe"</code></td>
+<td>Identifies the originating service. Events from other sources are rejected.</td>
+</tr>
+<tr>
+<td><code>request_id</code></td>
+<td>string (UUID)</td>
+<td>YES</td>
+<td>Valid UUID v4</td>
+<td>Unique identifier for tracing and correlation across services. Used for distributed request tracking. Example: <code>"550e8400-e29b-41d4-a716-446655440000"</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="institution-connection-payload-schema">Institution Connection Payload Schema</h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Constraint</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>account_id</code></td>
+<td>string (UUID)</td>
+<td>YES</td>
+<td>Valid UUID v4, non-nullable</td>
+<td>The unique identifier of the user account. Must exist in the receiving system's User table.</td>
+</tr>
+<tr>
+<td><code>institution_id</code></td>
+<td>integer</td>
+<td>YES</td>
+<td>Valid integer, must exist in Institution data</td>
+<td>The unique identifier of the institution. Must exist in the receiving system's Institution table.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="validation-rules">Validation Rules</h2>
+<p>When you consume a message, you must validate it before processing:</p>
+<ol>
+<li>
+<p><strong>JSON Parsing</strong>: Parse the message body as JSON. If parsing fails, discard the message and log the error.</p>
+</li>
+<li>
+<p><strong>Required Fields</strong>: Verify that all of the following fields are present and non-empty:</p>
+</li>
+<li><code>metadata.event_type</code></li>
+<li><code>metadata.timestamp</code></li>
+<li><code>metadata.source_service_id</code></li>
+<li><code>metadata.request_id</code></li>
+<li><code>institution_connection.account_id</code></li>
+<li>
+<p><code>institution_connection.institution_id</code></p>
+</li>
+<li>
+<p><strong>Event Type</strong>: Verify that <code>meta.event_type</code> is either <code>"user.institution.connected"</code> or <code>"user.institution.disconnected"</code>. Any other value should be discarded.</p>
+</li>
+<li>
+<p><strong>Source Service</strong>: Verify that <code>meta.source_service_id</code> is exactly <code>"io.opencrafts.verisafe"</code>. If it is from a different source, discard the message.</p>
+</li>
+<li>
+<p><strong>Account ID Format</strong>: Verify that <code>account_id</code> is a valid UUID. If the format is invalid, discard the message.</p>
+</li>
+<li>
+<p><strong>Request ID Format</strong>: Verify that <code>request_id</code> is a valid UUID v4.</p>
+</li>
+<li>
+<p><strong>Timestamp Format</strong>: Verify that <code>metadata.timestamp</code> is a valid ISO 8601 datetime string.</p>
+</li>
+<li>
+<p><strong>Data Existence</strong>: After passing the above checks, verify that the referenced entities exist in your system:</p>
+</li>
+<li>The User identified by <code>account_id</code> must exist</li>
+<li>The Institution identified by <code>institution_id</code> must exist</li>
+<li>If either entity does not exist, handle the error (see Error Handling section)</li>
+</ol>
+<h2 id="processing-behavior">Processing Behavior</h2>
+<p>As a consumer, when you receive a valid message, you learn that a user-institution relationship has changed:</p>
+<p><strong>For <code>user.institution.connected</code> events:</strong>
+1. A user (identified by <code>account_id</code>) has connected their account to an institution (identified by <code>institution_id</code>)
+2. You can use this information to:
+   - Create or update user records related to the institution
+   - Trigger institution-specific onboarding or setup flows
+   - Enable institution-specific features for the user
+   - Log the connection event in your audit trail
+   - Synchronize state between services</p>
+<p><strong>For <code>user.institution.disconnected</code> events:</strong>
+1. A user (identified by <code>account_id</code>) has disconnected their account from an institution (identified by <code>institution_id</code>)
+2. You can use this information to:
+   - Revoke institution-specific access or permissions
+   - Disable institution-specific features for the user
+   - Clean up institution-specific user data if applicable
+   - Log the disconnection event in your audit trail
+   - Synchronize state between services</p>
+<p>In both cases:
+- The timestamp (<code>metadata.timestamp</code>) indicates when the event occurred
+- The request_id (<code>metadata.request_id</code>) can be used for correlation in your logs and with Verisafe support</p>
+<h2 id="idempotency">Idempotency</h2>
+<p>Messages from Verisafe are idempotent. If you receive the same message multiple times (due to retries or network issues), processing it again will yield the same result:</p>
+<ul>
+<li>The same user-institution connection will not create duplicate records in your system</li>
+<li>Subsequent processing of the same event will update the same records without creating inconsistencies</li>
+<li>Use the <code>request_id</code> and <code>account_id</code> combination as a unique key for deduplication if needed</li>
+</ul>
+<p>This means your consumer should safely handle receiving the same message twice within a short time window without causing data corruption or duplicate entries.</p>
+<h2 id="example-valid-message-user-connected">Example: Valid Message - User Connected</h2>
+<pre><code class="language-json">{
+  &quot;metadata&quot;: {
+    &quot;event_type&quot;: &quot;user.institution.connected&quot;,
+    &quot;timestamp&quot;: &quot;2024-04-03T14:30:00Z&quot;,
+    &quot;source_service_id&quot;: &quot;io.opencrafts.verisafe&quot;,
+    &quot;request_id&quot;: &quot;550e8400-e29b-41d4-a716-446655440000&quot;
+  },
+  &quot;institution_connection&quot;: {
+    &quot;account_id&quot;: &quot;f47ac10b-58cc-4372-a567-0e02b2c3d479&quot;,
+    &quot;institution_id&quot;: 42
+  }
+}
+</code></pre>
+<h2 id="example-valid-message-user-disconnected">Example: Valid Message - User Disconnected</h2>
+<pre><code class="language-json">{
+  &quot;metadata&quot;: {
+    &quot;event_type&quot;: &quot;user.institution.disconnected&quot;,
+    &quot;timestamp&quot;: &quot;2024-04-03T14:35:00Z&quot;,
+    &quot;source_service_id&quot;: &quot;io.opencrafts.verisafe&quot;,
+    &quot;request_id&quot;: &quot;660e8400-e29b-41d4-a716-446655440001&quot;
+  },
+  &quot;institution_connection&quot;: {
+    &quot;account_id&quot;: &quot;f47ac10b-58cc-4372-a567-0e02b2c3d479&quot;,
+    &quot;institution_id&quot;: 42
+  }
+}
+</code></pre>
+<h2 id="example-invalid-message-wrong-event-type">Example: Invalid Message - Wrong Event Type</h2>
+<pre><code class="language-json">{
+  &quot;metadata&quot;: {
+    &quot;event_type&quot;: &quot;user.institution.updated&quot;,
+    &quot;timestamp&quot;: &quot;2024-04-03T14:30:00Z&quot;,
+    &quot;source_service_id&quot;: &quot;io.opencrafts.verisafe&quot;,
+    &quot;request_id&quot;: &quot;550e8400-e29b-41d4-a716-446655440000&quot;
+  },
+  &quot;institution_connection&quot;: {
+    &quot;account_id&quot;: &quot;f47ac10b-58cc-4372-a567-0e02b2c3d479&quot;,
+    &quot;institution_id&quot;: 42
+  }
+}
+</code></pre>
+<p><strong>Result</strong>: Message rejected. <code>event_type</code> must be either <code>"user.institution.connected"</code> or <code>"user.institution.disconnected"</code>.</p>
+<h2 id="example-invalid-message-wrong-source-service">Example: Invalid Message - Wrong Source Service</h2>
+<pre><code class="language-json">{
+  &quot;metadata&quot;: {
+    &quot;event_type&quot;: &quot;user.institution.connected&quot;,
+    &quot;timestamp&quot;: &quot;2024-04-03T14:30:00Z&quot;,
+    &quot;source_service_id&quot;: &quot;io.opencrafts.different.service&quot;,
+    &quot;request_id&quot;: &quot;550e8400-e29b-41d4-a716-446655440000&quot;
+  },
+  &quot;institution_connection&quot;: {
+    &quot;account_id&quot;: &quot;f47ac10b-58cc-4372-a567-0e02b2c3d479&quot;,
+    &quot;institution_id&quot;: 42
+  }
+}
+</code></pre>
+<p><strong>Result</strong>: Message rejected. <code>source_service_id</code> must be <code>"io.opencrafts.verisafe"</code>.</p>
+<h2 id="example-invalid-message-missing-required-field">Example: Invalid Message - Missing Required Field</h2>
+<pre><code class="language-json">{
+  &quot;metadata&quot;: {
+    &quot;event_type&quot;: &quot;user.institution.connected&quot;,
+    &quot;timestamp&quot;: &quot;2024-04-03T14:30:00Z&quot;,
+    &quot;source_service_id&quot;: &quot;io.opencrafts.verisafe&quot;,
+    &quot;request_id&quot;: &quot;550e8400-e29b-41d4-a716-446655440000&quot;
+  },
+  &quot;institution_connection&quot;: {
+    &quot;account_id&quot;: &quot;f47ac10b-58cc-4372-a567-0e02b2c3d479&quot;
+  }
+}
+</code></pre>
+<p><strong>Result</strong>: Message rejected. <code>institution_id</code> is required and missing.</p>
+<h2 id="example-invalid-message-malformed-account-id">Example: Invalid Message - Malformed Account ID</h2>
+<pre><code class="language-json">{
+  &quot;metadata&quot;: {
+    &quot;event_type&quot;: &quot;user.institution.connected&quot;,
+    &quot;timestamp&quot;: &quot;2024-04-03T14:30:00Z&quot;,
+    &quot;source_service_id&quot;: &quot;io.opencrafts.verisafe&quot;,
+    &quot;request_id&quot;: &quot;550e8400-e29b-41d4-a716-446655440000&quot;
+  },
+  &quot;institution_connection&quot;: {
+    &quot;account_id&quot;: &quot;not-a-uuid&quot;,
+    &quot;institution_id&quot;: 42
+  }
+}
+</code></pre>
+<p><strong>Result</strong>: Message rejected. <code>account_id</code> must be a valid UUID.</p>
+<h2 id="example-invalid-message-malformed-request-id">Example: Invalid Message - Malformed Request ID</h2>
+<pre><code class="language-json">{
+  &quot;metadata&quot;: {
+    &quot;event_type&quot;: &quot;user.institution.connected&quot;,
+    &quot;timestamp&quot;: &quot;2024-04-03T14:30:00Z&quot;,
+    &quot;source_service_id&quot;: &quot;io.opencrafts.verisafe&quot;,
+    &quot;request_id&quot;: &quot;not-a-uuid&quot;
+  },
+  &quot;institution_connection&quot;: {
+    &quot;account_id&quot;: &quot;f47ac10b-58cc-4372-a567-0e02b2c3d479&quot;,
+    &quot;institution_id&quot;: 42
+  }
+}
+</code></pre>
+<p><strong>Result</strong>: Message rejected. <code>request_id</code> must be a valid UUID.</p>
+<h2 id="example-validation-passes-user-not-found">Example: Validation Passes - User Not Found</h2>
+<pre><code class="language-json">{
+  &quot;metadata&quot;: {
+    &quot;event_type&quot;: &quot;user.institution.connected&quot;,
+    &quot;timestamp&quot;: &quot;2024-04-03T14:30:00Z&quot;,
+    &quot;source_service_id&quot;: &quot;io.opencrafts.verisafe&quot;,
+    &quot;request_id&quot;: &quot;550e8400-e29b-41d4-a716-446655440000&quot;
+  },
+  &quot;institution_connection&quot;: {
+    &quot;account_id&quot;: &quot;f47ac10b-58cc-4372-a567-0e02b2c3d479&quot;,
+    &quot;institution_id&quot;: 42
+  }
+}
+</code></pre>
+<p><strong>Result</strong>: Passes validation. During processing, you attempt to look up the User but it does not exist in your system (with <code>account_id = f47ac10b-58cc-4372-a567-0e02b2c3d479</code>). You should log the error with the <code>request_id</code> for correlation and decide whether to retry or discard the message. See Error Handling section.</p>
+<h2 id="example-validation-passes-institution-not-found">Example: Validation Passes - Institution Not Found</h2>
+<pre><code class="language-json">{
+  &quot;metadata&quot;: {
+    &quot;event_type&quot;: &quot;user.institution.disconnected&quot;,
+    &quot;timestamp&quot;: &quot;2024-04-03T14:30:00Z&quot;,
+    &quot;source_service_id&quot;: &quot;io.opencrafts.verisafe&quot;,
+    &quot;request_id&quot;: &quot;550e8400-e29b-41d4-a716-446655440001&quot;
+  },
+  &quot;institution_connection&quot;: {
+    &quot;account_id&quot;: &quot;f47ac10b-58cc-4372-a567-0e02b2c3d479&quot;,
+    &quot;institution_id&quot;: 99999
+  }
+}
+</code></pre>
+<p><strong>Result</strong>: Passes validation. During processing, you attempt to look up the Institution but it does not exist in your system (with <code>institution_id = 99999</code>). You should log the error with the <code>request_id</code> for correlation and decide whether to retry or discard the message. See Error Handling section.</p>
+<h2 id="error-handling">Error Handling</h2>
+<h3 id="validation-failures">Validation Failures</h3>
+<p>If a message fails validation, you must handle the error appropriately:</p>
+<ul>
+<li>Log the error with the full message body for debugging</li>
+<li>Do not process the message further</li>
+<li>Acknowledge the message to RabbitMQ to prevent redelivery (unless your consumer is configured otherwise)</li>
+<li>Consider alerting operations if malformed messages are arriving regularly</li>
+</ul>
+<h3 id="data-not-found">Data Not Found</h3>
+<p>If a message passes validation but the referenced User or Institution does not exist in your system:</p>
+<ul>
+<li>Log the error with the <code>account_id</code>, <code>institution_id</code>, and <code>request_id</code> for correlation</li>
+<li>Decide whether to:</li>
+<li>Wait and retry (the entities may be created shortly)</li>
+<li>Discard the message</li>
+<li>Store the event for later processing when the entities exist</li>
+<li>This typically indicates that Verisafe published the event before your system received the user/institution creation events</li>
+</ul>
+<h3 id="processing-failures">Processing Failures</h3>
+<p>If an unexpected error occurs while processing the event (e.g., database errors):</p>
+<ul>
+<li>Log the full exception with the <code>request_id</code> for correlation</li>
+<li>Decide your retry strategy based on the type of failure</li>
+<li>Consider using negative acknowledgment to RabbitMQ for automatic redelivery (up to a maximum retry limit)</li>
+<li>After max retries, send the message to a dead-letter queue for manual inspection</li>
+</ul>
+<h2 id="consumer-implementation-guidelines">Consumer Implementation Guidelines</h2>
+<ol>
+<li><strong>Parse and Validate</strong>: Implement strict validation as described in the Validation Rules section</li>
+<li><strong>Idempotency</strong>: Handle the possibility of receiving the same message multiple times. Design your consumer to be idempotent.</li>
+<li><strong>Correlation</strong>: Use the <code>request_id</code> field to correlate events across your service and with Verisafe for troubleshooting</li>
+<li><strong>Async Processing</strong>: Treat event processing as asynchronous. Do not assume immediate consistency with Verisafe</li>
+<li><strong>Timing</strong>: The user-institution connection happens in Verisafe before the event is published. Your system will receive the event after the connection is already established</li>
+<li><strong>User/Institution Sync</strong>: Ensure your service has received the user and institution data from Verisafe (or another source) before consuming these events</li>
+<li><strong>Acknowledgment</strong>: Only acknowledge the message after you have successfully processed it or decided to discard it</li>
+<li><strong>Monitoring</strong>: Monitor the consumer lag and error rates. Alert if messages are not being consumed in a timely manner</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../../adrs/adr_template/" class="md-footer__link md-footer__link--prev" aria-label="Previous: {title}">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                {title}
+              </div>
+            </div>
+          </a>
+        
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2025 Open Crafts Interactive Ltd
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+    <a href="https://github.com/opencrafts-io" target="_blank" rel="noopener" title="Github" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+    <a href="mailto:developers@opencrafts.io" target="_blank" rel="noopener" title="Email" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M536.4-26.3c9.8-3.5 20.6-1 28 6.3s9.8 18.2 6.3 28l-178 496.9c-5 13.9-18.1 23.1-32.8 23.1-14.2 0-27-8.6-32.3-21.7l-64.2-158c-4.5-11-2.5-23.6 5.2-32.6l94.5-112.4c5.1-6.1 4.7-15-.9-20.6s-14.6-6-20.6-.9l-112.4 94.3c-9.1 7.6-21.6 9.6-32.6 5.2L38.1 216.8c-13.1-5.3-21.7-18.1-21.7-32.3 0-14.7 9.2-27.8 23.1-32.8z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["header.autohide", "navigation.footer"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

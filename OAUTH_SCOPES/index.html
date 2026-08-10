@@ -1,0 +1,1941 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://opencrafts-io.github.io/verisafe/OAUTH_SCOPES/">
+      
+      
+        <link rel="prev" href="../HOW_AUTH_WORKS/">
+      
+      
+        <link rel="next" href="../RABBITMQ_INTEGRATION/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Third-party OAuth: scopes, grants and token brokering - Verisafe Docs</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Google+Sans:300,300i,400,400i,700,700i%7CGoogle+Sans+Code:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Google Sans";--md-code-font:"Google Sans Code"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#third-party-oauth-scopes-grants-and-token-brokering" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Verisafe Docs" class="md-header__button md-logo" aria-label="Verisafe Docs" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Verisafe Docs
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Third-party OAuth: scopes, grants and token brokering
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="light-blue" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Verisafe Docs" class="md-nav__button md-logo" aria-label="Verisafe Docs" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Verisafe Docs
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Introduction to Verisafe
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUTHENTICATION/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../BOT_ACCOUNT_CREATION/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bot Account Creation Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../HOW_AUTH_WORKS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How auth works
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Third-party OAuth: scopes, grants and token brokering
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Third-party OAuth: scopes, grants and token brokering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#concepts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Concepts
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Concepts">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#capabilities-are-per-provider" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Capabilities are per-provider
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#for-other-services" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        For other services
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="For other services">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get-a-usable-provider-token" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Get a usable provider token
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-the-user-has-not-granted-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When the user has not granted it
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other-error-responses" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Other error responses
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pre-flight" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pre-flight
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#for-user-facing-clients" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        For user-facing clients
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="For user-facing clients">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#see-what-is-connected" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See what is connected
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#grant-an-additional-capability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Grant an additional capability
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Requirements
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#disconnect" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Disconnect
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Operations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Operations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#granting-a-service-access-to-the-broker" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Granting a service access to the broker
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#provider-console-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Provider console setup
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-rotation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key rotation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reconciliation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reconciliation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../RABBITMQ_INTEGRATION/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RabbitMQ Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../RBAC/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roles and Permissions (RBAC)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../SERVICE_INTEGRATION/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integrating a service with the token broker
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../SERVICE_TOKENS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Service Tokens Implementation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adrs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Adrs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adrs/0001-verisafe-authentication-and-token-strategy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    1. Verisafe authentication and token strategy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adrs/0002-adopt-swagger-openapi-for-api-documentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2. Adopt Swagger/OpenAPI for API Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adrs/0003-standardize-http-error-responses/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    3. Standardize HTTP error responses
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adrs/0004-apple-client-secret-lifecycle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    4. Apple client secret lifecycle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adrs/0005-rbac-handler-bug-fixes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    5. RBAC handler bug fixes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adrs/0006-endpoint-permission-enforcement-rollout/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    6. Endpoint permission enforcement rollout
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adrs/0007-authorization-ownership-checks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    7. Authorization ownership checks for account-scoped endpoints
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adrs/0008-incremental-oauth-scopes-and-token-brokering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Incremental OAuth scopes and provider token brokering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adrs/0009-handler-service-layering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    9. Handler and service layering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adrs/adr_template/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    {title}
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Events
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Events
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../events/institution_connection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Institution Connection Event Schema - Consumer Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#concepts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Concepts
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Concepts">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#capabilities-are-per-provider" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Capabilities are per-provider
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#for-other-services" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        For other services
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="For other services">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get-a-usable-provider-token" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Get a usable provider token
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-the-user-has-not-granted-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When the user has not granted it
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other-error-responses" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Other error responses
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pre-flight" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pre-flight
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#for-user-facing-clients" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        For user-facing clients
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="For user-facing clients">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#see-what-is-connected" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See what is connected
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#grant-an-additional-capability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Grant an additional capability
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Requirements
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#disconnect" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Disconnect
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Operations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Operations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#granting-a-service-access-to-the-broker" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Granting a service access to the broker
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#provider-console-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Provider console setup
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-rotation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key rotation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reconciliation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reconciliation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="third-party-oauth-scopes-grants-and-token-brokering">Third-party OAuth: scopes, grants and token brokering</h1>
+<p>How Verisafe stores what a user granted at Google or Spotify, how another service obtains a usable token on
+their behalf, and how a user grants more without signing in again.</p>
+<p>For Verisafe's own login and JWT lifecycle see <a href="../AUTHENTICATION/">AUTHENTICATION.md</a>. For the design
+rationale see <a href="../adrs/0008-incremental-oauth-scopes-and-token-brokering/">ADR 0008</a>.</p>
+<h2 id="concepts">Concepts</h2>
+<p><strong>Capability, not scope.</strong> Callers ask for <code>"calendar"</code>, never
+<code>https://www.googleapis.com/auth/calendar</code>. <code>internal/providers</code> maps capabilities onto each provider's wire
+scopes, so API contracts stay free of provider vocabulary and one capability can expand to several scopes.</p>
+<p>There is no raw-scope escape hatch. A caller needing something unmapped adds it to
+<code>internal/providers/descriptors.go</code>, which keeps that file the single description of a provider.</p>
+<h3 id="capabilities-are-per-provider">Capabilities are per-provider</h3>
+<p>A capability name only means something <strong>paired with a provider</strong>. <code>identity</code> is not one thing — it names a
+different grant at each provider:</p>
+<table>
+<thead>
+<tr>
+<th>Capability</th>
+<th>google</th>
+<th>spotify</th>
+<th>apple</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>identity</code></td>
+<td><code>userinfo.email</code>, <code>userinfo.profile</code></td>
+<td><code>user-read-email</code>, <code>user-read-private</code></td>
+<td><code>name</code>, <code>email</code></td>
+</tr>
+<tr>
+<td><code>calendar</code></td>
+<td><code>auth/calendar</code></td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>tasks</code></td>
+<td><code>auth/tasks</code></td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>playback</code></td>
+<td>—</td>
+<td><code>user-read-playback-state</code>, <code>user-modify-playback-state</code>, <code>user-read-currently-playing</code>, <code>app-remote-control</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>playlist</code></td>
+<td>—</td>
+<td><code>playlist-read-private</code>, <code>playlist-modify-private</code>, <code>playlist-modify-public</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>library</code></td>
+<td>—</td>
+<td><code>user-read-recently-played</code>, <code>user-top-read</code>, <code>user-follow-read</code>, <code>user-follow-modify</code></td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p>(Google scopes shown short; the real values are <code>https://www.googleapis.com/auth/...</code>.)</p>
+<p>You never have to disambiguate by hand, because the provider is always explicit:</p>
+<pre><code class="language-http">POST /oauth/spotify/token    { &quot;capabilities&quot;: [&quot;identity&quot;] }   → Spotify's identity
+POST /oauth/google/token     { &quot;capabilities&quot;: [&quot;identity&quot;] }   → Google's identity
+</code></pre>
+<p>Reads are provider-keyed too — every grant carries its own <code>provider</code>, and <code>available_capabilities</code> is a map
+keyed by provider name:</p>
+<pre><code class="language-json">{
+  &quot;grants&quot;: [
+    { &quot;provider&quot;: &quot;google&quot;,  &quot;granted_capabilities&quot;: [&quot;identity&quot;, &quot;calendar&quot;] },
+    { &quot;provider&quot;: &quot;spotify&quot;, &quot;granted_capabilities&quot;: [&quot;identity&quot;] }
+  ],
+  &quot;available_capabilities&quot;: {
+    &quot;google&quot;:  [&quot;calendar&quot;, &quot;identity&quot;, &quot;tasks&quot;],
+    &quot;spotify&quot;: [&quot;identity&quot;, &quot;library&quot;, &quot;playback&quot;, &quot;playlist&quot;],
+    &quot;apple&quot;:   [&quot;identity&quot;]
+  }
+}
+</code></pre>
+<p>So "does this user have Spotify identity?" is answered by finding the grant whose <code>provider</code> is <code>spotify</code> and
+checking its <code>granted_capabilities</code> — never by looking for a bare <code>identity</code> anywhere in the response.</p>
+<p>A user can hold <code>identity</code> at all three providers at once. Those are three independent grants, revocable
+independently: disconnecting Google leaves Spotify untouched.</p>
+<p><strong>Presumed vs verified scopes.</strong> No provider offers a "what did user X grant" API — scope is reported only in a
+token response. Grants migrated from the old <code>socials</code> table were seeded from what logins <em>historically
+requested</em>, and are marked presumed (<code>scopes_verified_at IS NULL</code>). The broker never denies on a
+presumed-missing scope; it refreshes and lets the provider adjudicate, then re-checks. So a wrong presumption
+costs one extra round trip, never a wrong refusal. Every migrated row has a NULL expiry, which counts as stale,
+so the first broker call for an account verifies it automatically.</p>
+<p><code>scopes_verified: false</code> in a response means "this is our best understanding, not the provider's word". A caller
+that gets a 403 from the provider despite it should simply call the broker again — the failed attempt will have
+converted the grant.</p>
+<p>Apple never reports scopes, so its grants stay presumed permanently. It exposes only <code>identity</code>, so nothing
+depends on it.</p>
+<h2 id="for-other-services">For other services</h2>
+<blockquote>
+<p>Building a service against this? <a href="../SERVICE_INTEGRATION/">SERVICE_INTEGRATION.md</a> is the step-by-step
+version — setup, a working client, error handling and testing. This section is the reference.</p>
+</blockquote>
+<h3 id="get-a-usable-provider-token">Get a usable provider token</h3>
+<pre><code class="language-http">POST /oauth/google/token
+X-API-Key: vst_...
+Content-Type: application/json
+
+{ &quot;account_id&quot;: &quot;9f1c8b2e-...&quot;, &quot;capabilities&quot;: [&quot;calendar&quot;] }
+</code></pre>
+<pre><code class="language-json">{
+  &quot;provider&quot;: &quot;google&quot;,
+  &quot;account_id&quot;: &quot;9f1c8b2e-...&quot;,
+  &quot;access_token&quot;: &quot;ya29...&quot;,
+  &quot;token_type&quot;: &quot;Bearer&quot;,
+  &quot;expires_at&quot;: &quot;2026-07-26T13:31:00Z&quot;,
+  &quot;expires_in&quot;: 3413,
+  &quot;granted_scopes&quot;: [&quot;https://www.googleapis.com/auth/calendar&quot;, &quot;...&quot;],
+  &quot;scopes_verified&quot;: true,
+  &quot;refreshed&quot;: false,
+  &quot;from_cache&quot;: true
+}
+</code></pre>
+<p>Verisafe refreshes against the provider when the stored token is stale. <strong>Refresh tokens are never returned</strong> —
+a compromised caller loses access when the access token expires rather than retaining indefinite reach into the
+user's account.</p>
+<p>Requires a service token (<code>X-API-Key</code>) and <code>read:provider_token:any</code>. A human Bearer JWT is rejected even if it
+holds the permission, so nobody can read another user's provider token from their own session.</p>
+<h3 id="when-the-user-has-not-granted-it">When the user has not granted it</h3>
+<pre><code class="language-json">HTTP/1.1 403 Forbidden
+{
+  &quot;error&quot;: &quot;insufficient_scope&quot;,
+  &quot;provider&quot;: &quot;google&quot;,
+  &quot;account_id&quot;: &quot;9f1c8b2e-...&quot;,
+  &quot;missing_scopes&quot;: [&quot;https://www.googleapis.com/auth/calendar&quot;],
+  &quot;missing_capabilities&quot;: [&quot;calendar&quot;],
+  &quot;granted_capabilities&quot;: [&quot;identity&quot;],
+  &quot;authorization_url&quot;: &quot;https://verisafe.opencrafts.io/oauth/google/authorize&quot;,
+  &quot;authorization_method&quot;: &quot;POST&quot;,
+  &quot;authorization_body&quot;: { &quot;capabilities&quot;: [&quot;calendar&quot;] }
+}
+</code></pre>
+<p><code>authorization_url</code> points at <strong>Verisafe's</strong> authorize endpoint, not at Google. It cannot be a directly openable
+provider URL: starting an authorization requires the <em>user's</em> JWT, which a service-token holder does not have.
+Relay this to your own client, which calls the endpoint with the user's token and opens the URL it returns.</p>
+<p>These keys are a contract; a golden-body test pins them.</p>
+<h3 id="other-error-responses">Other error responses</h3>
+<table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Status</th>
+<th><code>error</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Account has never connected this provider</td>
+<td>404</td>
+<td><code>no_grant</code></td>
+</tr>
+<tr>
+<td>Provider rejected the refresh token (user revoked, password change, long idle)</td>
+<td>403</td>
+<td><code>reauthorization_required</code></td>
+</tr>
+<tr>
+<td>Provider cannot refresh and the token has expired (Apple)</td>
+<td>409</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Provider 5xx, timeout, or rate limit</td>
+<td>503</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p>A 503 leaves the grant untouched — a provider outage must never look like a revocation.</p>
+<h3 id="pre-flight">Pre-flight</h3>
+<pre><code class="language-http">GET /oauth/grants?account_id=9f1c8b2e-...
+X-API-Key: vst_...
+</code></pre>
+<p>Returns the same grant views as <code>/oauth/scopes</code> below. Never includes tokens.</p>
+<h2 id="for-user-facing-clients">For user-facing clients</h2>
+<h3 id="see-what-is-connected">See what is connected</h3>
+<pre><code class="language-http">GET /oauth/scopes
+Authorization: Bearer &lt;access_token&gt;
+</code></pre>
+<pre><code class="language-json">{
+  &quot;grants&quot;: [{
+    &quot;provider&quot;: &quot;google&quot;,
+    &quot;granted_capabilities&quot;: [&quot;identity&quot;, &quot;calendar&quot;],
+    &quot;granted_scopes&quot;: [&quot;...&quot;],
+    &quot;scopes_verified&quot;: true,
+    &quot;refresh_available&quot;: true,
+    &quot;supports_incremental&quot;: true,
+    &quot;connected_at&quot;: &quot;2025-11-02T08:14:00Z&quot;,
+    &quot;revoked&quot;: false,
+    &quot;available_capabilities&quot;: [&quot;calendar&quot;, &quot;identity&quot;, &quot;tasks&quot;]
+  }],
+  &quot;available_capabilities&quot;: {
+    &quot;google&quot;: [&quot;calendar&quot;, &quot;identity&quot;, &quot;tasks&quot;],
+    &quot;spotify&quot;: [&quot;identity&quot;, &quot;library&quot;, &quot;playback&quot;, &quot;playlist&quot;],
+    &quot;apple&quot;: [&quot;identity&quot;]
+  }
+}
+</code></pre>
+<p><code>available_capabilities</code> lets a settings screen render connect-this toggles generically — adding a provider
+grows the list with no client change.</p>
+<h3 id="grant-an-additional-capability">Grant an additional capability</h3>
+<pre><code class="language-http">POST /oauth/google/authorize
+Authorization: Bearer &lt;access_token&gt;
+Content-Type: application/json
+
+{
+  &quot;capabilities&quot;: [&quot;calendar&quot;],
+  &quot;platform&quot;: &quot;web&quot;,
+  &quot;redirect_uri&quot;: &quot;https://app.example.com/settings/integrations&quot;
+}
+</code></pre>
+<pre><code class="language-json">{
+  &quot;authorization_url&quot;: &quot;https://accounts.google.com/o/oauth2/auth?...&quot;,
+  &quot;state&quot;: &quot;8f3...&quot;,
+  &quot;expires_at&quot;: &quot;2026-07-26T12:10:00Z&quot;,
+  &quot;already_granted&quot;: false,
+  &quot;requested_scopes&quot;: [&quot;https://www.googleapis.com/auth/calendar&quot;]
+}
+</code></pre>
+<p>Open <code>authorization_url</code>. When the user finishes, the provider redirects to
+<code>GET /oauth/{provider}/callback</code>, which records the grant and returns them to your <code>redirect_uri</code> (or
+<code>deep_link</code> on mobile) with:</p>
+<pre><code>?scope_upgrade=success&amp;provider=google&amp;granted=calendar
+</code></pre>
+<p><code>scope_upgrade</code> is <code>success</code>, <code>denied</code> (with <code>reason=access_denied</code> or <code>reason=account_mismatch</code>), or <code>failed</code>.</p>
+<p>A URL is returned rather than a redirect because this endpoint needs the caller's Bearer token, which a browser
+navigation cannot supply and which mobile clients must hand to a Custom Tab or <code>ASWebAuthenticationSession</code>
+themselves.</p>
+<p><code>already_granted: true</code> (with no URL) means the user has already granted everything asked for and the provider
+has confirmed it — skip the round trip.</p>
+<p><strong>The user's session is untouched.</strong> No new token family, no device registration, no cookies. They return to
+exactly the app state they left. This is why the flow does not reuse the login callback.</p>
+<p>Apple returns 400: it does not support additive consent.</p>
+<h3 id="requirements">Requirements</h3>
+<ul>
+<li><code>redirect_uri</code> (web) and <code>deep_link</code> (mobile) are <strong>both</strong> validated against <code>ALLOWED_REDIRECT_URIS</code>, with
+  exact case-insensitive matching. The login flow does not currently validate <code>deep_link</code>; this flow does.</li>
+<li>State is a single-use opaque handle with a 10-minute TTL. Replaying a captured callback URL fails.</li>
+<li>Requires <code>manage:oauth_grant:own</code>, held by the default <code>user</code> role.</li>
+</ul>
+<h3 id="disconnect">Disconnect</h3>
+<pre><code class="language-http">DELETE /oauth/google/grant
+Authorization: Bearer &lt;access_token&gt;
+</code></pre>
+<p>Revokes the grant and destroys the stored credentials. Does not sign the user out.</p>
+<h2 id="operations">Operations</h2>
+<h3 id="configuration">Configuration</h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Required</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PROVIDER_TOKEN_ENC_KEYS</code></td>
+<td><strong>yes</strong></td>
+<td>Versioned AES-256 keys, <code>1:&lt;base64-32-bytes&gt;[,2:...]</code>. Generate with <code>openssl rand -base64 32</code>.</td>
+</tr>
+<tr>
+<td><code>PROVIDER_TOKEN_ENC_ACTIVE_KEY</code></td>
+<td>if &gt;1 key</td>
+<td>Which version seals new writes.</td>
+</tr>
+<tr>
+<td><code>PROVIDER_TOKEN_REFRESH_SKEW_SECONDS</code></td>
+<td>no (120)</td>
+<td>Treat a token expiring within this window as stale.</td>
+</tr>
+<tr>
+<td><code>PROVIDER_TOKEN_CACHE_TTL_SECONDS</code></td>
+<td>no (300)</td>
+<td>Cap on brokered token caching.</td>
+</tr>
+<tr>
+<td><code>OAUTH_SCOPE_UPGRADE_STATE_TTL_SECONDS</code></td>
+<td>no (600)</td>
+<td>Incremental authorization window.</td>
+</tr>
+<tr>
+<td><code>OAUTH_MINIMAL_LOGIN_SCOPES</code></td>
+<td>no (false)</td>
+<td>Request only identity at sign-in.</td>
+</tr>
+<tr>
+<td><code>OAUTH_RECONCILE_ENABLED</code></td>
+<td>no (false)</td>
+<td>Run the reconciliation worker.</td>
+</tr>
+<tr>
+<td><code>OAUTH_RECONCILE_RATE_PER_MINUTE</code></td>
+<td>no (60)</td>
+<td>Reconciler budget.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>The service will not start without <code>PROVIDER_TOKEN_ENC_KEYS</code>.</strong> That is deliberate: silently storing
+long-lived replayable credentials in plaintext because a variable was unset is worse than a failed deploy.</p>
+<h3 id="granting-a-service-access-to-the-broker">Granting a service access to the broker</h3>
+<p>New permissions are auto-granted to <code>system</code> and <code>Administrator</code> only, so a bot does <strong>not</strong> inherit
+<code>read:provider_token:any</code>. Assign the dedicated role to each consuming service account:</p>
+<pre><code class="language-http">GET /roles/assign/{service_account_id}/{oauth-token-broker-role-id}
+</code></pre>
+<p>Forgetting this is the most likely cause of a day-one 403. Granting <code>read:provider_token:any</code> to the whole
+<code>bot</code> role instead would let every bot read every user's Google token — don't.</p>
+<h3 id="provider-console-setup">Provider console setup</h3>
+<p>Register <code>https://&lt;AUTH_ADDRESS&gt;/oauth/{provider}/callback</code> as an additional authorized redirect URI for Google
+and Spotify. This is additive and cannot break the existing login callback.</p>
+<h3 id="key-rotation">Key rotation</h3>
+<p>Add the new key alongside the old and bump the active version:</p>
+<pre><code>PROVIDER_TOKEN_ENC_KEYS=1:&lt;old&gt;,2:&lt;new&gt;
+PROVIDER_TOKEN_ENC_ACTIVE_KEY=2
+</code></pre>
+<p>Rows migrate as they are used — every write re-seals under the active key. Retire the old key only once nothing
+still references it.</p>
+<h3 id="reconciliation">Reconciliation</h3>
+<p>The worker converts presumed grants to verified ones for accounts nobody brokers a token for. It is off by
+default, rate limited, and leader-elected across replicas. Once this reaches zero the transitional plaintext
+columns can be dropped and the worker switched off permanently:</p>
+<pre><code class="language-sql">SELECT count(*) FROM oauth_grants WHERE scopes_verified_at IS NULL AND revoked_at IS NULL;
+SELECT count(*) FROM oauth_grants WHERE refresh_token_plain IS NOT NULL;
+</code></pre>
+<p>It is <strong>not</strong> a token-warming job. Refresh is lazy by design — warming every user's token on a schedule would
+generate tens of thousands of pointless provider calls a day to save a few hundred milliseconds on the one
+request that needs a token.</p>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<p><strong>Broker returns <code>insufficient_scope</code> for a user who definitely has calendar access.</strong> Check <code>scopes_verified</code>.
+If false, the first call converts the grant — call again. If it still fails, the user genuinely revoked the
+scope in their provider account settings; <code>granted_scopes</code> will have shrunk to match.</p>
+<p><strong>Every user suddenly needs re-authorization.</strong> Check <code>revoked_reason</code> on <code>oauth_grants</code>. <code>invalid_grant</code> means
+the provider rejected the refresh token. A provider outage records <code>refresh_failure_count</code> and leaves the grant
+alone, so mass revocation should not be possible — if you see it, look for a credential change on the app
+registration itself.</p>
+<p><strong>Users who had calendar lose it after enabling <code>OAUTH_MINIMAL_LOGIN_SCOPES</code>.</strong> Confirm
+<code>include_granted_scopes=true</code> is reaching Google — without it a post-cutover login completes a narrower
+authorization. Roll the flag back with a restart and investigate before re-enabling.</p>
+<p><strong>Scope upgrade returns <code>reason=account_mismatch</code>.</strong> The user signed into a different provider account than the
+one linked. Intentional: it stops one provider account's data being grafted onto another user's record.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../HOW_AUTH_WORKS/" class="md-footer__link md-footer__link--prev" aria-label="Previous: How auth works">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                How auth works
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../RABBITMQ_INTEGRATION/" class="md-footer__link md-footer__link--next" aria-label="Next: RabbitMQ Integration">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                RabbitMQ Integration
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2025 Open Crafts Interactive Ltd
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+    <a href="https://github.com/opencrafts-io" target="_blank" rel="noopener" title="Github" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+    <a href="mailto:developers@opencrafts.io" target="_blank" rel="noopener" title="Email" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M536.4-26.3c9.8-3.5 20.6-1 28 6.3s9.8 18.2 6.3 28l-178 496.9c-5 13.9-18.1 23.1-32.8 23.1-14.2 0-27-8.6-32.3-21.7l-64.2-158c-4.5-11-2.5-23.6 5.2-32.6l94.5-112.4c5.1-6.1 4.7-15-.9-20.6s-14.6-6-20.6-.9l-112.4 94.3c-9.1 7.6-21.6 9.6-32.6 5.2L38.1 216.8c-13.1-5.3-21.7-18.1-21.7-32.3 0-14.7 9.2-27.8 23.1-32.8z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["header.autohide", "navigation.footer"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
