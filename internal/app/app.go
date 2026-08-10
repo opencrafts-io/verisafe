@@ -169,6 +169,8 @@ func (a *App) Start(ctx context.Context) error {
 		"*",
 		"http://localhost:1337",
 		"https://academia.opencrafts.io",
+		"https://bus.opencrafts.io",
+		"https://konda.opencrafts.io",
 	}
 
 	middlewares := middleware.CreateStack(
