@@ -89,7 +89,8 @@ func New(logger *slog.Logger, config *config.Config) (*App, error) {
 	}
 	cache := core.NewRedisCacher(rdb)
 
-	rabbitMQConnString := fmt.Sprintf("amqp://%s:%s@%s:%d/",
+	rabbitMQConnString := fmt.Sprintf(
+		"amqp://%s:%s@%s:%d/",
 		config.RabbitMQConfig.RabbitMQUser,
 		config.RabbitMQConfig.RabbitMQPass,
 		config.RabbitMQConfig.RabbitMQAddress,
@@ -165,13 +166,16 @@ func (a *App) Start(ctx context.Context) error {
 	database.RunGooseMigrations(a.logger, a.pool)
 
 	allowedOrigins := []string{
+		"*",
 		"http://localhost:1337",
 		"https://academia.opencrafts.io",
+		"https://bus.opencrafts.io",
+		"https://konda.opencrafts.io",
 	}
 
 	middlewares := middleware.CreateStack(
 		middleware.Logging(a.logger),
-		middleware.CORSMiddleware(allowedOrigins),
+		middleware.CORS(allowedOrigins),
 	)
 	router := a.loadRoutes()
 
@@ -197,7 +201,8 @@ func (a *App) Start(ctx context.Context) error {
 		close(errCh)
 	}()
 
-	a.logger.Info("server running",
+	a.logger.Info(
+		"server running",
 		slog.String("Address", a.config.AppConfig.Address),
 		slog.Int("port", a.config.AppConfig.Port),
 	)
