@@ -3288,6 +3288,247 @@ const docTemplate = `{
                 }
             }
         },
+        "/plans": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Returns billing plans, optionally filtered by visibility.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "plans"
+                ],
+                "summary": "List billing plans",
+                "parameters": [
+                    {
+                        "type": "boolean",
+                        "description": "Filter by visibility",
+                        "name": "visible",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/billing.Plan"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid claims",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch plans",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Creates a new billing plan. The authenticated caller is recorded as the plan's creator.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "plans"
+                ],
+                "summary": "Create a billing plan",
+                "parameters": [
+                    {
+                        "description": "Plan to create",
+                        "name": "plan",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/billing.CreatePlan"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/billing.Plan"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid claims",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "409": {
+                        "description": "Plan with this code already exists",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to create plan",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/plans/{code}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Returns a single billing plan matching the given plan code.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "plans"
+                ],
+                "summary": "Get a billing plan by code",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Plan code",
+                        "name": "code",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/billing.Plan"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid claims",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "Plan not found",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch plan",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Updates fields on an existing billing plan identified by its code. Only provided fields are updated.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "plans"
+                ],
+                "summary": "Update a billing plan",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Plan code",
+                        "name": "code",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to update",
+                        "name": "plan",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/billing.UpdatePlan"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/billing.Plan"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid claims",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "Plan not found",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to update plan",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
         "/roles": {
             "get": {
                 "security": [
@@ -4270,6 +4511,96 @@ const docTemplate = `{
                 }
             }
         },
+        "billing.CreatePlan": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "boolean"
+                },
+                "billing_interval": {
+                    "type": "integer"
+                },
+                "code": {
+                    "type": "string"
+                },
+                "created_by": {
+                    "type": "string"
+                },
+                "currency": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "price": {
+                    "type": "integer"
+                },
+                "visible": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "billing.Plan": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "boolean"
+                },
+                "billing_interval": {
+                    "type": "integer"
+                },
+                "code": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by": {
+                    "type": "string"
+                },
+                "currency": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "price": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "visible": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "billing.UpdatePlan": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "boolean"
+                },
+                "billing_interval": {
+                    "type": "integer"
+                },
+                "code": {
+                    "type": "string"
+                },
+                "currency": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "price": {
+                    "type": "integer"
+                },
+                "visible": {
+                    "type": "boolean"
+                }
+            }
+        },
         "core.APIError": {
             "type": "object",
             "properties": {
@@ -4551,35 +4882,6 @@ const docTemplate = `{
                 "results": {}
             }
         },
-        "pgtype.InfinityModifier": {
-            "type": "integer",
-            "format": "int32",
-            "enum": [
-                1,
-                0,
-                -1
-            ],
-            "x-enum-varnames": [
-                "Infinity",
-                "Finite",
-                "NegativeInfinity"
-            ]
-        },
-        "pgtype.Timestamp": {
-            "type": "object",
-            "properties": {
-                "infinityModifier": {
-                    "$ref": "#/definitions/pgtype.InfinityModifier"
-                },
-                "time": {
-                    "description": "Time zone will be ignored when encoding to PostgreSQL.",
-                    "type": "string"
-                },
-                "valid": {
-                    "type": "boolean"
-                }
-            }
-        },
         "providers.Capability": {
             "type": "string",
             "enum": [
@@ -4609,7 +4911,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "created_at": {
-                    "$ref": "#/definitions/pgtype.Timestamp"
+                    "type": "string"
                 },
                 "deleted_at": {
                     "type": "string"
@@ -4639,7 +4941,7 @@ const docTemplate = `{
                     "$ref": "#/definitions/repository.AccountType"
                 },
                 "updated_at": {
-                    "$ref": "#/definitions/pgtype.Timestamp"
+                    "type": "string"
                 },
                 "username": {
                     "type": "string"
@@ -4671,7 +4973,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "created_at": {
-                    "$ref": "#/definitions/pgtype.Timestamp"
+                    "type": "string"
                 },
                 "email": {
                     "type": "string"
@@ -4683,7 +4985,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "updated_at": {
-                    "$ref": "#/definitions/pgtype.Timestamp"
+                    "type": "string"
                 },
                 "username": {
                     "type": "string"
@@ -4703,7 +5005,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "created_at": {
-                    "$ref": "#/definitions/pgtype.Timestamp"
+                    "type": "string"
                 },
                 "description": {
                     "type": "string"
@@ -4727,7 +5029,7 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "updated_at": {
-                    "$ref": "#/definitions/pgtype.Timestamp"
+                    "type": "string"
                 }
             }
         },
@@ -4886,7 +5188,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "created_at": {
-                    "$ref": "#/definitions/pgtype.Timestamp"
+                    "type": "string"
                 },
                 "description": {
                     "type": "string"
@@ -4898,7 +5200,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "updated_at": {
-                    "$ref": "#/definitions/pgtype.Timestamp"
+                    "type": "string"
                 }
             }
         },
@@ -4934,7 +5236,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "created_at": {
-                    "$ref": "#/definitions/pgtype.Timestamp"
+                    "type": "string"
                 },
                 "description": {
                     "type": "string"
@@ -4949,7 +5251,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "updated_at": {
-                    "$ref": "#/definitions/pgtype.Timestamp"
+                    "type": "string"
                 }
             }
         },
@@ -5161,7 +5463,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "role_created_at": {
-                    "$ref": "#/definitions/pgtype.Timestamp"
+                    "type": "string"
                 },
                 "role_description": {
                     "type": "string"
@@ -5368,7 +5670,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "created_at": {
-                    "$ref": "#/definitions/pgtype.Timestamp"
+                    "type": "string"
                 },
                 "description": {
                     "type": "string"
@@ -5377,7 +5679,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "expires_at": {
-                    "$ref": "#/definitions/pgtype.Timestamp"
+                    "type": "string"
                 },
                 "first_name": {
                     "type": "string"
@@ -5404,7 +5706,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "updated_at": {
-                    "$ref": "#/definitions/pgtype.Timestamp"
+                    "type": "string"
                 },
                 "user_id": {
                     "type": "string"

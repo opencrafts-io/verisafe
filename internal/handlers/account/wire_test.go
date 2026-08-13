@@ -46,12 +46,17 @@ func (s stubService) GetBotRole(ctx context.Context) (repository.Role, error) {
 	return s.getBotRole(ctx)
 }
 
-func (s stubService) AssignRole(ctx context.Context, userID, roleID uuid.UUID) error {
+func (s stubService) AssignRole(
+	ctx context.Context,
+	userID, roleID uuid.UUID,
+) error {
 	return s.assignRole(ctx, userID, roleID)
 }
 
 func (s stubService) CreateServiceToken(
-	ctx context.Context, rawToken string, in repository.CreateServiceTokenParams,
+	ctx context.Context,
+	rawToken string,
+	in repository.CreateServiceTokenParams,
 ) (repository.ServiceToken, error) {
 	return s.createServiceToken(ctx, rawToken, in)
 }
@@ -86,15 +91,23 @@ func TestGetPersonalAccount_MissingClaimsIsUnauthorized(t *testing.T) {
 // UpdatePersonalAccount and VerifyPhone's ownership mismatch has always been
 // a 500, not the 403 an ownership check would suggest -- a real quirk in the
 // original code, preserved exactly rather than tightened.
-func TestUpdatePersonalAccount_OwnershipMismatchIs500NotForbidden(t *testing.T) {
+func TestUpdatePersonalAccount_OwnershipMismatchIs500NotForbidden(
+	t *testing.T,
+) {
 	body := `{"id":"6f1b6b1e-0000-4000-8000-000000000001","name":"x"}`
 	req := httptest.NewRequest("PATCH", "/accounts/me", strings.NewReader(body))
-	req = req.WithContext(middleware.WithClaims(req.Context(), &tokens.VerisafeClaims{
-		RegisteredClaims: jwt.RegisteredClaims{Subject: "6f1b6b1e-0000-4000-8000-000000000002"},
-	}))
+	req = req.WithContext(
+		middleware.WithClaims(req.Context(), &tokens.VerisafeClaims{
+			RegisteredClaims: jwt.RegisteredClaims{
+				Subject: "6f1b6b1e-0000-4000-8000-000000000002",
+			},
+		}),
+	)
 
 	testsupport.WireCase{
-		Handler:         core.AppHandler((&account.AccountHandler{Logger: discardLogger()}).UpdatePersonalAccount),
+		Handler: core.AppHandler(
+			(&account.AccountHandler{Logger: discardLogger()}).UpdatePersonalAccount,
+		),
 		Request:         req,
 		WantStatus:      500,
 		WantContentType: "application/json",
@@ -107,9 +120,13 @@ func TestUpdatePersonalAccount_OwnershipMismatchIs500NotForbidden(t *testing.T) 
 // this handler core.InTx cannot express in a single Fallback call.
 func TestMarkAccountForDeletion_BeginFailureIsADistinctMessage(t *testing.T) {
 	req := httptest.NewRequest("POST", "/accounts/deletion-request", nil)
-	req = req.WithContext(middleware.WithClaims(req.Context(), &tokens.VerisafeClaims{
-		RegisteredClaims: jwt.RegisteredClaims{Subject: uuid.New().String()},
-	}))
+	req = req.WithContext(
+		middleware.WithClaims(req.Context(), &tokens.VerisafeClaims{
+			RegisteredClaims: jwt.RegisteredClaims{
+				Subject: uuid.New().String(),
+			},
+		}),
+	)
 
 	h := &account.AccountHandler{
 		Logger: discardLogger(),
@@ -127,11 +144,17 @@ func TestMarkAccountForDeletion_BeginFailureIsADistinctMessage(t *testing.T) {
 	}.Run(t)
 }
 
-func TestMarkAccountForDeletion_AcquireFailureIsTheGenericMessage(t *testing.T) {
+func TestMarkAccountForDeletion_AcquireFailureIsTheGenericMessage(
+	t *testing.T,
+) {
 	req := httptest.NewRequest("POST", "/accounts/deletion-request", nil)
-	req = req.WithContext(middleware.WithClaims(req.Context(), &tokens.VerisafeClaims{
-		RegisteredClaims: jwt.RegisteredClaims{Subject: uuid.New().String()},
-	}))
+	req = req.WithContext(
+		middleware.WithClaims(req.Context(), &tokens.VerisafeClaims{
+			RegisteredClaims: jwt.RegisteredClaims{
+				Subject: uuid.New().String(),
+			},
+		}),
+	)
 
 	h := &account.AccountHandler{
 		Logger: discardLogger(),
@@ -182,7 +205,10 @@ func TestCreateBotAccount_TokenIsHashedBeforeStorage(t *testing.T) {
 				) (repository.ServiceToken, error) {
 					capturedRawToken = rawToken
 					capturedParams = in
-					return repository.ServiceToken{ID: uuid.New(), AccountID: accountID}, nil
+					return repository.ServiceToken{
+						ID:        uuid.New(),
+						AccountID: accountID,
+					}, nil
 				},
 			}
 		},
@@ -192,18 +218,30 @@ func TestCreateBotAccount_TokenIsHashedBeforeStorage(t *testing.T) {
 		"account": {"email":"bot@example.com","name":"a bot"},
 		"service_token": {"name":"ci-bot"}
 	}`
-	req := httptest.NewRequest("POST", "/accounts/bot/create", strings.NewReader(body))
+	req := httptest.NewRequest(
+		"POST",
+		"/accounts/bot/create",
+		strings.NewReader(body),
+	)
 
 	rr := httptest.NewRecorder()
 	core.AppHandler(h.CreateBotAccount).ServeHTTP(rr, req)
 
 	require.Equal(t, 201, rr.Code, rr.Body.String())
-	require.NotEmpty(t, capturedRawToken, "the handler must pass the raw token to the service")
+	require.NotEmpty(
+		t,
+		capturedRawToken,
+		"the handler must pass the raw token to the service",
+	)
 
 	// The real service hashes rawToken internally; what matters here is that
 	// the handler no longer pre-fills TokenHash with the raw value itself --
 	// that was the bug. The params passed in must not carry the raw token as
 	// TokenHash.
-	assert.NotEqual(t, capturedRawToken, capturedParams.TokenHash,
-		"TokenHash must not be the raw token -- that was the bug this migration fixed")
+	assert.NotEqual(
+		t,
+		capturedRawToken,
+		capturedParams.TokenHash,
+		"TokenHash must not be the raw token -- that was the bug this migration fixed",
+	)
 }

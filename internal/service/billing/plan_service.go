@@ -32,7 +32,7 @@ type planService struct {
 	querier repository.Querier
 }
 
-func (p *planService) New(
+func New(
 	cfg *config.Config,
 	logger *slog.Logger,
 	querier repository.Querier,
