@@ -15,7 +15,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/opencrafts-io/verisafe/internal/config"
 	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
@@ -39,7 +38,9 @@ type ServiceTokenHandler struct {
 	Service func(repository.Querier) servicetokensvc.Service
 }
 
-func (sth *ServiceTokenHandler) svc(db repository.DBTX) servicetokensvc.Service {
+func (sth *ServiceTokenHandler) svc(
+	db repository.DBTX,
+) servicetokensvc.Service {
 	if sth.Service != nil {
 		return sth.Service(repository.New(db))
 	}
@@ -169,7 +170,9 @@ func (sth *ServiceTokenHandler) RegisterHandlers(router core.Router) {
 // claims already loaded into the request context by IsAuthenticated. Shared
 // by every endpoint here, which all did this identically: missing claims is
 // 401, a subject that fails to parse as a UUID is 400.
-func (sth *ServiceTokenHandler) callerAccountID(r *http.Request) (uuid.UUID, error) {
+func (sth *ServiceTokenHandler) callerAccountID(
+	r *http.Request,
+) (uuid.UUID, error) {
 	claims, ok := middleware.ClaimsFromContext(r.Context())
 	if !ok {
 		return uuid.Nil, core.Public(core.ErrUnauthorized, msgUnauthorized)
@@ -209,7 +212,8 @@ func isOwnerOrAdmin(
 	token repository.ServiceToken,
 	callerAccountID uuid.UUID,
 ) bool {
-	return slices.Contains(perms, adminPerm) || token.AccountID == callerAccountID
+	return slices.Contains(perms, adminPerm) ||
+		token.AccountID == callerAccountID
 }
 
 // acquireRunAndCommit calls Acquire and WithTransaction, distinguishing a
@@ -230,7 +234,8 @@ func (sth *ServiceTokenHandler) acquireRunAndCommit(
 	conn, err := sth.DB.Acquire(r.Context())
 	if err != nil {
 		sth.Logger.Error(
-			"Failed to get database connection", slog.String("error", err.Error()),
+			"Failed to get database connection",
+			slog.String("error", err.Error()),
 		)
 		return core.Public(core.ErrInternal, msgInternalError)
 	}
@@ -280,95 +285,112 @@ func (sth *ServiceTokenHandler) CreateServiceToken(
 	var token string
 	var serviceToken repository.ServiceToken
 
-	if err := sth.acquireRunAndCommit(r, msgCreateFailed, func(tx pgx.Tx) error {
-		svc := sth.svc(tx)
+	if err := sth.acquireRunAndCommit(
+		r,
+		msgCreateFailed,
+		func(tx pgx.Tx) error {
+			svc := sth.svc(tx)
 
-		// Verify the account is a bot account
-		if _, err := svc.VerifyBotAccount(r.Context(), accountID); err != nil {
-			sth.Logger.Error("Failed to get account", slog.String("error", err.Error()))
-			if errors.Is(err, servicetokensvc.ErrNotBotAccount) {
-				return core.Public(core.ErrForbidden, msgNotBotAccount)
-			}
-			return core.Public(core.ErrNotFound, msgAccountNotFound)
-		}
-
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			return core.Public(core.ErrInvalidInput, msgInvalidBody)
-		}
-
-		if err := sth.validateServiceTokenRequest(&req); err != nil {
-			return core.Public(core.ErrInvalidInput, err.Error())
-		}
-
-		newToken, err := sth.generateSecureToken()
-		if err != nil {
-			sth.Logger.Error(
-				"Failed to generate secure token", slog.String("error", err.Error()),
-			)
-			return core.Public(core.ErrInternal, msgGenerateFailed)
-		}
-		token = newToken
-
-		var expiresAt *time.Time
-		if req.ExpiresInDays != nil {
-			expiry := time.Now().AddDate(0, 0, *req.ExpiresInDays)
-			expiresAt = &expiry
-		} else {
-			expiry := time.Now().AddDate(1, 0, 0)
-			expiresAt = &expiry
-		}
-
-		var rotationPolicyJSON []byte
-		if req.RotationPolicy != nil {
-			rotationPolicyJSON, err = json.Marshal(req.RotationPolicy)
-			if err != nil {
+			// Verify the account is a bot account
+			if _, err := svc.VerifyBotAccount(
+				r.Context(),
+				accountID,
+			); err != nil {
 				sth.Logger.Error(
-					"Failed to marshal rotation policy", slog.String("error", err.Error()),
+					"Failed to get account",
+					slog.String("error", err.Error()),
 				)
-				return core.Public(core.ErrInvalidInput, msgInvalidRotation)
-			}
-		}
-
-		var metadataJSON []byte
-		if req.Metadata != nil {
-			metadataJSON, err = json.Marshal(req.Metadata)
-			if err != nil {
-				sth.Logger.Error(
-					"Failed to marshal metadata", slog.String("error", err.Error()),
-				)
-				return core.Public(core.ErrInvalidInput, msgInvalidMetadata)
-			}
-		}
-
-		created, err := svc.Create(r.Context(), repository.CreateServiceTokenParams{
-			AccountID:   accountID,
-			Name:        req.Name,
-			Description: req.Description,
-			TokenHash:   tokens.HashToken(newToken),
-			ExpiresAt:   expiresAt,
-			Scopes:      req.Scopes,
-			MaxUses: func() *int32 {
-				if req.MaxUses == nil {
-					return nil
+				if errors.Is(err, servicetokensvc.ErrNotBotAccount) {
+					return core.Public(core.ErrForbidden, msgNotBotAccount)
 				}
-				val := int32(*req.MaxUses)
-				return &val
-			}(),
-			RotationPolicy:   rotationPolicyJSON,
-			IpWhitelist:      req.IPWhitelist,
-			UserAgentPattern: req.UserAgentPattern,
-			CreatedBy:        pgtype.UUID{Bytes: accountID, Valid: true},
-			Metadata:         metadataJSON,
-		})
-		if err != nil {
-			sth.Logger.Error(
-				"Failed to create service token", slog.String("error", err.Error()),
+				return core.Public(core.ErrNotFound, msgAccountNotFound)
+			}
+
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				return core.Public(core.ErrInvalidInput, msgInvalidBody)
+			}
+
+			if err := sth.validateServiceTokenRequest(&req); err != nil {
+				return core.Public(core.ErrInvalidInput, err.Error())
+			}
+
+			newToken, err := sth.generateSecureToken()
+			if err != nil {
+				sth.Logger.Error(
+					"Failed to generate secure token",
+					slog.String("error", err.Error()),
+				)
+				return core.Public(core.ErrInternal, msgGenerateFailed)
+			}
+			token = newToken
+
+			var expiresAt *time.Time
+			if req.ExpiresInDays != nil {
+				expiry := time.Now().AddDate(0, 0, *req.ExpiresInDays)
+				expiresAt = &expiry
+			} else {
+				expiry := time.Now().AddDate(1, 0, 0)
+				expiresAt = &expiry
+			}
+
+			var rotationPolicyJSON []byte
+			if req.RotationPolicy != nil {
+				rotationPolicyJSON, err = json.Marshal(req.RotationPolicy)
+				if err != nil {
+					sth.Logger.Error(
+						"Failed to marshal rotation policy",
+						slog.String("error", err.Error()),
+					)
+					return core.Public(core.ErrInvalidInput, msgInvalidRotation)
+				}
+			}
+
+			var metadataJSON []byte
+			if req.Metadata != nil {
+				metadataJSON, err = json.Marshal(req.Metadata)
+				if err != nil {
+					sth.Logger.Error(
+						"Failed to marshal metadata",
+						slog.String("error", err.Error()),
+					)
+					return core.Public(core.ErrInvalidInput, msgInvalidMetadata)
+				}
+			}
+
+			created, err := svc.Create(
+				r.Context(),
+				repository.CreateServiceTokenParams{
+					AccountID:   accountID,
+					Name:        req.Name,
+					Description: req.Description,
+					TokenHash:   tokens.HashToken(newToken),
+					ExpiresAt:   expiresAt,
+					Scopes:      req.Scopes,
+					MaxUses: func() *int32 {
+						if req.MaxUses == nil {
+							return nil
+						}
+						val := int32(*req.MaxUses)
+						return &val
+					}(),
+					RotationPolicy:   rotationPolicyJSON,
+					IpWhitelist:      req.IPWhitelist,
+					UserAgentPattern: req.UserAgentPattern,
+					CreatedBy:        &accountID,
+					Metadata:         metadataJSON,
+				},
 			)
-			return core.Public(core.ErrInternal, msgCreateFailed)
-		}
-		serviceToken = created
-		return nil
-	}); err != nil {
+			if err != nil {
+				sth.Logger.Error(
+					"Failed to create service token",
+					slog.String("error", err.Error()),
+				)
+				return core.Public(core.ErrInternal, msgCreateFailed)
+			}
+			serviceToken = created
+			return nil
+		},
+	); err != nil {
 		return err
 	}
 
@@ -403,7 +425,8 @@ func (sth *ServiceTokenHandler) ListServiceTokens(
 	conn, err := sth.DB.Acquire(r.Context())
 	if err != nil {
 		sth.Logger.Error(
-			"Failed to get database connection", slog.String("error", err.Error()),
+			"Failed to get database connection",
+			slog.String("error", err.Error()),
 		)
 		return core.Public(core.ErrInternal, msgInternalError)
 	}
@@ -458,7 +481,8 @@ func (sth *ServiceTokenHandler) GetServiceToken(
 	conn, err := sth.DB.Acquire(r.Context())
 	if err != nil {
 		sth.Logger.Error(
-			"Failed to get database connection", slog.String("error", err.Error()),
+			"Failed to get database connection",
+			slog.String("error", err.Error()),
 		)
 		return core.Public(core.ErrInternal, msgInternalError)
 	}
@@ -519,86 +543,106 @@ func (sth *ServiceTokenHandler) UpdateServiceToken(
 
 	var updatedToken repository.ServiceToken
 
-	if err := sth.acquireRunAndCommit(r, msgUpdateFailed, func(tx pgx.Tx) error {
-		svc := sth.svc(tx)
+	if err := sth.acquireRunAndCommit(
+		r,
+		msgUpdateFailed,
+		func(tx pgx.Tx) error {
+			svc := sth.svc(tx)
 
-		token, err := svc.GetByID(r.Context(), tokenID)
-		if err != nil {
-			return core.Public(core.ErrNotFound, msgTokenNotFound)
-		}
-
-		perms := middleware.PermissionsFromContext(r.Context())
-		if !isOwnerOrAdmin(perms, "update:service_token:any", token, accountID) {
-			return core.Public(core.ErrForbidden, msgAccessDenied)
-		}
-
-		var rotationPolicyJSON []byte
-		if req.RotationPolicy != nil {
-			rotationPolicyJSON, err = json.Marshal(req.RotationPolicy)
+			token, err := svc.GetByID(r.Context(), tokenID)
 			if err != nil {
-				sth.Logger.Error(
-					"Failed to marshal rotation policy", slog.String("error", err.Error()),
-				)
-				return core.Public(core.ErrInvalidInput, msgInvalidRotation)
+				return core.Public(core.ErrNotFound, msgTokenNotFound)
 			}
-		}
 
-		var metadataJSON []byte
-		if req.Metadata != nil {
-			metadataJSON, err = json.Marshal(req.Metadata)
-			if err != nil {
-				sth.Logger.Error(
-					"Failed to marshal metadata", slog.String("error", err.Error()),
-				)
-				return core.Public(core.ErrInvalidInput, msgInvalidMetadata)
+			perms := middleware.PermissionsFromContext(r.Context())
+			if !isOwnerOrAdmin(
+				perms,
+				"update:service_token:any",
+				token,
+				accountID,
+			) {
+				return core.Public(core.ErrForbidden, msgAccessDenied)
 			}
-		}
 
-		if err := svc.Update(r.Context(), repository.UpdateServiceTokenParams{
-			ID:          tokenID,
-			Name:        *req.Name,
-			Description: req.Description,
-			Scopes:      req.Scopes,
-			MaxUses: func() *int32 {
-				if req.MaxUses == nil {
-					return nil
+			var rotationPolicyJSON []byte
+			if req.RotationPolicy != nil {
+				rotationPolicyJSON, err = json.Marshal(req.RotationPolicy)
+				if err != nil {
+					sth.Logger.Error(
+						"Failed to marshal rotation policy",
+						slog.String("error", err.Error()),
+					)
+					return core.Public(core.ErrInvalidInput, msgInvalidRotation)
 				}
-				val := int32(*req.MaxUses)
-				return &val
-			}(),
-			RotationPolicy:   rotationPolicyJSON,
-			IpWhitelist:      req.IPWhitelist,
-			UserAgentPattern: req.UserAgentPattern,
-			Metadata:         metadataJSON,
-		}); err != nil {
-			sth.Logger.Error(
-				"Failed to update service token", slog.String("error", err.Error()),
-			)
-			return core.Public(core.ErrInternal, msgUpdateFailed)
-		}
+			}
 
-		// Fetched inside the same transaction, before commit -- see the
-		// decision recorded in ADR 0009 for why: the original code re-fetched
-		// this AFTER tx.Commit() on the same, by-then-closed transaction,
-		// which pgx rejects with ErrTxClosed. That almost certainly meant
-		// this endpoint returned 500 on every call despite the update having
-		// already succeeded. Fetching before commit is the natural way to
-		// write this against core.InTx and is the one deliberate behaviour
-		// change in this migration.
-		updated, err := svc.GetByID(r.Context(), tokenID)
-		if err != nil {
-			sth.Logger.Error(
-				"Failed to get updated token", slog.String("error", err.Error()),
-			)
-			return core.Public(core.ErrInternal, msgRetrieveFailed)
-		}
-		updatedToken = updated
-		return nil
-	}); err != nil {
+			var metadataJSON []byte
+			if req.Metadata != nil {
+				metadataJSON, err = json.Marshal(req.Metadata)
+				if err != nil {
+					sth.Logger.Error(
+						"Failed to marshal metadata",
+						slog.String("error", err.Error()),
+					)
+					return core.Public(core.ErrInvalidInput, msgInvalidMetadata)
+				}
+			}
+
+			if err := svc.Update(
+				r.Context(),
+				repository.UpdateServiceTokenParams{
+					ID:          tokenID,
+					Name:        *req.Name,
+					Description: req.Description,
+					Scopes:      req.Scopes,
+					MaxUses: func() *int32 {
+						if req.MaxUses == nil {
+							return nil
+						}
+						val := int32(*req.MaxUses)
+						return &val
+					}(),
+					RotationPolicy:   rotationPolicyJSON,
+					IpWhitelist:      req.IPWhitelist,
+					UserAgentPattern: req.UserAgentPattern,
+					Metadata:         metadataJSON,
+				},
+			); err != nil {
+				sth.Logger.Error(
+					"Failed to update service token",
+					slog.String("error", err.Error()),
+				)
+				return core.Public(core.ErrInternal, msgUpdateFailed)
+			}
+
+			// Fetched inside the same transaction, before commit -- see the
+			// decision recorded in ADR 0009 for why: the original code re-fetched
+			// this AFTER tx.Commit() on the same, by-then-closed transaction,
+			// which pgx rejects with ErrTxClosed. That almost certainly meant
+			// this endpoint returned 500 on every call despite the update having
+			// already succeeded. Fetching before commit is the natural way to
+			// write this against core.InTx and is the one deliberate behaviour
+			// change in this migration.
+			updated, err := svc.GetByID(r.Context(), tokenID)
+			if err != nil {
+				sth.Logger.Error(
+					"Failed to get updated token",
+					slog.String("error", err.Error()),
+				)
+				return core.Public(core.ErrInternal, msgRetrieveFailed)
+			}
+			updatedToken = updated
+			return nil
+		},
+	); err != nil {
 		return err
 	}
 
-	core.WriteJSON(w, http.StatusOK, sth.convertToServiceTokenResponse(updatedToken))
+	core.WriteJSON(
+		w,
+		http.StatusOK,
+		sth.convertToServiceTokenResponse(updatedToken),
+	)
 	return nil
 }
 
@@ -634,51 +678,66 @@ func (sth *ServiceTokenHandler) RotateServiceToken(
 	var newToken string
 	var updatedToken repository.ServiceToken
 
-	if err := sth.acquireRunAndCommit(r, msgRotateFailed, func(tx pgx.Tx) error {
-		svc := sth.svc(tx)
+	if err := sth.acquireRunAndCommit(
+		r,
+		msgRotateFailed,
+		func(tx pgx.Tx) error {
+			svc := sth.svc(tx)
 
-		token, err := svc.GetByID(r.Context(), tokenID)
-		if err != nil {
-			return core.Public(core.ErrNotFound, msgTokenNotFound)
-		}
+			token, err := svc.GetByID(r.Context(), tokenID)
+			if err != nil {
+				return core.Public(core.ErrNotFound, msgTokenNotFound)
+			}
 
-		perms := middleware.PermissionsFromContext(r.Context())
-		if !isOwnerOrAdmin(perms, "rotate:service_token:any", token, accountID) {
-			return core.Public(core.ErrForbidden, msgAccessDenied)
-		}
+			perms := middleware.PermissionsFromContext(r.Context())
+			if !isOwnerOrAdmin(
+				perms,
+				"rotate:service_token:any",
+				token,
+				accountID,
+			) {
+				return core.Public(core.ErrForbidden, msgAccessDenied)
+			}
 
-		generated, err := sth.generateSecureToken()
-		if err != nil {
-			sth.Logger.Error(
-				"Failed to generate secure token", slog.String("error", err.Error()),
-			)
-			return core.Public(core.ErrInternal, msgGenerateNewFailed)
-		}
-		newToken = generated
+			generated, err := sth.generateSecureToken()
+			if err != nil {
+				sth.Logger.Error(
+					"Failed to generate secure token",
+					slog.String("error", err.Error()),
+				)
+				return core.Public(core.ErrInternal, msgGenerateNewFailed)
+			}
+			newToken = generated
 
-		if err := svc.Rotate(r.Context(), repository.RotateServiceTokenParams{
-			ID:        tokenID,
-			TokenHash: tokens.HashToken(newToken),
-			ExpiresAt: token.ExpiresAt,
-		}); err != nil {
-			sth.Logger.Error(
-				"Failed to rotate service token", slog.String("error", err.Error()),
-			)
-			return core.Public(core.ErrInternal, msgRotateFailed)
-		}
+			if err := svc.Rotate(
+				r.Context(),
+				repository.RotateServiceTokenParams{
+					ID:        tokenID,
+					TokenHash: tokens.HashToken(newToken),
+					ExpiresAt: token.ExpiresAt,
+				},
+			); err != nil {
+				sth.Logger.Error(
+					"Failed to rotate service token",
+					slog.String("error", err.Error()),
+				)
+				return core.Public(core.ErrInternal, msgRotateFailed)
+			}
 
-		// See UpdateServiceToken for why this is fetched before commit rather
-		// than after, unlike the pre-extraction code.
-		updated, err := svc.GetByID(r.Context(), tokenID)
-		if err != nil {
-			sth.Logger.Error(
-				"Failed to get updated token", slog.String("error", err.Error()),
-			)
-			return core.Public(core.ErrInternal, msgRetrieveFailed)
-		}
-		updatedToken = updated
-		return nil
-	}); err != nil {
+			// See UpdateServiceToken for why this is fetched before commit rather
+			// than after, unlike the pre-extraction code.
+			updated, err := svc.GetByID(r.Context(), tokenID)
+			if err != nil {
+				sth.Logger.Error(
+					"Failed to get updated token",
+					slog.String("error", err.Error()),
+				)
+				return core.Public(core.ErrInternal, msgRetrieveFailed)
+			}
+			updatedToken = updated
+			return nil
+		},
+	); err != nil {
 		return err
 	}
 
@@ -718,27 +777,37 @@ func (sth *ServiceTokenHandler) RevokeServiceToken(
 		return err
 	}
 
-	if err := sth.acquireRunAndCommit(r, msgRevokeFailed, func(tx pgx.Tx) error {
-		svc := sth.svc(tx)
+	if err := sth.acquireRunAndCommit(
+		r,
+		msgRevokeFailed,
+		func(tx pgx.Tx) error {
+			svc := sth.svc(tx)
 
-		token, err := svc.GetByID(r.Context(), tokenID)
-		if err != nil {
-			return core.Public(core.ErrNotFound, msgTokenNotFound)
-		}
+			token, err := svc.GetByID(r.Context(), tokenID)
+			if err != nil {
+				return core.Public(core.ErrNotFound, msgTokenNotFound)
+			}
 
-		perms := middleware.PermissionsFromContext(r.Context())
-		if !isOwnerOrAdmin(perms, "revoke:service_token:any", token, accountID) {
-			return core.Public(core.ErrForbidden, msgAccessDenied)
-		}
+			perms := middleware.PermissionsFromContext(r.Context())
+			if !isOwnerOrAdmin(
+				perms,
+				"revoke:service_token:any",
+				token,
+				accountID,
+			) {
+				return core.Public(core.ErrForbidden, msgAccessDenied)
+			}
 
-		if err := svc.Revoke(r.Context(), tokenID); err != nil {
-			sth.Logger.Error(
-				"Failed to revoke service token", slog.String("error", err.Error()),
-			)
-			return core.Public(core.ErrInternal, msgRevokeFailed)
-		}
-		return nil
-	}); err != nil {
+			if err := svc.Revoke(r.Context(), tokenID); err != nil {
+				sth.Logger.Error(
+					"Failed to revoke service token",
+					slog.String("error", err.Error()),
+				)
+				return core.Public(core.ErrInternal, msgRevokeFailed)
+			}
+			return nil
+		},
+	); err != nil {
 		return err
 	}
 
@@ -770,7 +839,8 @@ func (sth *ServiceTokenHandler) GetServiceTokenStats(
 	conn, err := sth.DB.Acquire(r.Context())
 	if err != nil {
 		sth.Logger.Error(
-			"Failed to get database connection", slog.String("error", err.Error()),
+			"Failed to get database connection",
+			slog.String("error", err.Error()),
 		)
 		return core.Public(core.ErrInternal, msgInternalError)
 	}
@@ -779,7 +849,8 @@ func (sth *ServiceTokenHandler) GetServiceTokenStats(
 	stats, err := sth.svc(conn).Stats(r.Context(), accountID)
 	if err != nil {
 		sth.Logger.Error(
-			"Failed to get service token stats", slog.String("error", err.Error()),
+			"Failed to get service token stats",
+			slog.String("error", err.Error()),
 		)
 		return core.Public(core.ErrInternal, msgStatsFailed)
 	}
@@ -812,7 +883,8 @@ func (sth *ServiceTokenHandler) ListAllServiceTokens(
 	conn, err := sth.DB.Acquire(r.Context())
 	if err != nil {
 		sth.Logger.Error(
-			"Failed to get database connection", slog.String("error", err.Error()),
+			"Failed to get database connection",
+			slog.String("error", err.Error()),
 		)
 		return core.Public(core.ErrInternal, msgInternalError)
 	}
@@ -821,7 +893,8 @@ func (sth *ServiceTokenHandler) ListAllServiceTokens(
 	tokenList, err := sth.svc(conn).ListAllActive(r.Context())
 	if err != nil {
 		sth.Logger.Error(
-			"Failed to list all service tokens", slog.String("error", err.Error()),
+			"Failed to list all service tokens",
+			slog.String("error", err.Error()),
 		)
 		return core.Public(core.ErrInternal, msgListFailed)
 	}
@@ -853,7 +926,8 @@ func (sth *ServiceTokenHandler) CleanupExpiredTokens(
 	conn, err := sth.DB.Acquire(r.Context())
 	if err != nil {
 		sth.Logger.Error(
-			"Failed to get database connection", slog.String("error", err.Error()),
+			"Failed to get database connection",
+			slog.String("error", err.Error()),
 		)
 		return core.Public(core.ErrInternal, msgInternalError)
 	}
@@ -861,7 +935,8 @@ func (sth *ServiceTokenHandler) CleanupExpiredTokens(
 
 	if err := sth.svc(conn).CleanupExpired(r.Context()); err != nil {
 		sth.Logger.Error(
-			"Failed to cleanup expired tokens", slog.String("error", err.Error()),
+			"Failed to cleanup expired tokens",
+			slog.String("error", err.Error()),
 		)
 		return core.Public(core.ErrInternal, msgCleanupFailed)
 	}
@@ -958,7 +1033,7 @@ func (sth *ServiceTokenHandler) convertToServiceTokenResponse(
 			return &val
 		}(),
 		UseCount:   int(*token.UseCount),
-		CreatedAt:  token.CreatedAt.Time,
+		CreatedAt:  token.CreatedAt,
 		LastUsedAt: token.LastUsedAt,
 		RotatedAt:  token.RotatedAt,
 		RevokedAt:  token.RevokedAt,
@@ -989,7 +1064,7 @@ func (sth *ServiceTokenHandler) convertActiveServiceTokenToResponse(
 			return &val
 		}(),
 		UseCount:   int(*token.UseCount),
-		CreatedAt:  token.CreatedAt.Time,
+		CreatedAt:  token.CreatedAt,
 		LastUsedAt: token.LastUsedAt,
 		RotatedAt:  token.RotatedAt,
 		RevokedAt:  token.RevokedAt,

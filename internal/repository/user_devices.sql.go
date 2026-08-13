@@ -8,9 +8,9 @@ package repository
 import (
 	"context"
 	"net/netip"
+	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const getUserDevices = `-- name: GetUserDevices :many
@@ -66,13 +66,13 @@ RETURNING id, user_id, device_name, platform, device_token, last_active_at, crea
 `
 
 type RecordUserDeviceParams struct {
-	UserID       uuid.UUID        `json:"user_id"`
-	DeviceName   *string          `json:"device_name"`
-	Platform     *string          `json:"platform"`
-	DeviceToken  *string          `json:"device_token"`
-	IpAddress    *netip.Addr      `json:"ip_address"`
-	Country      *string          `json:"country"`
-	LastActiveAt pgtype.Timestamp `json:"last_active_at"`
+	UserID       uuid.UUID   `json:"user_id"`
+	DeviceName   *string     `json:"device_name"`
+	Platform     *string     `json:"platform"`
+	DeviceToken  *string     `json:"device_token"`
+	IpAddress    *netip.Addr `json:"ip_address"`
+	Country      *string     `json:"country"`
+	LastActiveAt *time.Time  `json:"last_active_at"`
 }
 
 // Inserts a new device. If the device is already registered (same user + push_token),

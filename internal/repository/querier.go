@@ -28,6 +28,8 @@ type Querier interface {
 	CreateInstitution(ctx context.Context, arg CreateInstitutionParams) (Institution, error)
 	// Creates a permission on the database
 	CreatePermission(ctx context.Context, arg CreatePermissionParams) (Permission, error)
+	// Creates a plan and returns its details.
+	CreatePlan(ctx context.Context, arg CreatePlanParams) (CreatePlanRow, error)
 	// Creates a role
 	CreateRole(ctx context.Context, arg CreateRoleParams) (Role, error)
 	CreateServiceToken(ctx context.Context, arg CreateServiceTokenParams) (ServiceToken, error)
@@ -101,6 +103,8 @@ type Querier interface {
 	GetOAuthGrant(ctx context.Context, arg GetOAuthGrantParams) (OauthGrant, error)
 	GetOAuthGrantByID(ctx context.Context, id uuid.UUID) (OauthGrant, error)
 	GetPermissionByID(ctx context.Context, id uuid.UUID) (Permission, error)
+	// Retrieves a plan by its code
+	GetPlanByCode(ctx context.Context, code string) (GetPlanByCodeRow, error)
 	// Retrieves an earlier issued refresh token given its hash
 	GetRefreshTokenByHash(ctx context.Context, tokenHash string) (RefreshToken, error)
 	// Retrieves a role specified by its id
@@ -128,6 +132,10 @@ type Querier interface {
 	// Every provider an account has connected. Not paginated — the provider set
 	// is small and bounded by the registry.
 	ListOAuthGrantsByAccount(ctx context.Context, accountID uuid.UUID) ([]OauthGrant, error)
+	// Retrieves plans.
+	// No pagination logic is inserted as we don't anticipate having many plans
+	// at the moment.
+	ListPlans(ctx context.Context, visible *bool) ([]ListPlansRow, error)
 	ListServiceTokensByAccount(ctx context.Context, accountID uuid.UUID) ([]ServiceToken, error)
 	ListServiceTokensNeedingRotation(ctx context.Context) ([]ServiceToken, error)
 	// Grants whose scope list is still presumed rather than provider-confirmed.
@@ -183,6 +191,8 @@ type Querier interface {
 	UpdateActivity(ctx context.Context, arg UpdateActivityParams) (Activity, error)
 	UpdateInstitution(ctx context.Context, arg UpdateInstitutionParams) (Institution, error)
 	UpdatePermission(ctx context.Context, arg UpdatePermissionParams) (Permission, error)
+	// Updates only the provided fields and returns the updated plan.
+	UpdatePlan(ctx context.Context, arg UpdatePlanParams) (UpdatePlanRow, error)
 	UpdateRole(ctx context.Context, arg UpdateRoleParams) (Role, error)
 	UpdateServiceToken(ctx context.Context, arg UpdateServiceTokenParams) error
 	UpdateServiceTokenLastUsed(ctx context.Context, id uuid.UUID) error

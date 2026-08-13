@@ -7,9 +7,9 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const claimRefreshToken = `-- name: ClaimRefreshToken :one
@@ -88,13 +88,13 @@ RETURNING id, token_hash, user_id, device_id, jwt_jti, issued_at, expires_at, us
 `
 
 type RecordIssuedRefreshTokenParams struct {
-	TokenHash string           `json:"token_hash"`
-	UserID    uuid.UUID        `json:"user_id"`
-	DeviceID  pgtype.UUID      `json:"device_id"`
-	JwtJti    pgtype.UUID      `json:"jwt_jti"`
-	IssuedAt  pgtype.Timestamp `json:"issued_at"`
-	ExpiresAt pgtype.Timestamp `json:"expires_at"`
-	FamilyID  uuid.UUID        `json:"family_id"`
+	TokenHash string     `json:"token_hash"`
+	UserID    uuid.UUID  `json:"user_id"`
+	DeviceID  *uuid.UUID `json:"device_id"`
+	JwtJti    *uuid.UUID `json:"jwt_jti"`
+	IssuedAt  time.Time  `json:"issued_at"`
+	ExpiresAt time.Time  `json:"expires_at"`
+	FamilyID  uuid.UUID  `json:"family_id"`
 }
 
 // Persists an issued refresh token's information to the db
@@ -133,10 +133,10 @@ RETURNING id, jti, user_id, device_id, issued_at, expires_at, revoked_at, last_u
 `
 
 type RecordIssuedTokenParams struct {
-	Jti       uuid.UUID        `json:"jti"`
-	UserID    uuid.UUID        `json:"user_id"`
-	DeviceID  pgtype.UUID      `json:"device_id"`
-	ExpiresAt pgtype.Timestamp `json:"expires_at"`
+	Jti       uuid.UUID  `json:"jti"`
+	UserID    uuid.UUID  `json:"user_id"`
+	DeviceID  *uuid.UUID `json:"device_id"`
+	ExpiresAt time.Time  `json:"expires_at"`
 }
 
 // Records an issued access token's information to the db

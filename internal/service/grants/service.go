@@ -22,18 +22,30 @@ import (
 // needs to act.
 var (
 	// ErrNoGrant means the account has never connected this provider.
-	ErrNoGrant = fmt.Errorf("%w: no grant for this account and provider", core.ErrNotFound)
+	ErrNoGrant = fmt.Errorf(
+		"%w: no grant for this account and provider",
+		core.ErrNotFound,
+	)
 
 	// ErrGrantRevoked means the stored credentials are gone or dead. The user
 	// must re-authorize; no amount of retrying helps.
-	ErrGrantRevoked = fmt.Errorf("%w: the grant has been revoked", core.ErrForbidden)
+	ErrGrantRevoked = fmt.Errorf(
+		"%w: the grant has been revoked",
+		core.ErrForbidden,
+	)
 
 	// ErrRefreshUnsupported means the provider cannot refresh tokens and the
 	// stored one has expired.
-	ErrRefreshUnsupported = fmt.Errorf("%w: provider does not support token refresh", core.ErrConflict)
+	ErrRefreshUnsupported = fmt.Errorf(
+		"%w: provider does not support token refresh",
+		core.ErrConflict,
+	)
 
 	// ErrProviderUnavailable means the provider failed transiently.
-	ErrProviderUnavailable = fmt.Errorf("%w: oauth provider is unavailable", core.ErrUnavailable)
+	ErrProviderUnavailable = fmt.Errorf(
+		"%w: oauth provider is unavailable",
+		core.ErrUnavailable,
+	)
 )
 
 // ErrInsufficientScope reports that a grant exists but lacks what was asked
@@ -121,7 +133,10 @@ type GrantView struct {
 // and a fake exchanger instead of a live database and a live provider.
 type GrantService interface {
 	// GetAccessToken returns a usable access token, refreshing if needed.
-	GetAccessToken(ctx context.Context, in AccessTokenRequest) (*AccessTokenResult, error)
+	GetAccessToken(
+		ctx context.Context,
+		in AccessTokenRequest,
+	) (*AccessTokenResult, error)
 
 	// RecordGrant stores tokens from a login or scope upgrade.
 	RecordGrant(ctx context.Context, in RecordGrantInput) error
@@ -130,7 +145,11 @@ type GrantService interface {
 	ListGrants(ctx context.Context, accountID uuid.UUID) ([]GrantView, error)
 
 	// GetGrant returns a single connection, or ErrNoGrant.
-	GetGrant(ctx context.Context, accountID uuid.UUID, provider string) (*GrantView, error)
+	GetGrant(
+		ctx context.Context,
+		accountID uuid.UUID,
+		provider string,
+	) (*GrantView, error)
 
 	// Reconcile refreshes a grant purely to learn its true scopes. Takes a
 	// grant id because the reconciliation worker iterates over rows.
@@ -138,10 +157,18 @@ type GrantService interface {
 
 	// ReconcileAccount is Reconcile addressed the way an API caller thinks:
 	// by account and provider rather than by row id.
-	ReconcileAccount(ctx context.Context, accountID uuid.UUID, provider string) error
+	ReconcileAccount(
+		ctx context.Context,
+		accountID uuid.UUID,
+		provider string,
+	) error
 
 	// RevokeGrant marks a connection unusable and destroys its credentials.
-	RevokeGrant(ctx context.Context, accountID uuid.UUID, provider, reason string) error
+	RevokeGrant(
+		ctx context.Context,
+		accountID uuid.UUID,
+		provider, reason string,
+	) error
 }
 
 type grantService struct {
@@ -199,7 +226,11 @@ func (s *grantService) GetAccessToken(
 ) (*AccessTokenResult, error) {
 	descriptor, ok := s.registry.Get(in.Provider)
 	if !ok {
-		return nil, fmt.Errorf("%w: unknown provider %q", core.ErrNotFound, in.Provider)
+		return nil, fmt.Errorf(
+			"%w: unknown provider %q",
+			core.ErrNotFound,
+			in.Provider,
+		)
 	}
 
 	required, err := descriptor.ScopesFor(in.Capabilities)
@@ -207,7 +238,12 @@ func (s *grantService) GetAccessToken(
 		return nil, fmt.Errorf("%w: %v", core.ErrInvalidInput, err)
 	}
 
-	if result, ok := s.readTokenCache(ctx, descriptor, in.AccountID, required); ok {
+	if result, ok := s.readTokenCache(
+		ctx,
+		descriptor,
+		in.AccountID,
+		required,
+	); ok {
 		return result, nil
 	}
 
@@ -233,8 +269,16 @@ func (s *grantService) GetAccessToken(
 	// ago, so denying on it would be guessing. Fall through instead and let
 	// the provider adjudicate at step "re-check" below — the cost of a wrong
 	// presumption is then one extra round trip, never a wrong refusal.
-	if missing := descriptor.MissingScopes(grant.GrantedScopes, required); len(missing) > 0 && verified {
-		return nil, s.insufficientScope(descriptor, grant.GrantedScopes, missing)
+	if missing := descriptor.MissingScopes(
+		grant.GrantedScopes,
+		required,
+	); len(missing) > 0 &&
+		verified {
+		return nil, s.insufficientScope(
+			descriptor,
+			grant.GrantedScopes,
+			missing,
+		)
 	}
 
 	// A NULL expiry means unknown, which every backfilled row has. Treating it
@@ -287,10 +331,20 @@ func (s *grantService) refreshAndStore(
 	refreshToken string,
 	required []string,
 ) (*AccessTokenResult, error) {
-	unlock := s.acquireRefreshLock(ctx, grant.AccountID, descriptor.Name, required)
+	unlock := s.acquireRefreshLock(
+		ctx,
+		grant.AccountID,
+		descriptor.Name,
+		required,
+	)
 	if unlock == nil {
 		// Another caller won the race and published a usable token.
-		if result, ok := s.readTokenCache(ctx, descriptor, grant.AccountID, required); ok {
+		if result, ok := s.readTokenCache(
+			ctx,
+			descriptor,
+			grant.AccountID,
+			required,
+		); ok {
 			return result, nil
 		}
 	} else {
@@ -312,14 +366,26 @@ func (s *grantService) refreshAndStore(
 		verified = true
 	}
 
-	if err := s.persistToken(ctx, descriptor, grant, token, granted, verified); err != nil {
+	if err := s.persistToken(
+		ctx,
+		descriptor,
+		grant,
+		token,
+		granted,
+		verified,
+	); err != nil {
 		return nil, err
 	}
 
 	// Re-check against what the provider just told us. This is the other half
 	// of not denying on a presumption: if the presumption was wrong, we find
 	// out here, with authority, rather than having guessed earlier.
-	if missing := descriptor.MissingScopes(granted, required); len(missing) > 0 {
+	if missing := descriptor.MissingScopes(
+		granted,
+		required,
+	); len(
+		missing,
+	) > 0 {
 		return nil, s.insufficientScope(descriptor, granted, missing)
 	}
 
@@ -363,7 +429,11 @@ func (s *grantService) persistToken(
 			secrets.GrantAAD(grant.AccountID, descriptor.Name, "refresh_token"),
 		)
 		if err != nil {
-			return fmt.Errorf("%w: seal refresh token: %v", core.ErrInternal, err)
+			return fmt.Errorf(
+				"%w: seal refresh token: %v",
+				core.ErrInternal,
+				err,
+			)
 		}
 	}
 
@@ -429,10 +499,17 @@ func (s *grantService) handleRefreshError(
 }
 
 // RecordGrant stores tokens obtained from a login or a scope upgrade.
-func (s *grantService) RecordGrant(ctx context.Context, in RecordGrantInput) error {
+func (s *grantService) RecordGrant(
+	ctx context.Context,
+	in RecordGrantInput,
+) error {
 	descriptor, ok := s.registry.Get(in.Provider)
 	if !ok {
-		return fmt.Errorf("%w: unknown provider %q", core.ErrNotFound, in.Provider)
+		return fmt.Errorf(
+			"%w: unknown provider %q",
+			core.ErrNotFound,
+			in.Provider,
+		)
 	}
 
 	// Read the existing row so a provider that declines to reissue a refresh
@@ -512,7 +589,11 @@ func (s *grantService) GetGrant(
 ) (*GrantView, error) {
 	descriptor, ok := s.registry.Get(provider)
 	if !ok {
-		return nil, fmt.Errorf("%w: unknown provider %q", core.ErrNotFound, provider)
+		return nil, fmt.Errorf(
+			"%w: unknown provider %q",
+			core.ErrNotFound,
+			provider,
+		)
 	}
 
 	row, err := s.repo.GetOAuthGrant(ctx, repository.GetOAuthGrantParams{
@@ -618,10 +699,13 @@ func (s *grantService) RevokeGrant(
 		return fmt.Errorf("%w: look up grant: %v", core.ErrInternal, err)
 	}
 
-	if err := s.repo.MarkOAuthGrantRevoked(ctx, repository.MarkOAuthGrantRevokedParams{
-		ID:     grant.ID,
-		Reason: &reason,
-	}); err != nil {
+	if err := s.repo.MarkOAuthGrantRevoked(
+		ctx,
+		repository.MarkOAuthGrantRevokedParams{
+			ID:     grant.ID,
+			Reason: &reason,
+		},
+	); err != nil {
 		return fmt.Errorf("%w: revoke grant: %v", core.ErrInternal, err)
 	}
 
@@ -635,13 +719,14 @@ func (s *grantService) toView(row repository.OauthGrant) GrantView {
 	descriptor, known := s.registry.Get(row.Provider)
 
 	view := GrantView{
-		Provider:         row.Provider,
-		GrantedScopes:    row.GrantedScopes,
-		ScopesVerified:   row.ScopesVerifiedAt != nil,
-		RefreshAvailable: len(row.RefreshTokenEnc) > 0 || row.RefreshTokenPlain != nil,
-		LastRefreshedAt:  row.LastRefreshedAt,
-		ExpiresAt:        row.ExpiresAt,
-		Revoked:          row.RevokedAt != nil,
+		Provider:       row.Provider,
+		GrantedScopes:  row.GrantedScopes,
+		ScopesVerified: row.ScopesVerifiedAt != nil,
+		RefreshAvailable: len(row.RefreshTokenEnc) > 0 ||
+			row.RefreshTokenPlain != nil,
+		LastRefreshedAt: row.LastRefreshedAt,
+		ExpiresAt:       row.ExpiresAt,
+		Revoked:         row.RevokedAt != nil,
 	}
 
 	if row.ExternalUserID != nil {
@@ -650,10 +735,7 @@ func (s *grantService) toView(row repository.OauthGrant) GrantView {
 	if row.RevokedReason != nil {
 		view.RevokedReason = *row.RevokedReason
 	}
-	if row.CreatedAt.Valid {
-		created := row.CreatedAt.Time
-		view.ConnectedAt = &created
-	}
+	view.ConnectedAt = &row.CreatedAt
 	if known {
 		view.GrantedCapabilities = descriptor.CapabilitiesFor(row.GrantedScopes)
 		view.AvailableCapabilities = descriptor.CapabilityNames()
@@ -700,7 +782,9 @@ func (s *grantService) isFresh(grant repository.OauthGrant) bool {
 	return grant.ExpiresAt.After(time.Now().Add(s.cfg.RefreshSkew()))
 }
 
-func (s *grantService) openAccessToken(grant repository.OauthGrant) (string, error) {
+func (s *grantService) openAccessToken(
+	grant repository.OauthGrant,
+) (string, error) {
 	if len(grant.AccessTokenEnc) > 0 {
 		return s.sealer.Open(
 			grant.AccessTokenEnc,
@@ -717,7 +801,9 @@ func (s *grantService) openAccessToken(grant repository.OauthGrant) (string, err
 // openRefreshToken reads the refresh token, falling back to the transitional
 // plaintext column that the socials backfill populated. Rows drain off that
 // column on their first successful refresh, since the upsert always clears it.
-func (s *grantService) openRefreshToken(grant repository.OauthGrant) (string, error) {
+func (s *grantService) openRefreshToken(
+	grant repository.OauthGrant,
+) (string, error) {
 	if len(grant.RefreshTokenEnc) > 0 {
 		return s.sealer.Open(
 			grant.RefreshTokenEnc,
@@ -731,11 +817,18 @@ func (s *grantService) openRefreshToken(grant repository.OauthGrant) (string, er
 	return "", nil
 }
 
-func (s *grantService) markRevoked(ctx context.Context, grantID uuid.UUID, reason string) {
-	if err := s.repo.MarkOAuthGrantRevoked(ctx, repository.MarkOAuthGrantRevokedParams{
-		ID:     grantID,
-		Reason: &reason,
-	}); err != nil {
+func (s *grantService) markRevoked(
+	ctx context.Context,
+	grantID uuid.UUID,
+	reason string,
+) {
+	if err := s.repo.MarkOAuthGrantRevoked(
+		ctx,
+		repository.MarkOAuthGrantRevokedParams{
+			ID:     grantID,
+			Reason: &reason,
+		},
+	); err != nil {
 		s.logger.Error(
 			"failed to mark grant revoked",
 			slog.String("grant_id", grantID.String()),
@@ -744,7 +837,11 @@ func (s *grantService) markRevoked(ctx context.Context, grantID uuid.UUID, reaso
 	}
 }
 
-func (s *grantService) recordFailure(ctx context.Context, grantID uuid.UUID, cause error) {
+func (s *grantService) recordFailure(
+	ctx context.Context,
+	grantID uuid.UUID,
+	cause error,
+) {
 	message := cause.Error()
 	if err := s.repo.RecordOAuthGrantRefreshFailure(
 		ctx,
@@ -781,7 +878,12 @@ func (s *grantService) acquireRefreshLock(
 ) func() {
 	key := refreshLockKey(accountID, provider)
 
-	won, err := s.cacher.SetNX(ctx, key, time.Now().UTC().String(), 15*time.Second)
+	won, err := s.cacher.SetNX(
+		ctx,
+		key,
+		time.Now().UTC().String(),
+		15*time.Second,
+	)
 	if err != nil {
 		// Redis being down must not stop us serving a token. Degrading to
 		// "possible duplicate refresh" is benign.
@@ -816,7 +918,11 @@ func (s *grantService) readTokenCache(
 	required []string,
 ) (*AccessTokenResult, bool) {
 	var cached cachedToken
-	if err := s.cacher.Get(ctx, tokenCacheKey(accountID, descriptor.Name), &cached); err != nil {
+	if err := s.cacher.Get(
+		ctx,
+		tokenCacheKey(accountID, descriptor.Name),
+		&cached,
+	); err != nil {
 		return nil, false
 	}
 
@@ -875,7 +981,10 @@ func (s *grantService) invalidateTokenCache(
 	accountID uuid.UUID,
 	provider string,
 ) {
-	if err := s.cacher.Delete(ctx, tokenCacheKey(accountID, provider)); err != nil {
+	if err := s.cacher.Delete(
+		ctx,
+		tokenCacheKey(accountID, provider),
+	); err != nil {
 		s.logger.Warn(
 			"failed to invalidate provider token cache",
 			slog.String("provider", provider),

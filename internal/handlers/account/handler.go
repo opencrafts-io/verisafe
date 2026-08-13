@@ -14,7 +14,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/opencrafts-io/verisafe/internal/config"
 	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/eventbus"
@@ -48,62 +47,71 @@ func (ah *AccountHandler) svc(db repository.DBTX) accountsvc.Service {
 }
 
 func (ah *AccountHandler) RegisterHandlers(router core.Router) {
-	router.Handle("POST /accounts/bot/create",
+	router.Handle(
+		"POST /accounts/bot/create",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 			middleware.HasPermission([]string{"create:account:any"}),
 		)(core.AppHandler(ah.CreateBotAccount)),
 	)
 
-	router.Handle("GET /accounts/fanout",
+	router.Handle(
+		"GET /accounts/fanout",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 			middleware.HasPermission([]string{"create:account:any"}),
 		)(core.AppHandler(ah.FanoutAccouts)),
 	)
 
-	router.Handle("GET /accounts/me",
+	router.Handle(
+		"GET /accounts/me",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 			middleware.HasPermission([]string{"read:account:own"}),
 		)(core.AppHandler(ah.GetPersonalAccount)),
 	)
 
-	router.Handle("GET /accounts/all",
+	router.Handle(
+		"GET /accounts/all",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 			middleware.HasPermission([]string{"read:account:any"}),
 		)(core.AppHandler(ah.GetAllUserAccounts)),
 	)
 
-	router.Handle("PATCH /accounts/me",
+	router.Handle(
+		"PATCH /accounts/me",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 			middleware.HasPermission([]string{"update:account:own"}),
 		)(core.AppHandler(ah.UpdatePersonalAccount)),
 	)
 
-	router.Handle("POST /accounts/deletion-request",
+	router.Handle(
+		"POST /accounts/deletion-request",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 			middleware.HasPermission([]string{"update:account:own"}),
 		)(core.AppHandler(ah.MarkAccountForDeletion)),
 	)
-	router.Handle("POST /accounts/recovery",
+	router.Handle(
+		"POST /accounts/recovery",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 			middleware.HasPermission([]string{"update:account:own"}),
 		)(core.AppHandler(ah.RecoverAccountFromDeletion)),
 	)
 
-	router.Handle("PATCH /accounts/me/phone",
+	router.Handle(
+		"PATCH /accounts/me/phone",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 			middleware.HasPermission([]string{"update:account:own"}),
 		)(core.AppHandler(ah.VerifyPhone)),
 	)
 
-	router.Handle("GET /accounts/search/email",
+	router.Handle(
+		"GET /accounts/search/email",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 			middleware.HasPermission([]string{"read:account:any"}),
@@ -111,7 +119,8 @@ func (ah *AccountHandler) RegisterHandlers(router core.Router) {
 		)(core.AppHandler(ah.SearchAccountsByEmail)),
 	)
 
-	router.Handle("GET /accounts/search/name",
+	router.Handle(
+		"GET /accounts/search/name",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 			middleware.HasPermission([]string{"read:account:any"}),
@@ -119,7 +128,8 @@ func (ah *AccountHandler) RegisterHandlers(router core.Router) {
 		)(core.AppHandler(ah.SearchAccountsByName)),
 	)
 
-	router.Handle("GET /accounts/search/username",
+	router.Handle(
+		"GET /accounts/search/username",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
 			middleware.HasPermission([]string{"read:account:any"}),
@@ -200,7 +210,10 @@ func (ah *AccountHandler) CreateBotAccount(
 ) error {
 	var req BotAccountRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		ah.Logger.Error("Failed to parse request body", slog.String("error", err.Error()))
+		ah.Logger.Error(
+			"Failed to parse request body",
+			slog.String("error", err.Error()),
+		)
 		return core.Public(core.ErrInvalidInput, msgInvalidBody)
 	}
 	if req.Account.Email == "" || req.Account.Name == "" {
@@ -227,12 +240,18 @@ func (ah *AccountHandler) CreateBotAccount(
 		})
 		if err != nil {
 			ah.Logger.Error("Failed to create account", slog.Any("error", err))
-			return result{}, core.Public(core.ErrInternal, msgAccountCreateFailed)
+			return result{}, core.Public(
+				core.ErrInternal,
+				msgAccountCreateFailed,
+			)
 		}
 
 		role, err := svc.GetBotRole(r.Context())
 		if err != nil {
-			ah.Logger.Error("Failed to retrieve bot role", slog.Any("error", err))
+			ah.Logger.Error(
+				"Failed to retrieve bot role",
+				slog.Any("error", err),
+			)
 			return result{}, core.Public(core.ErrInternal, msgRoleLookupFailed)
 		}
 
@@ -244,7 +263,8 @@ func (ah *AccountHandler) CreateBotAccount(
 		token, err := ah.generateSecureToken()
 		if err != nil {
 			ah.Logger.Error(
-				"Failed to generate secure token", slog.String("error", err.Error()),
+				"Failed to generate secure token",
+				slog.String("error", err.Error()),
 			)
 			return result{}, core.Public(core.ErrInternal, msgTokenGenFailed)
 		}
@@ -260,12 +280,18 @@ func (ah *AccountHandler) CreateBotAccount(
 
 		var rotationPolicyJSON []byte
 		if req.ServiceToken.RotationPolicy != nil {
-			rotationPolicyJSON, err = json.Marshal(req.ServiceToken.RotationPolicy)
+			rotationPolicyJSON, err = json.Marshal(
+				req.ServiceToken.RotationPolicy,
+			)
 			if err != nil {
 				ah.Logger.Error(
-					"Failed to marshal rotation policy", slog.String("error", err.Error()),
+					"Failed to marshal rotation policy",
+					slog.String("error", err.Error()),
 				)
-				return result{}, core.Public(core.ErrInvalidInput, msgInvalidRotation)
+				return result{}, core.Public(
+					core.ErrInvalidInput,
+					msgInvalidRotation,
+				)
 			}
 		}
 
@@ -274,47 +300,63 @@ func (ah *AccountHandler) CreateBotAccount(
 			metadataJSON, err = json.Marshal(req.ServiceToken.Metadata)
 			if err != nil {
 				ah.Logger.Error(
-					"Failed to marshal metadata", slog.String("error", err.Error()),
+					"Failed to marshal metadata",
+					slog.String("error", err.Error()),
 				)
-				return result{}, core.Public(core.ErrInvalidInput, msgInvalidMetadata)
+				return result{}, core.Public(
+					core.ErrInvalidInput,
+					msgInvalidMetadata,
+				)
 			}
 		}
 
-		serviceToken, err := svc.CreateServiceToken(r.Context(), token, repository.CreateServiceTokenParams{
-			AccountID:   created.ID,
-			Name:        req.ServiceToken.Name,
-			Description: req.ServiceToken.Description,
-			// TokenHash is set by the service, which hashes rawToken -- this
-			// literal value is ignored. Before this migration, the handler
-			// passed the raw token straight through as TokenHash with no
-			// hashing at all, so every bot account created through this
-			// endpoint received a service token that could never
-			// authenticate (the X-API-Key check hashes the presented key and
-			// looks up by that hash). This was fixed as part of the
-			// extraction rather than reproduced; see ADR 0009.
-			ExpiresAt: expiresAt,
-			Scopes:    req.ServiceToken.Scopes,
-			MaxUses: func() *int32 {
-				if req.ServiceToken.MaxUses == nil {
-					return nil
-				}
-				val := int32(*req.ServiceToken.MaxUses)
-				return &val
-			}(),
-			RotationPolicy:   rotationPolicyJSON,
-			IpWhitelist:      req.ServiceToken.IPWhitelist,
-			UserAgentPattern: req.ServiceToken.UserAgentPattern,
-			CreatedBy:        pgtype.UUID{Bytes: created.ID, Valid: true},
-			Metadata:         metadataJSON,
-		})
+		serviceToken, err := svc.CreateServiceToken(
+			r.Context(),
+			token,
+			repository.CreateServiceTokenParams{
+				AccountID:   created.ID,
+				Name:        req.ServiceToken.Name,
+				Description: req.ServiceToken.Description,
+				// TokenHash is set by the service, which hashes rawToken -- this
+				// literal value is ignored. Before this migration, the handler
+				// passed the raw token straight through as TokenHash with no
+				// hashing at all, so every bot account created through this
+				// endpoint received a service token that could never
+				// authenticate (the X-API-Key check hashes the presented key and
+				// looks up by that hash). This was fixed as part of the
+				// extraction rather than reproduced; see ADR 0009.
+				ExpiresAt: expiresAt,
+				Scopes:    req.ServiceToken.Scopes,
+				MaxUses: func() *int32 {
+					if req.ServiceToken.MaxUses == nil {
+						return nil
+					}
+					val := int32(*req.ServiceToken.MaxUses)
+					return &val
+				}(),
+				RotationPolicy:   rotationPolicyJSON,
+				IpWhitelist:      req.ServiceToken.IPWhitelist,
+				UserAgentPattern: req.ServiceToken.UserAgentPattern,
+				CreatedBy:        &created.ID,
+				Metadata:         metadataJSON,
+			},
+		)
 		if err != nil {
 			ah.Logger.Error(
-				"Failed to create service token", slog.String("error", err.Error()),
+				"Failed to create service token",
+				slog.String("error", err.Error()),
 			)
-			return result{}, core.Public(core.ErrInternal, msgServiceTokenFailed)
+			return result{}, core.Public(
+				core.ErrInternal,
+				msgServiceTokenFailed,
+			)
 		}
 
-		return result{account: created, serviceToken: serviceToken, rawToken: token}, nil
+		return result{
+			account:      created,
+			serviceToken: serviceToken,
+			rawToken:     token,
+		}, nil
 	})
 	if err != nil {
 		return core.Fallback(err, core.ErrInternal, msgGeneric)
@@ -325,7 +367,7 @@ func (ah *AccountHandler) CreateBotAccount(
 	response.Account.Email = res.account.Email
 	response.Account.Name = res.account.Name
 	response.Account.Type = string(res.account.Type)
-	response.Account.CreatedAt = res.account.CreatedAt.Time
+	response.Account.CreatedAt = *res.account.CreatedAt
 
 	response.ServiceToken.ID = res.serviceToken.ID
 	response.ServiceToken.Name = res.serviceToken.Name
@@ -340,9 +382,12 @@ func (ah *AccountHandler) CreateBotAccount(
 		val := int(*res.serviceToken.MaxUses)
 		return &val
 	}()
-	response.ServiceToken.CreatedAt = res.serviceToken.CreatedAt.Time
+	response.ServiceToken.CreatedAt = res.serviceToken.CreatedAt
 	if res.serviceToken.Metadata != nil {
-		json.Unmarshal(res.serviceToken.Metadata, &response.ServiceToken.Metadata)
+		json.Unmarshal(
+			res.serviceToken.Metadata,
+			&response.ServiceToken.Metadata,
+		)
 	}
 
 	core.WriteJSON(w, http.StatusCreated, response)
@@ -366,7 +411,10 @@ func (ah *AccountHandler) FanoutAccouts(
 ) error {
 	conn, err := ah.DB.Acquire(r.Context())
 	if err != nil {
-		ah.Logger.Error("Error while processing request", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		return core.Public(core.ErrInternal, msgGeneric)
 	}
 	defer conn.Release()
@@ -375,7 +423,10 @@ func (ah *AccountHandler) FanoutAccouts(
 
 	userCount, err := svc.Count(r.Context())
 	if err != nil {
-		ah.Logger.Error("Error while processing request", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		return core.Public(core.ErrInternal, msgFanoutServiceUnavailable)
 	}
 
@@ -397,12 +448,16 @@ func (ah *AccountHandler) FanoutAccouts(
 			defer func() { <-semaphore }()
 
 			offset := batchNum * batchSize
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+			ctx, cancel := context.WithTimeout(
+				context.Background(),
+				30*time.Minute,
+			)
 			defer cancel()
 
 			users, err := svc.ListBatch(ctx, int32(batchSize), int32(offset))
 			if err != nil {
-				ah.Logger.Error("Error fetching batch",
+				ah.Logger.Error(
+					"Error fetching batch",
 					slog.Any("error", err), slog.Int("batch", batchNum),
 				)
 				errChan <- fmt.Errorf("batch %d: %w", batchNum, err)
@@ -410,9 +465,18 @@ func (ah *AccountHandler) FanoutAccouts(
 			}
 
 			for _, user := range users {
-				if err := ah.UserEventBus.PublishUserCreated(ctx, user, user.ID.String()); err != nil {
-					ah.Logger.Error("Error publishing user",
-						slog.Any("error", err), slog.String("user_id", user.ID.String()),
+				if err := ah.UserEventBus.PublishUserCreated(
+					ctx,
+					user,
+					user.ID.String(),
+				); err != nil {
+					ah.Logger.Error(
+						"Error publishing user",
+						slog.Any(
+							"error",
+							err,
+						),
+						slog.String("user_id", user.ID.String()),
 					)
 					errChan <- err
 					return
@@ -430,7 +494,10 @@ func (ah *AccountHandler) FanoutAccouts(
 	}
 
 	core.WriteJSON(w, http.StatusOK, map[string]any{
-		"message": fmt.Sprintf("Published %d users to the event bus", publishedCount),
+		"message": fmt.Sprintf(
+			"Published %d users to the event bus",
+			publishedCount,
+		),
 	})
 	return nil
 }
@@ -456,24 +523,46 @@ func (ah *AccountHandler) GetPersonalAccount(
 		return core.Public(core.ErrUnauthorized, msgAuthRequired)
 	}
 
-	user, err := core.InTx(r.Context(), ah.DB, func(tx pgx.Tx) (repository.Account, error) {
-		id, err := uuid.Parse(claims.Subject)
-		if err != nil {
-			ah.Logger.Error("Error while parsing user id", slog.Any("error", err))
-			return repository.Account{}, core.Public(core.ErrInternal, msgFetchAccountFailed)
-		}
+	user, err := core.InTx(
+		r.Context(),
+		ah.DB,
+		func(tx pgx.Tx) (repository.Account, error) {
+			id, err := uuid.Parse(claims.Subject)
+			if err != nil {
+				ah.Logger.Error(
+					"Error while parsing user id",
+					slog.Any("error", err),
+				)
+				return repository.Account{}, core.Public(
+					core.ErrInternal,
+					msgFetchAccountFailed,
+				)
+			}
 
-		user, err := ah.svc(tx).GetByID(r.Context(), id)
-		if errors.Is(err, core.ErrNotFound) {
-			ah.Logger.Error("Error while processing request", slog.Any("error", err))
-			return repository.Account{}, core.Public(core.ErrInternal, msgWrongFlavor)
-		}
-		if err != nil {
-			ah.Logger.Error("Error while processing request", slog.Any("error", err))
-			return repository.Account{}, core.Public(core.ErrInternal, msgFetchAccountFailed)
-		}
-		return user, nil
-	})
+			user, err := ah.svc(tx).GetByID(r.Context(), id)
+			if errors.Is(err, core.ErrNotFound) {
+				ah.Logger.Error(
+					"Error while processing request",
+					slog.Any("error", err),
+				)
+				return repository.Account{}, core.Public(
+					core.ErrInternal,
+					msgWrongFlavor,
+				)
+			}
+			if err != nil {
+				ah.Logger.Error(
+					"Error while processing request",
+					slog.Any("error", err),
+				)
+				return repository.Account{}, core.Public(
+					core.ErrInternal,
+					msgFetchAccountFailed,
+				)
+			}
+			return user, nil
+		},
+	)
 	if err != nil {
 		return core.Fallback(err, core.ErrInternal, msgGeneric)
 	}
@@ -502,7 +591,9 @@ func (ah *AccountHandler) UpdatePersonalAccount(
 	r *http.Request,
 ) error {
 	var accData repository.UpdateAccountDetailsParams
-	if err := json.NewDecoder(r.Body).Decode(&accData); err != nil || accData.Name == "" {
+	if err := json.NewDecoder(r.Body).
+		Decode(&accData); err != nil ||
+		accData.Name == "" {
 		ah.Logger.Error("Failed to parse request body", slog.Any("error", err))
 		return core.Public(core.ErrInvalidInput, msgCheckBody)
 	}
@@ -519,21 +610,37 @@ func (ah *AccountHandler) UpdatePersonalAccount(
 		return core.Public(core.ErrInternal, msgOwnershipViolation)
 	}
 
-	updated, err := core.InTx(r.Context(), ah.DB, func(tx pgx.Tx) (repository.Account, error) {
-		svc := ah.svc(tx)
+	updated, err := core.InTx(
+		r.Context(),
+		ah.DB,
+		func(tx pgx.Tx) (repository.Account, error) {
+			svc := ah.svc(tx)
 
-		if err := svc.Update(r.Context(), accData); err != nil {
-			ah.Logger.Error("Error while processing request", slog.Any("error", err))
-			return repository.Account{}, core.Public(core.ErrInternal, msgUpdateAccountFailed)
-		}
+			if err := svc.Update(r.Context(), accData); err != nil {
+				ah.Logger.Error(
+					"Error while processing request",
+					slog.Any("error", err),
+				)
+				return repository.Account{}, core.Public(
+					core.ErrInternal,
+					msgUpdateAccountFailed,
+				)
+			}
 
-		updated, err := svc.GetByID(r.Context(), accData.ID)
-		if err != nil {
-			ah.Logger.Error("Error while processing request", slog.Any("error", err))
-			return repository.Account{}, core.Public(core.ErrInternal, msgFetchAccountFailed)
-		}
-		return updated, nil
-	})
+			updated, err := svc.GetByID(r.Context(), accData.ID)
+			if err != nil {
+				ah.Logger.Error(
+					"Error while processing request",
+					slog.Any("error", err),
+				)
+				return repository.Account{}, core.Public(
+					core.ErrInternal,
+					msgFetchAccountFailed,
+				)
+			}
+			return updated, nil
+		},
+	)
 	if err != nil {
 		return core.Fallback(err, core.ErrInternal, msgGeneric)
 	}
@@ -562,9 +669,14 @@ func (ah *AccountHandler) UpdatePersonalAccount(
 //
 // TODO: implement verifying mechanisms
 // Use a provider such as AT or One Signal etc
-func (ah *AccountHandler) VerifyPhone(w http.ResponseWriter, r *http.Request) error {
+func (ah *AccountHandler) VerifyPhone(
+	w http.ResponseWriter,
+	r *http.Request,
+) error {
 	var accData repository.UpdateAccountPhoneNumberParams
-	if err := json.NewDecoder(r.Body).Decode(&accData); err != nil || len(accData.Phone) < 5 {
+	if err := json.NewDecoder(r.Body).
+		Decode(&accData); err != nil ||
+		len(accData.Phone) < 5 {
 		ah.Logger.Error("Failed to parse request body", slog.Any("error", err))
 		return core.Public(core.ErrInvalidInput, msgCheckBody)
 	}
@@ -580,21 +692,37 @@ func (ah *AccountHandler) VerifyPhone(w http.ResponseWriter, r *http.Request) er
 		return core.Public(core.ErrInternal, msgOwnershipViolation)
 	}
 
-	updated, err := core.InTx(r.Context(), ah.DB, func(tx pgx.Tx) (repository.Account, error) {
-		svc := ah.svc(tx)
+	updated, err := core.InTx(
+		r.Context(),
+		ah.DB,
+		func(tx pgx.Tx) (repository.Account, error) {
+			svc := ah.svc(tx)
 
-		if err := svc.UpdatePhone(r.Context(), accData); err != nil {
-			ah.Logger.Error("Error while processing request", slog.Any("error", err))
-			return repository.Account{}, core.Public(core.ErrInternal, msgUpdateAccountFailed)
-		}
+			if err := svc.UpdatePhone(r.Context(), accData); err != nil {
+				ah.Logger.Error(
+					"Error while processing request",
+					slog.Any("error", err),
+				)
+				return repository.Account{}, core.Public(
+					core.ErrInternal,
+					msgUpdateAccountFailed,
+				)
+			}
 
-		updated, err := svc.GetByID(r.Context(), accData.ID)
-		if err != nil {
-			ah.Logger.Error("Error while processing request", slog.Any("error", err))
-			return repository.Account{}, core.Public(core.ErrInternal, msgFetchAccountFailed)
-		}
-		return updated, nil
-	})
+			updated, err := svc.GetByID(r.Context(), accData.ID)
+			if err != nil {
+				ah.Logger.Error(
+					"Error while processing request",
+					slog.Any("error", err),
+				)
+				return repository.Account{}, core.Public(
+					core.ErrInternal,
+					msgFetchAccountFailed,
+				)
+			}
+			return updated, nil
+		},
+	)
 	if err != nil {
 		return core.Fallback(err, core.ErrInternal, msgGeneric)
 	}
@@ -615,8 +743,13 @@ func (ah *AccountHandler) publishUserUpdated(updated repository.Account) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if err := ah.UserEventBus.PublishUserUpdated(ctx, updated, eventRequestID); err != nil {
-		ah.Logger.Error("Failed to publish user updated event",
+	if err := ah.UserEventBus.PublishUserUpdated(
+		ctx,
+		updated,
+		eventRequestID,
+	); err != nil {
+		ah.Logger.Error(
+			"Failed to publish user updated event",
 			slog.Any("event_id", eventRequestID),
 			slog.Any("event_data", updated),
 			slog.Any("error", err),
@@ -649,16 +782,24 @@ func (ah *AccountHandler) SearchAccountsByEmail(
 	}
 	pagination := middleware.GetPagination(r.Context())
 
-	accounts, err := core.InTx(r.Context(), ah.DB, func(tx pgx.Tx) ([]repository.Account, error) {
-		accounts, err := ah.svc(tx).SearchByEmail(
-			r.Context(), query, int32(pagination.Limit), int32(pagination.Offset),
-		)
-		if err != nil {
-			ah.Logger.Error("Failed to search accounts by email", slog.Any("error", err))
-			return nil, core.Public(core.ErrInternal, msgSearchFailed)
-		}
-		return accounts, nil
-	})
+	accounts, err := core.InTx(
+		r.Context(),
+		ah.DB,
+		func(tx pgx.Tx) ([]repository.Account, error) {
+			accounts, err := ah.svc(tx).SearchByEmail(
+				r.Context(),
+				query, int32(pagination.Limit), int32(pagination.Offset),
+			)
+			if err != nil {
+				ah.Logger.Error(
+					"Failed to search accounts by email",
+					slog.Any("error", err),
+				)
+				return nil, core.Public(core.ErrInternal, msgSearchFailed)
+			}
+			return accounts, nil
+		},
+	)
 	if err != nil {
 		return core.Fallback(err, core.ErrInternal, msgGeneric)
 	}
@@ -703,16 +844,24 @@ func (ah *AccountHandler) SearchAccountsByName(
 	}
 	pagination := middleware.GetPagination(r.Context())
 
-	accounts, err := core.InTx(r.Context(), ah.DB, func(tx pgx.Tx) ([]repository.Account, error) {
-		accounts, err := ah.svc(tx).SearchByName(
-			r.Context(), query, int32(pagination.Limit), int32(pagination.Offset),
-		)
-		if err != nil {
-			ah.Logger.Error("Failed to search accounts by name", slog.Any("error", err))
-			return nil, core.Public(core.ErrInternal, msgSearchFailed)
-		}
-		return accounts, nil
-	})
+	accounts, err := core.InTx(
+		r.Context(),
+		ah.DB,
+		func(tx pgx.Tx) ([]repository.Account, error) {
+			accounts, err := ah.svc(tx).SearchByName(
+				r.Context(),
+				query, int32(pagination.Limit), int32(pagination.Offset),
+			)
+			if err != nil {
+				ah.Logger.Error(
+					"Failed to search accounts by name",
+					slog.Any("error", err),
+				)
+				return nil, core.Public(core.ErrInternal, msgSearchFailed)
+			}
+			return accounts, nil
+		},
+	)
 	if err != nil {
 		return core.Fallback(err, core.ErrInternal, msgGeneric)
 	}
@@ -747,16 +896,23 @@ func (ah *AccountHandler) GetAllUserAccounts(
 ) error {
 	pagination := middleware.GetPagination(r.Context())
 
-	accounts, err := core.InTx(r.Context(), ah.DB, func(tx pgx.Tx) ([]repository.Account, error) {
-		accounts, err := ah.svc(tx).List(
-			r.Context(), int32(pagination.Limit), int32(pagination.Offset),
-		)
-		if err != nil {
-			ah.Logger.Error("Failed to get all accounts", slog.Any("error", err))
-			return nil, core.Public(core.ErrInternal, msgSearchFailed)
-		}
-		return accounts, nil
-	})
+	accounts, err := core.InTx(
+		r.Context(),
+		ah.DB,
+		func(tx pgx.Tx) ([]repository.Account, error) {
+			accounts, err := ah.svc(tx).List(
+				r.Context(), int32(pagination.Limit), int32(pagination.Offset),
+			)
+			if err != nil {
+				ah.Logger.Error(
+					"Failed to get all accounts",
+					slog.Any("error", err),
+				)
+				return nil, core.Public(core.ErrInternal, msgSearchFailed)
+			}
+			return accounts, nil
+		},
+	)
 	if err != nil {
 		return core.Fallback(err, core.ErrInternal, msgGeneric)
 	}
@@ -792,16 +948,24 @@ func (ah *AccountHandler) SearchAccountsByUsername(
 	}
 	pagination := middleware.GetPagination(r.Context())
 
-	accounts, err := core.InTx(r.Context(), ah.DB, func(tx pgx.Tx) ([]repository.Account, error) {
-		accounts, err := ah.svc(tx).SearchByUsername(
-			r.Context(), query, int32(pagination.Limit), int32(pagination.Offset),
-		)
-		if err != nil {
-			ah.Logger.Error("Failed to search accounts by username", slog.Any("error", err))
-			return nil, core.Public(core.ErrInternal, msgSearchFailed)
-		}
-		return accounts, nil
-	})
+	accounts, err := core.InTx(
+		r.Context(),
+		ah.DB,
+		func(tx pgx.Tx) ([]repository.Account, error) {
+			accounts, err := ah.svc(tx).SearchByUsername(
+				r.Context(),
+				query, int32(pagination.Limit), int32(pagination.Offset),
+			)
+			if err != nil {
+				ah.Logger.Error(
+					"Failed to search accounts by username",
+					slog.Any("error", err),
+				)
+				return nil, core.Public(core.ErrInternal, msgSearchFailed)
+			}
+			return accounts, nil
+		},
+	)
 	if err != nil {
 		return core.Fallback(err, core.ErrInternal, msgGeneric)
 	}
@@ -846,27 +1010,37 @@ func (ah *AccountHandler) MarkAccountForDeletion(
 	// transaction are handled separately rather than through core.InTx.
 	conn, err := ah.DB.Acquire(r.Context())
 	if err != nil {
-		ah.Logger.Error("Error while processing request", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		return core.Public(core.ErrInternal, msgGeneric)
 	}
 	defer conn.Release()
 
 	tx, err := conn.Begin(r.Context())
 	if err != nil {
-		ah.Logger.Error("Error attempting to prepare transaction", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error attempting to prepare transaction",
+			slog.Any("error", err),
+		)
 		return core.Public(core.ErrInternal, msgDeletionBeginFailed)
 	}
 
 	txErr := func() error {
 		id, err := uuid.Parse(claims.Subject)
 		if err != nil {
-			ah.Logger.Error("Error while parsing user id", slog.Any("error", err))
+			ah.Logger.Error(
+				"Error while parsing user id",
+				slog.Any("error", err),
+			)
 			return core.Public(core.ErrInternal, msgDeletionBeginFailed)
 		}
 
 		if err := ah.svc(tx).MarkForDeletion(r.Context(), id); err != nil {
 			ah.Logger.Error(
-				"Error while attempting to mark account for deletion", slog.Any("error", err),
+				"Error while attempting to mark account for deletion",
+				slog.Any("error", err),
 			)
 			return core.Public(core.ErrInternal, msgDeletionFailed)
 		}
@@ -878,7 +1052,10 @@ func (ah *AccountHandler) MarkAccountForDeletion(
 	}
 
 	if err := tx.Commit(r.Context()); err != nil {
-		ah.Logger.Error("Error while committing transaction", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while committing transaction",
+			slog.Any("error", err),
+		)
 		return core.Public(core.ErrInternal, msgGeneric)
 	}
 
@@ -913,27 +1090,37 @@ func (ah *AccountHandler) RecoverAccountFromDeletion(
 	// handled separately here rather than through core.InTx.
 	conn, err := ah.DB.Acquire(r.Context())
 	if err != nil {
-		ah.Logger.Error("Error while processing request", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while processing request",
+			slog.Any("error", err),
+		)
 		return core.Public(core.ErrInternal, msgGeneric)
 	}
 	defer conn.Release()
 
 	tx, err := conn.Begin(r.Context())
 	if err != nil {
-		ah.Logger.Error("Error attempting to prepare transaction", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error attempting to prepare transaction",
+			slog.Any("error", err),
+		)
 		return core.Public(core.ErrInternal, msgRecoveryBeginFailed)
 	}
 
 	txErr := func() error {
 		id, err := uuid.Parse(claims.Subject)
 		if err != nil {
-			ah.Logger.Error("Error while parsing user id", slog.Any("error", err))
+			ah.Logger.Error(
+				"Error while parsing user id",
+				slog.Any("error", err),
+			)
 			return core.Public(core.ErrInternal, msgRecoveryBeginFailed)
 		}
 
 		if err := ah.svc(tx).MarkForRecovery(r.Context(), id); err != nil {
 			ah.Logger.Error(
-				"Error while attempting to recover account from deletion", slog.Any("error", err),
+				"Error while attempting to recover account from deletion",
+				slog.Any("error", err),
 			)
 			return core.Public(core.ErrInternal, msgRecoveryFailed)
 		}
@@ -945,7 +1132,10 @@ func (ah *AccountHandler) RecoverAccountFromDeletion(
 	}
 
 	if err := tx.Commit(r.Context()); err != nil {
-		ah.Logger.Error("Error while committing transaction", slog.Any("error", err))
+		ah.Logger.Error(
+			"Error while committing transaction",
+			slog.Any("error", err),
+		)
 		return core.Public(core.ErrInternal, msgGeneric)
 	}
 
