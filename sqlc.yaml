@@ -101,3 +101,13 @@ sql:
               import: "time"
               type: "Time"
               pointer: true
+          - db_type: "pg_catalog.numeric"
+            nullable: true
+            go_type:
+              type: "int"
+              pointer: true
+          - db_type: "pg_catalog.numeric"
+            nullable: false
+            go_type:
+              type: "int"
+              pointer: false 

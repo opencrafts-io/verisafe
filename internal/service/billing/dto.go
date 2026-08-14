@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/opencrafts-io/verisafe/internal/repository"
 )
 
 type Plan struct {
@@ -42,4 +43,44 @@ type UpdatePlan struct {
 
 type ListPlans struct {
 	Visible *bool `json:"visible"`
+}
+
+type Entitlement struct {
+	PlanCode    string
+	Key         string
+	Value       string
+	Unit        string
+	Description *string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+type ListEntitlementsByPlanCode struct {
+	PlanCode string
+}
+
+type GetEntitlement struct {
+	PlanCode string
+	Key      string
+}
+
+type CreateEntitlement struct {
+	PlanCode    string
+	Key         string
+	Value       int
+	Unit        string
+	Description *string
+}
+
+type UpdateEntitlement struct {
+	PlanCode    string
+	Key         string
+	Value       *int
+	Unit        *string
+	Description *string
+}
+
+type DeleteEntitlement struct {
+	PlanCode string
+	Key      string
 }

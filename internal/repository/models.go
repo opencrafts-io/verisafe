@@ -250,7 +250,7 @@ type Entitlement struct {
 	ID          int64           `json:"id"`
 	PlanID      int64           `json:"plan_id"`
 	Key         string          `json:"key"`
-	Value       pgtype.Numeric  `json:"value"`
+	Value       int             `json:"value"`
 	Unit        EntitlementUnit `json:"unit"`
 	Description *string         `json:"description"`
 	CreatedAt   time.Time       `json:"created_at"`
