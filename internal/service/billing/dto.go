@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/opencrafts-io/verisafe/internal/repository"
 )
 
 type Plan struct {
@@ -48,7 +47,7 @@ type ListPlans struct {
 type Entitlement struct {
 	PlanCode    string
 	Key         string
-	Value       string
+	Value       int
 	Unit        string
 	Description *string
 	CreatedAt   time.Time

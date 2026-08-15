@@ -83,8 +83,7 @@ func newTestPlanService(q repository.Querier) *planService {
 	logger := slog.New(
 		slog.NewTextHandler(io.Discard, nil),
 	)
-
-	return (&planService{}).New(
+	return New(
 		&config.Config{},
 		logger,
 		q,

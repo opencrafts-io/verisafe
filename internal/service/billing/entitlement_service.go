@@ -58,6 +58,14 @@ func (es *entitlementService) ListEntitlementsByPlanCode(
 		req.PlanCode,
 	)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			es.logger.WarnContext(
+				ctx,
+				"entitlement(s) not found",
+				slog.String("plan_code", req.PlanCode),
+			)
+			return nil, ErrNoEntitlementFound
+		}
 		es.logger.ErrorContext(
 			ctx,
 			"failed to list entitlements",
@@ -189,18 +197,24 @@ func (es *entitlementService) UpdateEntitlement(
 	ctx context.Context,
 	req UpdateEntitlement,
 ) (*Entitlement, error) {
+	var entitlementUnit *repository.EntitlementUnit = nil
+	if req.Unit != nil {
+		unit := repository.EntitlementUnit(*req.Unit)
+		entitlementUnit = &unit
+	}
+
 	dbEntitlement, err := es.querier.UpdateEntitlement(
 		ctx,
 		repository.UpdateEntitlementParams{
 			PlanCode:    req.PlanCode,
 			Key:         req.Key,
 			Value:       req.Value,
-			Unit:        repository.EntitlementUnit(req.Unit),
+			Unit:        entitlementUnit,
 			Description: req.Description,
 		},
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			es.logger.WarnContext(
 				ctx,
 				"entitlement not found for update",
@@ -251,6 +265,16 @@ func (es *entitlementService) DeleteEntitlement(
 			Key:  req.Key,
 		},
 	); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			es.logger.WarnContext(
+				ctx,
+				"entitlement not found for delete",
+				slog.String("plan_code", req.PlanCode),
+				slog.String("key", req.Key),
+			)
+			return ErrNoEntitlementFound
+		}
+
 		es.logger.ErrorContext(
 			ctx,
 			"failed to delete entitlement",
@@ -278,6 +302,15 @@ func (es *entitlementService) DeleteEntitlementsByPlanCode(
 		ctx,
 		planCode,
 	); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			es.logger.WarnContext(
+				ctx,
+				"entitlement not found for delete",
+				slog.String("plan_code", planCode),
+			)
+			return ErrNoEntitlementFound
+		}
+
 		es.logger.ErrorContext(
 			ctx,
 			"failed to delete entitlements by plan code",
