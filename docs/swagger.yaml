@@ -116,6 +116,19 @@ definitions:
       refresh_token:
         type: string
     type: object
+  billing.CreateEntitlement:
+    properties:
+      description:
+        type: string
+      key:
+        type: string
+      planCode:
+        type: string
+      unit:
+        type: string
+      value:
+        type: integer
+    type: object
   billing.CreatePlan:
     properties:
       active:
@@ -134,6 +147,23 @@ definitions:
         type: integer
       visible:
         type: boolean
+    type: object
+  billing.Entitlement:
+    properties:
+      createdAt:
+        type: string
+      description:
+        type: string
+      key:
+        type: string
+      planCode:
+        type: string
+      unit:
+        type: string
+      updatedAt:
+        type: string
+      value:
+        type: integer
     type: object
   billing.Plan:
     properties:
@@ -2084,6 +2114,47 @@ paths:
       summary: List authenticated user's devices
       tags:
       - devices
+  /entitlements:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new entitlement for a plan
+      parameters:
+      - description: Entitlement to create
+        in: body
+        name: entitlement
+        required: true
+        schema:
+          $ref: '#/definitions/billing.CreateEntitlement'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/billing.Entitlement'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "409":
+          description: Plan with this code already exists
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to create plan
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Create an entitlement for a plan
+      tags:
+      - entitlements
   /institutions/account:
     delete:
       consumes:

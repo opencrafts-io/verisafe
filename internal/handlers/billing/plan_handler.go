@@ -172,7 +172,7 @@ func (ph *PlanHandler) GetPlanByCode(
 		return core.Public(core.ErrUnauthorized, msgAuthRequired)
 	}
 
-	code := chi.URLParam(r, "code")
+	code := r.PathValue("code")
 
 	plan, err := core.InTx(
 		r.Context(),
