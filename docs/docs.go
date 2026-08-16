@@ -1735,6 +1735,56 @@ const docTemplate = `{
             }
         },
         "/entitlements": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Returns entitlements for a plans",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "entitlements"
+                ],
+                "summary": "List entitlements for a plan",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Plan code",
+                        "name": "plan_code",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/billing.Entitlement"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid claims",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch entitlements",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            },
             "post": {
                 "security": [
                     {
@@ -1792,7 +1842,7 @@ const docTemplate = `{
                         }
                     },
                     "500": {
-                        "description": "Failed to create plan",
+                        "description": "Failed to create entitlement",
                         "schema": {
                             "$ref": "#/definitions/core.APIError"
                         }
