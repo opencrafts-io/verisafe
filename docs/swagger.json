@@ -1729,56 +1729,6 @@
             }
         },
         "/entitlements": {
-            "get": {
-                "security": [
-                    {
-                        "BearerToken": []
-                    },
-                    {
-                        "ApiKey": []
-                    }
-                ],
-                "description": "Returns entitlements for a plans",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "entitlements"
-                ],
-                "summary": "List entitlements for a plan",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Plan code",
-                        "name": "plan_code",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/billing.Entitlement"
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Missing or invalid claims",
-                        "schema": {
-                            "$ref": "#/definitions/core.APIError"
-                        }
-                    },
-                    "500": {
-                        "description": "Failed to fetch entitlements",
-                        "schema": {
-                            "$ref": "#/definitions/core.APIError"
-                        }
-                    }
-                }
-            },
             "post": {
                 "security": [
                     {
@@ -1837,6 +1787,198 @@
                     },
                     "500": {
                         "description": "Failed to create entitlement",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Deletes an entitlement specified by its key",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "entitlements"
+                ],
+                "summary": "Deletes an entitlement",
+                "parameters": [
+                    {
+                        "description": "Fields specifying which entitlement to delete",
+                        "name": "entitlement",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/billing.DeleteEntitlement"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "{'message':'hello'}",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid claims",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "Entitlement not found",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to update entitlement",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/entitlements/{key}": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Updates fields on an existing billing entitlement identified by its key. Only provided fields are updated.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "entitlements"
+                ],
+                "summary": "Update an entitlement plan",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Plan code",
+                        "name": "key",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to update",
+                        "name": "entitlement",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/billing.UpdateEntitlement"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/billing.Entitlement"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid claims",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "Entitlement not found",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to update entitlement",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/entitlements/{plan_code}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Returns entitlements for a plans",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "entitlements"
+                ],
+                "summary": "List entitlements for a plan",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Plan code",
+                        "name": "plan_code",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/billing.Entitlement"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid claims",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch entitlements",
                         "schema": {
                             "$ref": "#/definitions/core.APIError"
                         }
@@ -4670,6 +4812,17 @@
                 }
             }
         },
+        "billing.DeleteEntitlement": {
+            "type": "object",
+            "properties": {
+                "key": {
+                    "type": "string"
+                },
+                "planCode": {
+                    "type": "string"
+                }
+            }
+        },
         "billing.Entitlement": {
             "type": "object",
             "properties": {
@@ -4728,6 +4881,26 @@
                 },
                 "visible": {
                     "type": "boolean"
+                }
+            }
+        },
+        "billing.UpdateEntitlement": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "planCode": {
+                    "type": "string"
+                },
+                "unit": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "integer"
                 }
             }
         },

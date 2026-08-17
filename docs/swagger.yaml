@@ -148,6 +148,13 @@ definitions:
       visible:
         type: boolean
     type: object
+  billing.DeleteEntitlement:
+    properties:
+      key:
+        type: string
+      planCode:
+        type: string
+    type: object
   billing.Entitlement:
     properties:
       createdAt:
@@ -187,6 +194,19 @@ definitions:
         type: string
       visible:
         type: boolean
+    type: object
+  billing.UpdateEntitlement:
+    properties:
+      description:
+        type: string
+      key:
+        type: string
+      planCode:
+        type: string
+      unit:
+        type: string
+      value:
+        type: integer
     type: object
   billing.UpdatePlan:
     properties:
@@ -2115,35 +2135,46 @@ paths:
       tags:
       - devices
   /entitlements:
-    get:
-      description: Returns entitlements for a plans
+    delete:
+      consumes:
+      - application/json
+      description: Deletes an entitlement specified by its key
       parameters:
-      - description: Plan code
-        in: path
-        name: plan_code
+      - description: Fields specifying which entitlement to delete
+        in: body
+        name: entitlement
         required: true
-        type: string
+        schema:
+          $ref: '#/definitions/billing.DeleteEntitlement'
       produces:
       - application/json
       responses:
-        "200":
-          description: OK
+        "204":
+          description: '{''message'':''hello''}'
           schema:
-            items:
-              $ref: '#/definitions/billing.Entitlement'
-            type: array
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/core.APIError'
         "401":
           description: Missing or invalid claims
           schema:
             $ref: '#/definitions/core.APIError'
+        "404":
+          description: Entitlement not found
+          schema:
+            $ref: '#/definitions/core.APIError'
         "500":
-          description: Failed to fetch entitlements
+          description: Failed to update entitlement
           schema:
             $ref: '#/definitions/core.APIError'
       security:
       - BearerToken: []
       - ApiKey: []
-      summary: List entitlements for a plan
+      summary: Deletes an entitlement
       tags:
       - entitlements
     post:
@@ -2184,6 +2215,85 @@ paths:
       - BearerToken: []
       - ApiKey: []
       summary: Create an entitlement for a plan
+      tags:
+      - entitlements
+  /entitlements/{key}:
+    patch:
+      consumes:
+      - application/json
+      description: Updates fields on an existing billing entitlement identified by
+        its key. Only provided fields are updated.
+      parameters:
+      - description: Plan code
+        in: path
+        name: key
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: entitlement
+        required: true
+        schema:
+          $ref: '#/definitions/billing.UpdateEntitlement'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/billing.Entitlement'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Entitlement not found
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to update entitlement
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Update an entitlement plan
+      tags:
+      - entitlements
+  /entitlements/{plan_code}:
+    get:
+      description: Returns entitlements for a plans
+      parameters:
+      - description: Plan code
+        in: path
+        name: plan_code
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/billing.Entitlement'
+            type: array
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to fetch entitlements
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: List entitlements for a plan
       tags:
       - entitlements
   /institutions/account:
