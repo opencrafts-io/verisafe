@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
 	"github.com/opencrafts-io/verisafe/internal/config"
 	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/eventbus"
@@ -367,8 +368,12 @@ func (ah *AccountHandler) CreateBotAccount(
 	response.Account.Email = res.account.Email
 	response.Account.Name = res.account.Name
 	response.Account.Type = string(res.account.Type)
-	response.Account.CreatedAt = *res.account.CreatedAt
-
+	response.Account.CreatedAt = func() time.Time {
+		if res.account.CreatedAt == nil {
+			return time.Now()
+		}
+		return *res.account.CreatedAt
+	}()
 	response.ServiceToken.ID = res.serviceToken.ID
 	response.ServiceToken.Name = res.serviceToken.Name
 	response.ServiceToken.Description = res.serviceToken.Description
