@@ -122,7 +122,7 @@ definitions:
         type: string
       key:
         type: string
-      planCode:
+      plan_code:
         type: string
       unit:
         type: string
@@ -152,22 +152,22 @@ definitions:
     properties:
       key:
         type: string
-      planCode:
+      plan_code:
         type: string
     type: object
   billing.Entitlement:
     properties:
-      createdAt:
+      created_at:
         type: string
       description:
         type: string
       key:
         type: string
-      planCode:
+      plan_code:
         type: string
       unit:
         type: string
-      updatedAt:
+      updated_at:
         type: string
       value:
         type: integer
@@ -201,7 +201,7 @@ definitions:
         type: string
       key:
         type: string
-      planCode:
+      plan_code:
         type: string
       unit:
         type: string

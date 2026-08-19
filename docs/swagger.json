@@ -4772,7 +4772,7 @@
                 "key": {
                     "type": "string"
                 },
-                "planCode": {
+                "plan_code": {
                     "type": "string"
                 },
                 "unit": {
@@ -4818,7 +4818,7 @@
                 "key": {
                     "type": "string"
                 },
-                "planCode": {
+                "plan_code": {
                     "type": "string"
                 }
             }
@@ -4826,7 +4826,7 @@
         "billing.Entitlement": {
             "type": "object",
             "properties": {
-                "createdAt": {
+                "created_at": {
                     "type": "string"
                 },
                 "description": {
@@ -4835,13 +4835,13 @@
                 "key": {
                     "type": "string"
                 },
-                "planCode": {
+                "plan_code": {
                     "type": "string"
                 },
                 "unit": {
                     "type": "string"
                 },
-                "updatedAt": {
+                "updated_at": {
                     "type": "string"
                 },
                 "value": {
@@ -4893,7 +4893,7 @@
                 "key": {
                     "type": "string"
                 },
-                "planCode": {
+                "plan_code": {
                     "type": "string"
                 },
                 "unit": {

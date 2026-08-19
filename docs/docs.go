@@ -4778,7 +4778,7 @@ const docTemplate = `{
                 "key": {
                     "type": "string"
                 },
-                "planCode": {
+                "plan_code": {
                     "type": "string"
                 },
                 "unit": {
@@ -4824,7 +4824,7 @@ const docTemplate = `{
                 "key": {
                     "type": "string"
                 },
-                "planCode": {
+                "plan_code": {
                     "type": "string"
                 }
             }
@@ -4832,7 +4832,7 @@ const docTemplate = `{
         "billing.Entitlement": {
             "type": "object",
             "properties": {
-                "createdAt": {
+                "created_at": {
                     "type": "string"
                 },
                 "description": {
@@ -4841,13 +4841,13 @@ const docTemplate = `{
                 "key": {
                     "type": "string"
                 },
-                "planCode": {
+                "plan_code": {
                     "type": "string"
                 },
                 "unit": {
                     "type": "string"
                 },
-                "updatedAt": {
+                "updated_at": {
                     "type": "string"
                 },
                 "value": {
@@ -4899,7 +4899,7 @@ const docTemplate = `{
                 "key": {
                     "type": "string"
                 },
-                "planCode": {
+                "plan_code": {
                     "type": "string"
                 },
                 "unit": {
