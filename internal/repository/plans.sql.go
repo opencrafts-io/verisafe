@@ -15,9 +15,10 @@ import (
 const createPlan = `-- name: CreatePlan :one
 INSERT INTO public.plans (
     code,
+    name,
     price,
     currency,
-    billing_interval,
+    billing_interval_days,
     active,
     visible,
     created_by,
@@ -30,13 +31,15 @@ INSERT INTO public.plans (
     $5,
     $6,
     $7,
-    $8
+    $8,
+    $9
 )
 RETURNING
     code,
+    name,
     price,
     currency,
-    billing_interval,
+    billing_interval_days,
     active,
     visible,
     description,
@@ -46,36 +49,39 @@ RETURNING
 `
 
 type CreatePlanParams struct {
-	Code            string     `json:"code"`
-	Price           int64      `json:"price"`
-	Currency        string     `json:"currency"`
-	BillingInterval int16      `json:"billing_interval"`
-	Active          *bool      `json:"active"`
-	Visible         *bool      `json:"visible"`
-	CreatedBy       *uuid.UUID `json:"created_by"`
-	Description     *string    `json:"description"`
+	Code                string     `json:"code"`
+	Name                string     `json:"name"`
+	Price               int64      `json:"price"`
+	Currency            string     `json:"currency"`
+	BillingIntervalDays int16      `json:"billing_interval_days"`
+	Active              *bool      `json:"active"`
+	Visible             *bool      `json:"visible"`
+	CreatedBy           *uuid.UUID `json:"created_by"`
+	Description         *string    `json:"description"`
 }
 
 type CreatePlanRow struct {
-	Code            string     `json:"code"`
-	Price           int64      `json:"price"`
-	Currency        string     `json:"currency"`
-	BillingInterval int16      `json:"billing_interval"`
-	Active          *bool      `json:"active"`
-	Visible         *bool      `json:"visible"`
-	Description     *string    `json:"description"`
-	CreatedBy       *uuid.UUID `json:"created_by"`
-	CreatedAt       *time.Time `json:"created_at"`
-	UpdatedAt       *time.Time `json:"updated_at"`
+	Code                string     `json:"code"`
+	Name                string     `json:"name"`
+	Price               int64      `json:"price"`
+	Currency            string     `json:"currency"`
+	BillingIntervalDays int16      `json:"billing_interval_days"`
+	Active              *bool      `json:"active"`
+	Visible             *bool      `json:"visible"`
+	Description         *string    `json:"description"`
+	CreatedBy           *uuid.UUID `json:"created_by"`
+	CreatedAt           *time.Time `json:"created_at"`
+	UpdatedAt           *time.Time `json:"updated_at"`
 }
 
 // Creates a plan and returns its details.
 func (q *Queries) CreatePlan(ctx context.Context, arg CreatePlanParams) (CreatePlanRow, error) {
 	row := q.db.QueryRow(ctx, createPlan,
 		arg.Code,
+		arg.Name,
 		arg.Price,
 		arg.Currency,
-		arg.BillingInterval,
+		arg.BillingIntervalDays,
 		arg.Active,
 		arg.Visible,
 		arg.CreatedBy,
@@ -84,9 +90,10 @@ func (q *Queries) CreatePlan(ctx context.Context, arg CreatePlanParams) (CreateP
 	var i CreatePlanRow
 	err := row.Scan(
 		&i.Code,
+		&i.Name,
 		&i.Price,
 		&i.Currency,
-		&i.BillingInterval,
+		&i.BillingIntervalDays,
 		&i.Active,
 		&i.Visible,
 		&i.Description,
@@ -100,9 +107,10 @@ func (q *Queries) CreatePlan(ctx context.Context, arg CreatePlanParams) (CreateP
 const getPlanByCode = `-- name: GetPlanByCode :one
 select
     code,
+    name,
     price,
     currency,
-    billing_interval,
+    billing_interval_days,
     active,
     visible,
     description,
@@ -114,16 +122,17 @@ where code = $1
 `
 
 type GetPlanByCodeRow struct {
-	Code            string     `json:"code"`
-	Price           int64      `json:"price"`
-	Currency        string     `json:"currency"`
-	BillingInterval int16      `json:"billing_interval"`
-	Active          *bool      `json:"active"`
-	Visible         *bool      `json:"visible"`
-	Description     *string    `json:"description"`
-	CreatedBy       *uuid.UUID `json:"created_by"`
-	CreatedAt       *time.Time `json:"created_at"`
-	UpdatedAt       *time.Time `json:"updated_at"`
+	Code                string     `json:"code"`
+	Name                string     `json:"name"`
+	Price               int64      `json:"price"`
+	Currency            string     `json:"currency"`
+	BillingIntervalDays int16      `json:"billing_interval_days"`
+	Active              *bool      `json:"active"`
+	Visible             *bool      `json:"visible"`
+	Description         *string    `json:"description"`
+	CreatedBy           *uuid.UUID `json:"created_by"`
+	CreatedAt           *time.Time `json:"created_at"`
+	UpdatedAt           *time.Time `json:"updated_at"`
 }
 
 // Retrieves a plan by its code
@@ -132,9 +141,10 @@ func (q *Queries) GetPlanByCode(ctx context.Context, code string) (GetPlanByCode
 	var i GetPlanByCodeRow
 	err := row.Scan(
 		&i.Code,
+		&i.Name,
 		&i.Price,
 		&i.Currency,
-		&i.BillingInterval,
+		&i.BillingIntervalDays,
 		&i.Active,
 		&i.Visible,
 		&i.Description,
@@ -148,9 +158,10 @@ func (q *Queries) GetPlanByCode(ctx context.Context, code string) (GetPlanByCode
 const listPlans = `-- name: ListPlans :many
 select
     code,
+    name,
     price,
     currency,
-    billing_interval,
+    billing_interval_days,
     active,
     visible,
     description,
@@ -162,16 +173,17 @@ where $1::bool is null or visible = $1::bool
 `
 
 type ListPlansRow struct {
-	Code            string     `json:"code"`
-	Price           int64      `json:"price"`
-	Currency        string     `json:"currency"`
-	BillingInterval int16      `json:"billing_interval"`
-	Active          *bool      `json:"active"`
-	Visible         *bool      `json:"visible"`
-	Description     *string    `json:"description"`
-	CreatedBy       *uuid.UUID `json:"created_by"`
-	CreatedAt       *time.Time `json:"created_at"`
-	UpdatedAt       *time.Time `json:"updated_at"`
+	Code                string     `json:"code"`
+	Name                string     `json:"name"`
+	Price               int64      `json:"price"`
+	Currency            string     `json:"currency"`
+	BillingIntervalDays int16      `json:"billing_interval_days"`
+	Active              *bool      `json:"active"`
+	Visible             *bool      `json:"visible"`
+	Description         *string    `json:"description"`
+	CreatedBy           *uuid.UUID `json:"created_by"`
+	CreatedAt           *time.Time `json:"created_at"`
+	UpdatedAt           *time.Time `json:"updated_at"`
 }
 
 // Retrieves plans.
@@ -188,9 +200,10 @@ func (q *Queries) ListPlans(ctx context.Context, visible *bool) ([]ListPlansRow,
 		var i ListPlansRow
 		if err := rows.Scan(
 			&i.Code,
+			&i.Name,
 			&i.Price,
 			&i.Currency,
-			&i.BillingInterval,
+			&i.BillingIntervalDays,
 			&i.Active,
 			&i.Visible,
 			&i.Description,
@@ -213,7 +226,7 @@ UPDATE public.plans
 SET
     price = COALESCE($1, price),
     currency = COALESCE($2, currency),
-    billing_interval = COALESCE($3, billing_interval),
+    billing_interval_days = COALESCE($3, billing_interval_days),
     active = COALESCE($4, active),
     visible = COALESCE($5, visible),
     description = COALESCE($6, description),
@@ -221,9 +234,10 @@ SET
 WHERE code = $7
 RETURNING
     code,
+    name,
     price,
     currency,
-    billing_interval,
+    billing_interval_days,
     active,
     visible,
     description,
@@ -243,16 +257,17 @@ type UpdatePlanParams struct {
 }
 
 type UpdatePlanRow struct {
-	Code            string     `json:"code"`
-	Price           int64      `json:"price"`
-	Currency        string     `json:"currency"`
-	BillingInterval int16      `json:"billing_interval"`
-	Active          *bool      `json:"active"`
-	Visible         *bool      `json:"visible"`
-	Description     *string    `json:"description"`
-	CreatedBy       *uuid.UUID `json:"created_by"`
-	CreatedAt       *time.Time `json:"created_at"`
-	UpdatedAt       *time.Time `json:"updated_at"`
+	Code                string     `json:"code"`
+	Name                string     `json:"name"`
+	Price               int64      `json:"price"`
+	Currency            string     `json:"currency"`
+	BillingIntervalDays int16      `json:"billing_interval_days"`
+	Active              *bool      `json:"active"`
+	Visible             *bool      `json:"visible"`
+	Description         *string    `json:"description"`
+	CreatedBy           *uuid.UUID `json:"created_by"`
+	CreatedAt           *time.Time `json:"created_at"`
+	UpdatedAt           *time.Time `json:"updated_at"`
 }
 
 // Updates only the provided fields and returns the updated plan.
@@ -269,9 +284,10 @@ func (q *Queries) UpdatePlan(ctx context.Context, arg UpdatePlanParams) (UpdateP
 	var i UpdatePlanRow
 	err := row.Scan(
 		&i.Code,
+		&i.Name,
 		&i.Price,
 		&i.Currency,
-		&i.BillingInterval,
+		&i.BillingIntervalDays,
 		&i.Active,
 		&i.Visible,
 		&i.Description,
