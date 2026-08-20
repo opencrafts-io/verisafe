@@ -40,6 +40,7 @@ RETURNING
     active,
     visible,
     description,
+    created_by,
     created_at,
     updated_at
 `
@@ -63,6 +64,7 @@ type CreatePlanRow struct {
 	Active          *bool      `json:"active"`
 	Visible         *bool      `json:"visible"`
 	Description     *string    `json:"description"`
+	CreatedBy       *uuid.UUID `json:"created_by"`
 	CreatedAt       *time.Time `json:"created_at"`
 	UpdatedAt       *time.Time `json:"updated_at"`
 }
@@ -88,6 +90,7 @@ func (q *Queries) CreatePlan(ctx context.Context, arg CreatePlanParams) (CreateP
 		&i.Active,
 		&i.Visible,
 		&i.Description,
+		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -155,7 +158,7 @@ select
     created_at,
     updated_at
 from public.plans
-where visible = coalesce($1, false)
+where $1::bool is null or visible = $1::bool
 `
 
 type ListPlansRow struct {
@@ -224,6 +227,7 @@ RETURNING
     active,
     visible,
     description,
+    created_by,
     created_at,
     updated_at
 `
@@ -246,6 +250,7 @@ type UpdatePlanRow struct {
 	Active          *bool      `json:"active"`
 	Visible         *bool      `json:"visible"`
 	Description     *string    `json:"description"`
+	CreatedBy       *uuid.UUID `json:"created_by"`
 	CreatedAt       *time.Time `json:"created_at"`
 	UpdatedAt       *time.Time `json:"updated_at"`
 }
@@ -270,6 +275,7 @@ func (q *Queries) UpdatePlan(ctx context.Context, arg UpdatePlanParams) (UpdateP
 		&i.Active,
 		&i.Visible,
 		&i.Description,
+		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

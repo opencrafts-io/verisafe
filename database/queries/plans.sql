@@ -14,8 +14,7 @@ select
     created_at,
     updated_at
 from public.plans
-where sqlc.narg('visible')::bool is null
-   or visible = sqlc.narg('visible')::bool
+where sqlc.narg('visible')::bool is null or visible = sqlc.narg('visible')::bool
 ;
 
 -- name: GetPlanByCode :one
@@ -66,6 +65,7 @@ RETURNING
     active,
     visible,
     description,
+    created_by,
     created_at,
     updated_at;
 
@@ -89,5 +89,6 @@ RETURNING
     active,
     visible,
     description,
+    created_by,
     created_at,
     updated_at;
