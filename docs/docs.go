@@ -4795,7 +4795,7 @@ const docTemplate = `{
                 "active": {
                     "type": "boolean"
                 },
-                "billing_interval": {
+                "billing_interval_days": {
                     "type": "integer"
                 },
                 "code": {
@@ -4808,6 +4808,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "description": {
+                    "type": "string"
+                },
+                "name": {
                     "type": "string"
                 },
                 "price": {
@@ -4861,7 +4864,7 @@ const docTemplate = `{
                 "active": {
                     "type": "boolean"
                 },
-                "billing_interval": {
+                "billing_interval_days": {
                     "type": "integer"
                 },
                 "code": {
@@ -4877,6 +4880,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "description": {
+                    "type": "string"
+                },
+                "name": {
                     "type": "string"
                 },
                 "price": {
@@ -4916,7 +4922,7 @@ const docTemplate = `{
                 "active": {
                     "type": "boolean"
                 },
-                "billing_interval": {
+                "billing_interval_days": {
                     "type": "integer"
                 },
                 "code": {
@@ -4926,6 +4932,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "description": {
+                    "type": "string"
+                },
+                "name": {
                     "type": "string"
                 },
                 "price": {

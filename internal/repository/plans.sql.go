@@ -224,14 +224,15 @@ func (q *Queries) ListPlans(ctx context.Context, visible *bool) ([]ListPlansRow,
 const updatePlan = `-- name: UpdatePlan :one
 UPDATE public.plans
 SET
-    price = COALESCE($1, price),
-    currency = COALESCE($2, currency),
-    billing_interval_days = COALESCE($3, billing_interval_days),
-    active = COALESCE($4, active),
-    visible = COALESCE($5, visible),
-    description = COALESCE($6, description),
+    name = COALESCE($1,name),
+    price = COALESCE($2, price),
+    currency = COALESCE($3, currency),
+    billing_interval_days = COALESCE($4, billing_interval_days),
+    active = COALESCE($5, active),
+    visible = COALESCE($6, visible),
+    description = COALESCE($7, description),
     updated_at = NOW()
-WHERE code = $7
+WHERE code = $8
 RETURNING
     code,
     name,
@@ -247,13 +248,14 @@ RETURNING
 `
 
 type UpdatePlanParams struct {
-	Price           *int64  `json:"price"`
-	Currency        *string `json:"currency"`
-	BillingInterval *int16  `json:"billing_interval"`
-	Active          *bool   `json:"active"`
-	Visible         *bool   `json:"visible"`
-	Description     *string `json:"description"`
-	Code            string  `json:"code"`
+	Name                *string `json:"name"`
+	Price               *int64  `json:"price"`
+	Currency            *string `json:"currency"`
+	BillingIntervalDays *int16  `json:"billing_interval_days"`
+	Active              *bool   `json:"active"`
+	Visible             *bool   `json:"visible"`
+	Description         *string `json:"description"`
+	Code                string  `json:"code"`
 }
 
 type UpdatePlanRow struct {
@@ -273,9 +275,10 @@ type UpdatePlanRow struct {
 // Updates only the provided fields and returns the updated plan.
 func (q *Queries) UpdatePlan(ctx context.Context, arg UpdatePlanParams) (UpdatePlanRow, error) {
 	row := q.db.QueryRow(ctx, updatePlan,
+		arg.Name,
 		arg.Price,
 		arg.Currency,
-		arg.BillingInterval,
+		arg.BillingIntervalDays,
 		arg.Active,
 		arg.Visible,
 		arg.Description,

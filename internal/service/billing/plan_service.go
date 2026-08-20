@@ -129,14 +129,14 @@ func (ps *planService) CreatePlan(
 	params CreatePlan,
 ) (*Plan, error) {
 	rawPlan, err := ps.querier.CreatePlan(ctx, repository.CreatePlanParams{
-		Code:            params.Code,
-		Currency:        params.Currency,
-		Price:           params.Price,
-		BillingInterval: params.BillingInterval,
-		Active:          &params.Active,
-		Visible:         &params.Visible,
-		CreatedBy:       &params.CreatedBy,
-		Description:     params.Description,
+		Code:                params.Code,
+		Currency:            params.Currency,
+		Price:               params.Price,
+		BillingIntervalDays: params.BillingIntervalDays,
+		Active:              &params.Active,
+		Visible:             &params.Visible,
+		CreatedBy:           &params.CreatedBy,
+		Description:         params.Description,
 	})
 	if err != nil {
 		ps.Logger.ErrorContext(
@@ -176,13 +176,14 @@ func (ps *planService) UpdatePlan(
 	params UpdatePlan,
 ) (*Plan, error) {
 	rawPlan, err := ps.querier.UpdatePlan(ctx, repository.UpdatePlanParams{
-		Code:            params.Code,
-		Currency:        params.Currency,
-		Price:           params.Price,
-		BillingInterval: params.BillingInterval,
-		Active:          params.Active,
-		Visible:         params.Visible,
-		Description:     params.Description,
+		Name:                params.Name,
+		Code:                params.Code,
+		Currency:            params.Currency,
+		Price:               params.Price,
+		BillingIntervalDays: params.BillingIntervalDays,
+		Active:              params.Active,
+		Visible:             params.Visible,
+		Description:         params.Description,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

@@ -133,7 +133,7 @@ definitions:
     properties:
       active:
         type: boolean
-      billing_interval:
+      billing_interval_days:
         type: integer
       code:
         type: string
@@ -142,6 +142,8 @@ definitions:
       currency:
         type: string
       description:
+        type: string
+      name:
         type: string
       price:
         type: integer
@@ -176,7 +178,7 @@ definitions:
     properties:
       active:
         type: boolean
-      billing_interval:
+      billing_interval_days:
         type: integer
       code:
         type: string
@@ -187,6 +189,8 @@ definitions:
       currency:
         type: string
       description:
+        type: string
+      name:
         type: string
       price:
         type: integer
@@ -212,13 +216,15 @@ definitions:
     properties:
       active:
         type: boolean
-      billing_interval:
+      billing_interval_days:
         type: integer
       code:
         type: string
       currency:
         type: string
       description:
+        type: string
+      name:
         type: string
       price:
         type: integer

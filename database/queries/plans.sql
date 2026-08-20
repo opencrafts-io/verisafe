@@ -78,9 +78,10 @@ RETURNING
 -- Updates only the provided fields and returns the updated plan.
 UPDATE public.plans
 SET
+    name = COALESCE(sqlc.narg('name'),name),
     price = COALESCE(sqlc.narg('price'), price),
     currency = COALESCE(sqlc.narg('currency'), currency),
-    billing_interval_days = COALESCE(sqlc.narg('billing_interval'), billing_interval_days),
+    billing_interval_days = COALESCE(sqlc.narg('billing_interval_days'), billing_interval_days),
     active = COALESCE(sqlc.narg('active'), active),
     visible = COALESCE(sqlc.narg('visible'), visible),
     description = COALESCE(sqlc.narg('description'), description),
