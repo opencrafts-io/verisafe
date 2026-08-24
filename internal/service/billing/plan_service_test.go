@@ -383,6 +383,7 @@ func TestPlanService_CreatePlan(t *testing.T) {
 
 		params := CreatePlan{
 			Code:                "PRO",
+			Name:                "PRO",
 			Price:               2500,
 			Currency:            "KES",
 			BillingIntervalDays: 30,
@@ -395,6 +396,7 @@ func TestPlanService_CreatePlan(t *testing.T) {
 		rawPlan := testCreatePlanRow()
 
 		expectedParams := repository.CreatePlanParams{
+			Name:                params.Name,
 			Code:                params.Code,
 			Currency:            params.Currency,
 			Price:               params.Price,
@@ -439,6 +441,7 @@ func TestPlanService_CreatePlan(t *testing.T) {
 
 		params := CreatePlan{
 			Code:                "PRO",
+			Name:                "pro",
 			Price:               2500,
 			Currency:            "KES",
 			BillingIntervalDays: 30,
@@ -450,6 +453,7 @@ func TestPlanService_CreatePlan(t *testing.T) {
 		repositoryErr := errors.New("duplicate plan code")
 
 		expectedParams := repository.CreatePlanParams{
+			Name:                params.Name,
 			Code:                params.Code,
 			Currency:            params.Currency,
 			Price:               params.Price,

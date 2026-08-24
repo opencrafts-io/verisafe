@@ -128,8 +128,13 @@ func (ps *planService) CreatePlan(
 	ctx context.Context,
 	params CreatePlan,
 ) (*Plan, error) {
+	if params.Name == "" {
+		return nil, fmt.Errorf("plan name cannot be empty")
+	}
+
 	rawPlan, err := ps.querier.CreatePlan(ctx, repository.CreatePlanParams{
 		Code:                params.Code,
+		Name:                params.Name,
 		Currency:            params.Currency,
 		Price:               params.Price,
 		BillingIntervalDays: params.BillingIntervalDays,
