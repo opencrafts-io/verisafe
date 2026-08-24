@@ -180,6 +180,11 @@ func (ps *planService) UpdatePlan(
 	ctx context.Context,
 	params UpdatePlan,
 ) (*Plan, error) {
+	if params.Name != nil {
+		if *params.Name == "" {
+			return nil, fmt.Errorf("cannot update plan name to empty string")
+		}
+	}
 	rawPlan, err := ps.querier.UpdatePlan(ctx, repository.UpdatePlanParams{
 		Name:                params.Name,
 		Code:                params.Code,
