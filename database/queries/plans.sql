@@ -14,7 +14,8 @@ select
     created_at,
     updated_at
 from public.plans
-where visible = coalesce(sqlc.narg('visible'), false)
+where sqlc.narg('visible')::bool is null
+   or visible = sqlc.narg('visible')::bool
 ;
 
 -- name: GetPlanByCode :one
