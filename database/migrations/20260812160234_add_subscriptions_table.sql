@@ -27,6 +27,10 @@ CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON public.subscriptions(use
 CREATE INDEX IF NOT EXISTS idx_subscriptions_plan_id ON public.subscriptions(plan_id);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON public.subscriptions(status);
 
+CREATE UNIQUE INDEX IF NOT EXISTS uq_subscriptions_active_per_user
+  ON public.subscriptions(user_id)
+  WHERE status = 'active';
+
 -- +goose Down
 -- +goose StatementBegin
 select 'down SQL query'
