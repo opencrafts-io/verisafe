@@ -45,41 +45,41 @@ type ListPlans struct {
 }
 
 type Entitlement struct {
-	PlanCode    string
-	Key         string
-	Value       int
-	Unit        string
-	Description *string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	PlanCode    string    `json:"plan_code"`
+	Key         string    `json:"key"`
+	Value       int       `json:"value"`
+	Unit        string    `json:"unit"`
+	Description *string   `json:"description"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 type ListEntitlementsByPlanCode struct {
-	PlanCode string
+	PlanCode string `json:"plan_code"`
 }
 
 type GetEntitlement struct {
-	PlanCode string
-	Key      string
+	PlanCode string `json:"plan_code"`
+	Key      string `json:"key"`
 }
 
 type CreateEntitlement struct {
-	PlanCode    string
-	Key         string
-	Value       int
-	Unit        string
-	Description *string
+	PlanCode    string  `json:"plan_code"`
+	Key         string  `json:"key"`
+	Value       int     `json:"value"`
+	Unit        string  `json:"unit"`
+	Description *string `json:"description"`
 }
 
 type UpdateEntitlement struct {
-	PlanCode    string
-	Key         string
-	Value       *int
-	Unit        *string
-	Description *string
+	PlanCode    string  `json:"plan_code"`
+	Key         string  `json:"key"`
+	Value       *int    `json:"value"`
+	Unit        *string `json:"unit"`
+	Description *string `json:"description"`
 }
 
 type DeleteEntitlement struct {
-	PlanCode string
-	Key      string
+	PlanCode string `json:"plan_code"`
+	Key      string `json:"key"`
 }
