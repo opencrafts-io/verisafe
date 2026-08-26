@@ -8,14 +8,15 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jinzhu/copier"
+
 	"github.com/opencrafts-io/verisafe/internal/config"
 	"github.com/opencrafts-io/verisafe/internal/repository"
 )
 
 var (
-	ErrNoPlanFound               error = errors.New("No plan(s) retrieved")
+	ErrNoPlanFound               error = errors.New("no plan(s) retrieved")
 	ErrFailedToConstructResponse error = errors.New(
-		"Failed to copy plan to dto",
+		"failed to copy plan to dto",
 	)
 )
 

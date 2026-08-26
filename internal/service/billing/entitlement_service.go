@@ -8,10 +8,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jinzhu/copier"
+
 	"github.com/opencrafts-io/verisafe/internal/repository"
 )
 
-var ErrNoEntitlementFound error = errors.New("No plan(s) retrieved")
+var ErrNoEntitlementFound error = errors.New("no plan(s) retrieved")
 
 type EntitlementService interface {
 	ListEntitlementsByPlanCode(
@@ -107,7 +108,7 @@ func (es *entitlementService) GetEntitlement(
 		},
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			es.logger.WarnContext(
 				ctx,
 				"entitlement not found",
