@@ -61,7 +61,12 @@ func (c WireCase) Run(t *testing.T) {
 	c.Handler.ServeHTTP(rr, c.Request)
 
 	assert.Equal(t, c.WantStatus, rr.Code, "status code")
-	assert.Equal(t, c.WantContentType, rr.Header().Get("Content-Type"), "Content-Type")
+	assert.Equal(
+		t,
+		c.WantContentType,
+		rr.Header().Get("Content-Type"),
+		"Content-Type",
+	)
 	assert.Equal(t, c.WantBody, rr.Body.String(), "response body bytes")
 }
 

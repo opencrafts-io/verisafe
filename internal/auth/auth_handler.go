@@ -16,7 +16,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
 	"github.com/opencrafts-io/verisafe/internal/core"
@@ -223,7 +222,11 @@ func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 			redirectURI,
 			h.auth.config.JWTConfig.AllowedRedirectURIs,
 		) {
-			core.WriteError(w, http.StatusBadRequest, "redirect_uri not allowed")
+			core.WriteError(
+				w,
+				http.StatusBadRequest,
+				"redirect_uri not allowed",
+			)
 			return
 		}
 	}
@@ -321,7 +324,11 @@ func (h *AuthHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	gothUser, err := gothic.CompleteUserAuth(w, r)
 	if err != nil {
 		h.logger.Error("OAuth flow failed", slog.Any("error", err))
-		core.WriteError(w, http.StatusInternalServerError, "authentication failed")
+		core.WriteError(
+			w,
+			http.StatusInternalServerError,
+			"authentication failed",
+		)
 		return
 	}
 
@@ -447,7 +454,11 @@ func (h *AuthHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		h.logger.Error("callback transaction failed", slog.Any("error", err))
-		core.WriteError(w, http.StatusInternalServerError, "authentication failed")
+		core.WriteError(
+			w,
+			http.StatusInternalServerError,
+			"authentication failed",
+		)
 		return
 	}
 
@@ -733,8 +744,6 @@ func (h *AuthHandler) upsertSocialConnection(
 		return fmt.Errorf("lookup social connection: %w", err)
 	}
 
-	expiresAt := providerTokenExpiry(user.ExpiresAt)
-
 	if errors.Is(err, pgx.ErrNoRows) {
 		_, err = repo.CreateSocial(r.Context(), repository.CreateSocialParams{
 			UserID:            user.UserID,
@@ -751,7 +760,7 @@ func (h *AuthHandler) upsertSocialConnection(
 			AccessToken:       &user.AccessToken,
 			AccessTokenSecret: &user.AccessTokenSecret,
 			RefreshToken:      &user.RefreshToken,
-			ExpiresAt:         expiresAt,
+			ExpiresAt:         &user.ExpiresAt,
 		})
 		if err != nil {
 			return fmt.Errorf("create social connection: %w", err)
@@ -773,7 +782,7 @@ func (h *AuthHandler) upsertSocialConnection(
 		AccessToken:       user.AccessToken,
 		AccessTokenSecret: user.AccessTokenSecret,
 		RefreshToken:      user.RefreshToken,
-		ExpiresAt:         expiresAt,
+		ExpiresAt:         &user.ExpiresAt,
 	})
 	if err != nil {
 		return fmt.Errorf("update social connection: %w", err)
@@ -790,29 +799,6 @@ func (h *AuthHandler) upsertSocialConnection(
 	return nil
 }
 
-// providerTokenExpiry converts a provider-reported access token expiry into
-// the pgtype value the socials queries expect.
-//
-// Two traps live here. The first is that pgtype.Timestamp zero-values to
-// Valid:false, which encodes as SQL NULL — the original code built the value
-// without setting Valid, so socials.expires_at was silently NULL on every
-// login since the column was introduced.
-//
-// The second is why this cannot simply set Valid:true unconditionally: goth
-// reports a zero time for providers and flows that return no expiry, and
-// UpdateSocial does `expires_at = COALESCE($3, expires_at)`. Writing a valid
-// zero time would overwrite a previously-good expiry with year 1. Leaving it
-// invalid keeps NULL flowing into COALESCE, which preserves the stored value.
-//
-// The column is TIMESTAMP without a zone, so the value is normalized to UTC
-// rather than stored in whatever zone the process happens to run in.
-func providerTokenExpiry(expiresAt time.Time) pgtype.Timestamp {
-	if expiresAt.IsZero() {
-		return pgtype.Timestamp{}
-	}
-	return pgtype.Timestamp{Time: expiresAt.UTC(), Valid: true}
-}
-
 func (h *AuthHandler) handleMobileCallback(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -822,13 +808,21 @@ func (h *AuthHandler) handleMobileCallback(
 	code, err := generateOpaqueCode()
 	if err != nil {
 		h.logger.Error("failed to generate auth code", slog.Any("error", err))
-		core.WriteError(w, http.StatusInternalServerError, "authentication failed")
+		core.WriteError(
+			w,
+			http.StatusInternalServerError,
+			"authentication failed",
+		)
 		return
 	}
 
 	if err := h.storeAuthCode(r.Context(), code, pair); err != nil {
 		h.logger.Error("failed to store auth code", slog.Any("error", err))
-		core.WriteError(w, http.StatusInternalServerError, "authentication failed")
+		core.WriteError(
+			w,
+			http.StatusInternalServerError,
+			"authentication failed",
+		)
 		return
 	}
 

@@ -9,7 +9,6 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createStreakMilestone = `-- name: CreateStreakMilestone :one
@@ -20,12 +19,12 @@ RETURNING id, activity_id, days_required, bonus_points, title, description, is_a
 `
 
 type CreateStreakMilestoneParams struct {
-	ActivityID   pgtype.UUID `json:"activity_id"`
-	DaysRequired int16       `json:"days_required"`
-	BonusPoints  int16       `json:"bonus_points"`
-	Title        string      `json:"title"`
-	Description  *string     `json:"description"`
-	IsActive     *bool       `json:"is_active"`
+	ActivityID   *uuid.UUID `json:"activity_id"`
+	DaysRequired int16      `json:"days_required"`
+	BonusPoints  int16      `json:"bonus_points"`
+	Title        string     `json:"title"`
+	Description  *string    `json:"description"`
+	IsActive     *bool      `json:"is_active"`
 }
 
 // Creates a streak milestone.

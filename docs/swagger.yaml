@@ -116,6 +116,115 @@ definitions:
       refresh_token:
         type: string
     type: object
+  billing.CreateEntitlement:
+    properties:
+      description:
+        type: string
+      key:
+        type: string
+      plan_code:
+        type: string
+      unit:
+        type: string
+      value:
+        type: integer
+    type: object
+  billing.CreatePlan:
+    properties:
+      active:
+        type: boolean
+      billing_interval:
+        type: integer
+      code:
+        type: string
+      created_by:
+        type: string
+      currency:
+        type: string
+      description:
+        type: string
+      price:
+        type: integer
+      visible:
+        type: boolean
+    type: object
+  billing.DeleteEntitlement:
+    properties:
+      key:
+        type: string
+      plan_code:
+        type: string
+    type: object
+  billing.Entitlement:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      key:
+        type: string
+      plan_code:
+        type: string
+      unit:
+        type: string
+      updated_at:
+        type: string
+      value:
+        type: integer
+    type: object
+  billing.Plan:
+    properties:
+      active:
+        type: boolean
+      billing_interval:
+        type: integer
+      code:
+        type: string
+      created_at:
+        type: string
+      created_by:
+        type: string
+      currency:
+        type: string
+      description:
+        type: string
+      price:
+        type: integer
+      updated_at:
+        type: string
+      visible:
+        type: boolean
+    type: object
+  billing.UpdateEntitlement:
+    properties:
+      description:
+        type: string
+      key:
+        type: string
+      plan_code:
+        type: string
+      unit:
+        type: string
+      value:
+        type: integer
+    type: object
+  billing.UpdatePlan:
+    properties:
+      active:
+        type: boolean
+      billing_interval:
+        type: integer
+      code:
+        type: string
+      currency:
+        type: string
+      description:
+        type: string
+      price:
+        type: integer
+      visible:
+        type: boolean
+    type: object
   core.APIError:
     properties:
       error:
@@ -324,27 +433,6 @@ definitions:
         type: string
       results: {}
     type: object
-  pgtype.InfinityModifier:
-    enum:
-    - 1
-    - 0
-    - -1
-    format: int32
-    type: integer
-    x-enum-varnames:
-    - Infinity
-    - Finite
-    - NegativeInfinity
-  pgtype.Timestamp:
-    properties:
-      infinityModifier:
-        $ref: '#/definitions/pgtype.InfinityModifier'
-      time:
-        description: Time zone will be ignored when encoding to PostgreSQL.
-        type: string
-      valid:
-        type: boolean
-    type: object
   providers.Capability:
     enum:
     - identity
@@ -368,7 +456,7 @@ definitions:
       bio:
         type: string
       created_at:
-        $ref: '#/definitions/pgtype.Timestamp'
+        type: string
       deleted_at:
         type: string
       email:
@@ -388,7 +476,7 @@ definitions:
       type:
         $ref: '#/definitions/repository.AccountType'
       updated_at:
-        $ref: '#/definitions/pgtype.Timestamp'
+        type: string
       username:
         type: string
       vibe_points:
@@ -411,7 +499,7 @@ definitions:
       avatar_url:
         type: string
       created_at:
-        $ref: '#/definitions/pgtype.Timestamp'
+        type: string
       email:
         type: string
       id:
@@ -419,7 +507,7 @@ definitions:
       name:
         type: string
       updated_at:
-        $ref: '#/definitions/pgtype.Timestamp'
+        type: string
       username:
         type: string
       vibe_points:
@@ -432,7 +520,7 @@ definitions:
       category:
         type: string
       created_at:
-        $ref: '#/definitions/pgtype.Timestamp'
+        type: string
       description:
         type: string
       id:
@@ -448,7 +536,7 @@ definitions:
       streak_eligible:
         type: boolean
       updated_at:
-        $ref: '#/definitions/pgtype.Timestamp'
+        type: string
     type: object
   repository.AddAccountInstitutionParams:
     properties:
@@ -551,7 +639,7 @@ definitions:
   repository.Permission:
     properties:
       created_at:
-        $ref: '#/definitions/pgtype.Timestamp'
+        type: string
       description:
         type: string
       id:
@@ -559,7 +647,7 @@ definitions:
       name:
         type: string
       updated_at:
-        $ref: '#/definitions/pgtype.Timestamp'
+        type: string
     type: object
   repository.RecordActivityCompletionParams:
     properties:
@@ -582,7 +670,7 @@ definitions:
   repository.Role:
     properties:
       created_at:
-        $ref: '#/definitions/pgtype.Timestamp'
+        type: string
       description:
         type: string
       id:
@@ -592,7 +680,7 @@ definitions:
       name:
         type: string
       updated_at:
-        $ref: '#/definitions/pgtype.Timestamp'
+        type: string
     type: object
   repository.RolePermissionsView:
     properties:
@@ -730,7 +818,7 @@ definitions:
       name:
         type: string
       role_created_at:
-        $ref: '#/definitions/pgtype.Timestamp'
+        type: string
       role_description:
         type: string
       role_id:
@@ -872,13 +960,13 @@ definitions:
       avatar_url:
         type: string
       created_at:
-        $ref: '#/definitions/pgtype.Timestamp'
+        type: string
       description:
         type: string
       email:
         type: string
       expires_at:
-        $ref: '#/definitions/pgtype.Timestamp'
+        type: string
       first_name:
         type: string
       id_token:
@@ -896,7 +984,7 @@ definitions:
       refresh_token:
         type: string
       updated_at:
-        $ref: '#/definitions/pgtype.Timestamp'
+        type: string
       user_id:
         type: string
     type: object
@@ -2046,6 +2134,168 @@ paths:
       summary: List authenticated user's devices
       tags:
       - devices
+  /entitlements:
+    delete:
+      consumes:
+      - application/json
+      description: Deletes an entitlement specified by its key
+      parameters:
+      - description: Fields specifying which entitlement to delete
+        in: body
+        name: entitlement
+        required: true
+        schema:
+          $ref: '#/definitions/billing.DeleteEntitlement'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: '{''message'':''hello''}'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Entitlement not found
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to update entitlement
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Deletes an entitlement
+      tags:
+      - entitlements
+    post:
+      consumes:
+      - application/json
+      description: Creates a new entitlement for a plan
+      parameters:
+      - description: Entitlement to create
+        in: body
+        name: entitlement
+        required: true
+        schema:
+          $ref: '#/definitions/billing.CreateEntitlement'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/billing.Entitlement'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "409":
+          description: Plan with this code already exists
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to create entitlement
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Create an entitlement for a plan
+      tags:
+      - entitlements
+  /entitlements/{key}:
+    patch:
+      consumes:
+      - application/json
+      description: Updates fields on an existing billing entitlement identified by
+        its key. Only provided fields are updated.
+      parameters:
+      - description: Plan code
+        in: path
+        name: key
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: entitlement
+        required: true
+        schema:
+          $ref: '#/definitions/billing.UpdateEntitlement'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/billing.Entitlement'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Entitlement not found
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to update entitlement
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Update an entitlement plan
+      tags:
+      - entitlements
+  /entitlements/{plan_code}:
+    get:
+      description: Returns entitlements for a plans
+      parameters:
+      - description: Plan code
+        in: path
+        name: plan_code
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/billing.Entitlement'
+            type: array
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to fetch entitlements
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: List entitlements for a plan
+      tags:
+      - entitlements
   /institutions/account:
     delete:
       consumes:
@@ -3102,6 +3352,158 @@ paths:
       summary: Liveness probe
       tags:
       - health
+  /plans:
+    get:
+      description: Returns billing plans, optionally filtered by visibility.
+      parameters:
+      - description: Filter by visibility
+        in: query
+        name: visible
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/billing.Plan'
+            type: array
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to fetch plans
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: List billing plans
+      tags:
+      - plans
+    post:
+      consumes:
+      - application/json
+      description: Creates a new billing plan. The authenticated caller is recorded
+        as the plan's creator.
+      parameters:
+      - description: Plan to create
+        in: body
+        name: plan
+        required: true
+        schema:
+          $ref: '#/definitions/billing.CreatePlan'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/billing.Plan'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "409":
+          description: Plan with this code already exists
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to create plan
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Create a billing plan
+      tags:
+      - plans
+  /plans/{code}:
+    get:
+      description: Returns a single billing plan matching the given plan code.
+      parameters:
+      - description: Plan code
+        in: path
+        name: code
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/billing.Plan'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Plan not found
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to fetch plan
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Get a billing plan by code
+      tags:
+      - plans
+    patch:
+      consumes:
+      - application/json
+      description: Updates fields on an existing billing plan identified by its code.
+        Only provided fields are updated.
+      parameters:
+      - description: Plan code
+        in: path
+        name: code
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: plan
+        required: true
+        schema:
+          $ref: '#/definitions/billing.UpdatePlan'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/billing.Plan'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Plan not found
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to update plan
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Update a billing plan
+      tags:
+      - plans
   /roles:
     get:
       description: |-

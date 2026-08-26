@@ -13,7 +13,6 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/opencrafts-io/verisafe/internal/config"
 	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/repository"
@@ -59,12 +58,10 @@ func (ts tokenService) IssueTokenPair(
 	}
 
 	tokenParams := repository.RecordIssuedTokenParams{
-		Jti:      jti,
-		UserID:   userID,
-		DeviceID: pgtype.UUID{Bytes: deviceID, Valid: true},
-		ExpiresAt: pgtype.Timestamp{
-			Time: accessExpiry, Valid: true,
-		},
+		Jti:       jti,
+		UserID:    userID,
+		DeviceID:  &deviceID,
+		ExpiresAt: accessExpiry,
 	}
 
 	_, err = ts.repo.RecordIssuedToken(ctx, tokenParams)
@@ -84,10 +81,10 @@ func (ts tokenService) IssueTokenPair(
 		repository.RecordIssuedRefreshTokenParams{
 			TokenHash: tokenHash,
 			UserID:    userID,
-			DeviceID:  pgtype.UUID{Bytes: deviceID, Valid: true},
-			JwtJti:    pgtype.UUID{Bytes: jti, Valid: true},
-			IssuedAt:  pgtype.Timestamp{Time: time.Now(), Valid: true},
-			ExpiresAt: pgtype.Timestamp{Time: refreshExpiry, Valid: true},
+			DeviceID:  &deviceID,
+			JwtJti:    &jti,
+			IssuedAt:  time.Now(),
+			ExpiresAt: refreshExpiry,
 			FamilyID:  familyID,
 		},
 	)
@@ -127,7 +124,7 @@ func (ts tokenService) RotateRefreshToken(
 	return ts.IssueTokenPair(
 		ctx,
 		existing.UserID,
-		existing.DeviceID.Bytes,
+		*existing.DeviceID,
 		existing.FamilyID,
 	)
 }

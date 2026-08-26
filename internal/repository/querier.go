@@ -25,9 +25,14 @@ type Querier interface {
 	// An activity is basically an action that a user can
 	// take to be awarded vibe points
 	CreateActivity(ctx context.Context, arg CreateActivityParams) (Activity, error)
+	// Creates a new entitlement under the plan identified by its public code.
+	// Resolves plan_id internally so callers never see or supply it.
+	CreateEntitlement(ctx context.Context, arg CreateEntitlementParams) (CreateEntitlementRow, error)
 	CreateInstitution(ctx context.Context, arg CreateInstitutionParams) (Institution, error)
 	// Creates a permission on the database
 	CreatePermission(ctx context.Context, arg CreatePermissionParams) (Permission, error)
+	// Creates a plan and returns its details.
+	CreatePlan(ctx context.Context, arg CreatePlanParams) (CreatePlanRow, error)
 	// Creates a role
 	CreateRole(ctx context.Context, arg CreateRoleParams) (Role, error)
 	CreateServiceToken(ctx context.Context, arg CreateServiceTokenParams) (ServiceToken, error)
@@ -35,6 +40,11 @@ type Querier interface {
 	// Creates a streak milestone.
 	CreateStreakMilestone(ctx context.Context, arg CreateStreakMilestoneParams) (StreakMilestone, error)
 	DeleteActivity(ctx context.Context, id uuid.UUID) error
+	// Deletes an entitlement identified by plan code and key.
+	DeleteEntitlement(ctx context.Context, arg DeleteEntitlementParams) error
+	// Deletes all entitlements for a plan, identified by its public code.
+	// Useful when replacing a plan's entire entitlement set atomically.
+	DeleteEntitlementsByPlanCode(ctx context.Context, code string) error
 	DeleteInstitution(ctx context.Context, institutionID int32) error
 	DeleteServiceToken(ctx context.Context, id uuid.UUID) error
 	// Deletes streak milestone by ID
@@ -89,6 +99,8 @@ type Querier interface {
 	GetAllUserRoleNames(ctx context.Context, userID uuid.UUID) ([]string, error)
 	// Retrieves all roles that a user has
 	GetAllUserRoles(ctx context.Context, userID uuid.UUID) ([]UserRolesView, error)
+	// Retrieves a single entitlement by plan code and key.
+	GetEntitlement(ctx context.Context, arg GetEntitlementParams) (GetEntitlementRow, error)
 	GetGlobalLeaderBoardCount(ctx context.Context) (int64, error)
 	GetInstitution(ctx context.Context, institutionID int32) (Institution, error)
 	// Returns the number of all institutions in the system
@@ -101,6 +113,8 @@ type Querier interface {
 	GetOAuthGrant(ctx context.Context, arg GetOAuthGrantParams) (OauthGrant, error)
 	GetOAuthGrantByID(ctx context.Context, id uuid.UUID) (OauthGrant, error)
 	GetPermissionByID(ctx context.Context, id uuid.UUID) (Permission, error)
+	// Retrieves a plan by its code
+	GetPlanByCode(ctx context.Context, code string) (GetPlanByCodeRow, error)
 	// Retrieves an earlier issued refresh token given its hash
 	GetRefreshTokenByHash(ctx context.Context, tokenHash string) (RefreshToken, error)
 	// Retrieves a role specified by its id
@@ -122,12 +136,18 @@ type Querier interface {
 	GetUserStreaks(ctx context.Context, accountID uuid.UUID) ([]interface{}, error)
 	ListAccountsForInstitution(ctx context.Context, arg ListAccountsForInstitutionParams) ([]Account, error)
 	ListActiveServiceTokens(ctx context.Context) ([]ActiveServiceToken, error)
+	// Retrieves all entitlements for a plan, identified by its public code.
+	ListEntitlementsByPlanCode(ctx context.Context, code string) ([]ListEntitlementsByPlanCodeRow, error)
 	ListInstitutionConnections(ctx context.Context, arg ListInstitutionConnectionsParams) ([]AccountInstitution, error)
 	ListInstitutions(ctx context.Context, arg ListInstitutionsParams) ([]Institution, error)
 	ListInstitutionsForAccount(ctx context.Context, arg ListInstitutionsForAccountParams) ([]Institution, error)
 	// Every provider an account has connected. Not paginated — the provider set
 	// is small and bounded by the registry.
 	ListOAuthGrantsByAccount(ctx context.Context, accountID uuid.UUID) ([]OauthGrant, error)
+	// Retrieves plans.
+	// No pagination logic is inserted as we don't anticipate having many plans
+	// at the moment.
+	ListPlans(ctx context.Context, visible *bool) ([]ListPlansRow, error)
 	ListServiceTokensByAccount(ctx context.Context, accountID uuid.UUID) ([]ServiceToken, error)
 	ListServiceTokensNeedingRotation(ctx context.Context) ([]ServiceToken, error)
 	// Grants whose scope list is still presumed rather than provider-confirmed.
@@ -181,8 +201,13 @@ type Querier interface {
 	UpdateAccountPhoneNumber(ctx context.Context, arg UpdateAccountPhoneNumberParams) error
 	// Updates an activity specified by its ID
 	UpdateActivity(ctx context.Context, arg UpdateActivityParams) (Activity, error)
+	// Updates an entitlement identified by plan code and key.
+	// Only non-null arguments overwrite existing values.
+	UpdateEntitlement(ctx context.Context, arg UpdateEntitlementParams) (UpdateEntitlementRow, error)
 	UpdateInstitution(ctx context.Context, arg UpdateInstitutionParams) (Institution, error)
 	UpdatePermission(ctx context.Context, arg UpdatePermissionParams) (Permission, error)
+	// Updates only the provided fields and returns the updated plan.
+	UpdatePlan(ctx context.Context, arg UpdatePlanParams) (UpdatePlanRow, error)
 	UpdateRole(ctx context.Context, arg UpdateRoleParams) (Role, error)
 	UpdateServiceToken(ctx context.Context, arg UpdateServiceTokenParams) error
 	UpdateServiceTokenLastUsed(ctx context.Context, id uuid.UUID) error

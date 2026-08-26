@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 
@@ -45,11 +44,8 @@ func fakeDeviceRow(
 		DeviceToken:  &token,
 		IpAddress:    input.IpAddress,
 		Country:      input.Country,
-		LastActiveAt: pgtype.Timestamp{Time: ts, Valid: true},
-		CreatedAt: pgtype.Timestamp{
-			Time:  time.Date(2024, 1, 15, 10, 0, 0, 0, time.UTC),
-			Valid: true,
-		},
+		LastActiveAt: &ts,
+		CreatedAt:    time.Date(2024, 1, 15, 10, 0, 0, 0, time.UTC),
 	}
 }
 
@@ -156,14 +152,16 @@ func TestRegisterDevice_NilPointersInRow(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	createdAt := time.Now()
+
 	row := repository.UserDevice{
 		ID:           uuid.New(),
 		UserID:       uuid.MustParse("00000000-0000-0000-0000-000000000001"),
 		DeviceName:   nil,
 		Platform:     nil,
 		DeviceToken:  nil,
-		LastActiveAt: pgtype.Timestamp{Time: time.Now(), Valid: true},
-		CreatedAt:    pgtype.Timestamp{Time: time.Now(), Valid: true},
+		LastActiveAt: &createdAt,
+		CreatedAt:    createdAt,
 	}
 
 	mockQuerier := mockQuerier.NewMockQuerier(ctrl)

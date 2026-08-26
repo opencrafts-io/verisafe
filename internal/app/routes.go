@@ -9,6 +9,7 @@ import (
 	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/handlers/account"
 	"github.com/opencrafts-io/verisafe/internal/handlers/activity"
+	"github.com/opencrafts-io/verisafe/internal/handlers/billing"
 	"github.com/opencrafts-io/verisafe/internal/handlers/device"
 	"github.com/opencrafts-io/verisafe/internal/handlers/health"
 	"github.com/opencrafts-io/verisafe/internal/handlers/institution"
@@ -152,6 +153,18 @@ func (a *App) loadRoutes() http.Handler {
 			Registry:  a.oauthRegistry,
 			Exchanger: a.tokenExchanger,
 			Sealer:    a.tokenSealer,
+		},
+		&billing.PlanHandler{
+			DB:     db,
+			Logger: a.logger,
+			Cfg:    a.config,
+			Cacher: a.cacher,
+		},
+		&billing.EntitlementHandler{
+			DB:     db,
+			Logger: a.logger,
+			Cfg:    a.config,
+			Cacher: a.cacher,
 		},
 	}
 

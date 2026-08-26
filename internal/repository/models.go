@@ -58,22 +58,115 @@ func (ns NullAccountType) Value() (driver.Value, error) {
 	return string(ns.AccountType), nil
 }
 
+type EntitlementUnit string
+
+const (
+	EntitlementUnitGb       EntitlementUnit = "gb"
+	EntitlementUnitMb       EntitlementUnit = "mb"
+	EntitlementUnitKb       EntitlementUnit = "kb"
+	EntitlementUnitRequests EntitlementUnit = "requests"
+	EntitlementUnitDays     EntitlementUnit = "days"
+	EntitlementUnitMonths   EntitlementUnit = "months"
+	EntitlementUnitHours    EntitlementUnit = "hours"
+	EntitlementUnitMinutes  EntitlementUnit = "minutes"
+	EntitlementUnitCredits  EntitlementUnit = "credits"
+	EntitlementUnitApiCalls EntitlementUnit = "api_calls"
+)
+
+func (e *EntitlementUnit) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = EntitlementUnit(s)
+	case string:
+		*e = EntitlementUnit(s)
+	default:
+		return fmt.Errorf("unsupported scan type for EntitlementUnit: %T", src)
+	}
+	return nil
+}
+
+type NullEntitlementUnit struct {
+	EntitlementUnit EntitlementUnit `json:"entitlement_unit"`
+	Valid           bool            `json:"valid"` // Valid is true if EntitlementUnit is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullEntitlementUnit) Scan(value interface{}) error {
+	if value == nil {
+		ns.EntitlementUnit, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.EntitlementUnit.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullEntitlementUnit) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.EntitlementUnit), nil
+}
+
+type SubscriptionStatus string
+
+const (
+	SubscriptionStatusActive   SubscriptionStatus = "active"
+	SubscriptionStatusCanceled SubscriptionStatus = "canceled"
+	SubscriptionStatusExpired  SubscriptionStatus = "expired"
+)
+
+func (e *SubscriptionStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = SubscriptionStatus(s)
+	case string:
+		*e = SubscriptionStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for SubscriptionStatus: %T", src)
+	}
+	return nil
+}
+
+type NullSubscriptionStatus struct {
+	SubscriptionStatus SubscriptionStatus `json:"subscription_status"`
+	Valid              bool               `json:"valid"` // Valid is true if SubscriptionStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullSubscriptionStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.SubscriptionStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.SubscriptionStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullSubscriptionStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.SubscriptionStatus), nil
+}
+
 type Account struct {
-	ID            uuid.UUID        `json:"id"`
-	Email         string           `json:"email"`
-	Name          string           `json:"name"`
-	CreatedAt     pgtype.Timestamp `json:"created_at"`
-	UpdatedAt     pgtype.Timestamp `json:"updated_at"`
-	TermsAccepted *bool            `json:"terms_accepted"`
-	Onboarded     *bool            `json:"onboarded"`
-	Type          AccountType      `json:"type"`
-	NationalID    *string          `json:"national_id"`
-	Username      *string          `json:"username"`
-	AvatarUrl     *string          `json:"avatar_url"`
-	Bio           *string          `json:"bio"`
-	VibePoints    int64            `json:"vibe_points"`
-	Phone         *string          `json:"phone"`
-	DeletedAt     *time.Time       `json:"deleted_at"`
+	ID            uuid.UUID   `json:"id"`
+	Email         string      `json:"email"`
+	Name          string      `json:"name"`
+	CreatedAt     *time.Time  `json:"created_at"`
+	UpdatedAt     *time.Time  `json:"updated_at"`
+	TermsAccepted *bool       `json:"terms_accepted"`
+	Onboarded     *bool       `json:"onboarded"`
+	Type          AccountType `json:"type"`
+	NationalID    *string     `json:"national_id"`
+	Username      *string     `json:"username"`
+	AvatarUrl     *string     `json:"avatar_url"`
+	Bio           *string     `json:"bio"`
+	VibePoints    int64       `json:"vibe_points"`
+	Phone         *string     `json:"phone"`
+	DeletedAt     *time.Time  `json:"deleted_at"`
 }
 
 type AccountInstitution struct {
@@ -82,75 +175,86 @@ type AccountInstitution struct {
 }
 
 type AccountInstitutionInfo struct {
-	AccountID              uuid.UUID        `json:"account_id"`
-	AccountName            string           `json:"account_name"`
-	AccountEmail           string           `json:"account_email"`
-	AccountCreatedAt       pgtype.Timestamp `json:"account_created_at"`
-	AccountUpdatedAt       pgtype.Timestamp `json:"account_updated_at"`
-	InstitutionID          int32            `json:"institution_id"`
-	InstitutionName        string           `json:"institution_name"`
-	InstitutionCountry     *string          `json:"institution_country"`
-	InstitutionState       *string          `json:"institution_state"`
-	InstitutionCountryCode *string          `json:"institution_country_code"`
+	AccountID              uuid.UUID  `json:"account_id"`
+	AccountName            string     `json:"account_name"`
+	AccountEmail           string     `json:"account_email"`
+	AccountCreatedAt       *time.Time `json:"account_created_at"`
+	AccountUpdatedAt       *time.Time `json:"account_updated_at"`
+	InstitutionID          int32      `json:"institution_id"`
+	InstitutionName        string     `json:"institution_name"`
+	InstitutionCountry     *string    `json:"institution_country"`
+	InstitutionState       *string    `json:"institution_state"`
+	InstitutionCountryCode *string    `json:"institution_country_code"`
 }
 
 type AccountVibepointRank struct {
-	ID         uuid.UUID        `json:"id"`
-	Email      string           `json:"email"`
-	Name       string           `json:"name"`
-	Username   *string          `json:"username"`
-	VibePoints int64            `json:"vibe_points"`
-	AvatarUrl  *string          `json:"avatar_url"`
-	CreatedAt  pgtype.Timestamp `json:"created_at"`
-	UpdatedAt  pgtype.Timestamp `json:"updated_at"`
-	VibeRank   int64            `json:"vibe_rank"`
+	ID         uuid.UUID  `json:"id"`
+	Email      string     `json:"email"`
+	Name       string     `json:"name"`
+	Username   *string    `json:"username"`
+	VibePoints int64      `json:"vibe_points"`
+	AvatarUrl  *string    `json:"avatar_url"`
+	CreatedAt  *time.Time `json:"created_at"`
+	UpdatedAt  *time.Time `json:"updated_at"`
+	VibeRank   int64      `json:"vibe_rank"`
 }
 
 type ActiveServiceToken struct {
-	ID               uuid.UUID          `json:"id"`
-	AccountID        uuid.UUID          `json:"account_id"`
-	Name             string             `json:"name"`
-	TokenHash        string             `json:"token_hash"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	LastUsedAt       *time.Time         `json:"last_used_at"`
-	ExpiresAt        *time.Time         `json:"expires_at"`
-	RotatedAt        *time.Time         `json:"rotated_at"`
-	RevokedAt        *time.Time         `json:"revoked_at"`
-	Description      *string            `json:"description"`
-	Scopes           []string           `json:"scopes"`
-	MaxUses          *int32             `json:"max_uses"`
-	UseCount         *int32             `json:"use_count"`
-	RotationPolicy   []byte             `json:"rotation_policy"`
-	IpWhitelist      []string           `json:"ip_whitelist"`
-	UserAgentPattern *string            `json:"user_agent_pattern"`
-	CreatedBy        pgtype.UUID        `json:"created_by"`
-	Metadata         []byte             `json:"metadata"`
-	AccountEmail     string             `json:"account_email"`
-	AccountName      string             `json:"account_name"`
-	AccountType      AccountType        `json:"account_type"`
+	ID               uuid.UUID   `json:"id"`
+	AccountID        uuid.UUID   `json:"account_id"`
+	Name             string      `json:"name"`
+	TokenHash        string      `json:"token_hash"`
+	CreatedAt        time.Time   `json:"created_at"`
+	LastUsedAt       *time.Time  `json:"last_used_at"`
+	ExpiresAt        *time.Time  `json:"expires_at"`
+	RotatedAt        *time.Time  `json:"rotated_at"`
+	RevokedAt        *time.Time  `json:"revoked_at"`
+	Description      *string     `json:"description"`
+	Scopes           []string    `json:"scopes"`
+	MaxUses          *int32      `json:"max_uses"`
+	UseCount         *int32      `json:"use_count"`
+	RotationPolicy   []byte      `json:"rotation_policy"`
+	IpWhitelist      []string    `json:"ip_whitelist"`
+	UserAgentPattern *string     `json:"user_agent_pattern"`
+	CreatedBy        *uuid.UUID  `json:"created_by"`
+	Metadata         []byte      `json:"metadata"`
+	AccountEmail     string      `json:"account_email"`
+	AccountName      string      `json:"account_name"`
+	AccountType      AccountType `json:"account_type"`
 }
 
 type Activity struct {
-	ID                  uuid.UUID        `json:"id"`
-	Name                string           `json:"name"`
-	Description         *string          `json:"description"`
-	Category            *string          `json:"category"`
-	PointsAwarded       int16            `json:"points_awarded"`
-	MaxDailyCompletions *int16           `json:"max_daily_completions"`
-	StreakEligible      *bool            `json:"streak_eligible"`
-	IsActive            *bool            `json:"is_active"`
-	CreatedAt           pgtype.Timestamp `json:"created_at"`
-	UpdatedAt           pgtype.Timestamp `json:"updated_at"`
+	ID                  uuid.UUID  `json:"id"`
+	Name                string     `json:"name"`
+	Description         *string    `json:"description"`
+	Category            *string    `json:"category"`
+	PointsAwarded       int16      `json:"points_awarded"`
+	MaxDailyCompletions *int16     `json:"max_daily_completions"`
+	StreakEligible      *bool      `json:"streak_eligible"`
+	IsActive            *bool      `json:"is_active"`
+	CreatedAt           *time.Time `json:"created_at"`
+	UpdatedAt           *time.Time `json:"updated_at"`
 }
 
 type ActivityCompletion struct {
-	ID             int64            `json:"id"`
-	AccountID      uuid.UUID        `json:"account_id"`
-	ActivityID     uuid.UUID        `json:"activity_id"`
-	CompletedAt    pgtype.Timestamp `json:"completed_at"`
-	CompletionDate pgtype.Date      `json:"completion_date"`
-	PointsEarned   int16            `json:"points_earned"`
-	Metadata       []byte           `json:"metadata"`
+	ID             int64       `json:"id"`
+	AccountID      uuid.UUID   `json:"account_id"`
+	ActivityID     uuid.UUID   `json:"activity_id"`
+	CompletedAt    *time.Time  `json:"completed_at"`
+	CompletionDate pgtype.Date `json:"completion_date"`
+	PointsEarned   int16       `json:"points_earned"`
+	Metadata       []byte      `json:"metadata"`
+}
+
+type Entitlement struct {
+	ID          int64           `json:"id"`
+	PlanID      int64           `json:"plan_id"`
+	Key         string          `json:"key"`
+	Value       int             `json:"value"`
+	Unit        EntitlementUnit `json:"unit"`
+	Description *string         `json:"description"`
+	CreatedAt   time.Time       `json:"created_at"`
+	UpdatedAt   time.Time       `json:"updated_at"`
 }
 
 type Institution struct {
@@ -164,67 +268,81 @@ type Institution struct {
 }
 
 type IssuedToken struct {
-	ID         uuid.UUID        `json:"id"`
-	Jti        uuid.UUID        `json:"jti"`
-	UserID     uuid.UUID        `json:"user_id"`
-	DeviceID   pgtype.UUID      `json:"device_id"`
-	IssuedAt   pgtype.Timestamp `json:"issued_at"`
-	ExpiresAt  pgtype.Timestamp `json:"expires_at"`
-	RevokedAt  pgtype.Timestamp `json:"revoked_at"`
-	LastUsedAt pgtype.Timestamp `json:"last_used_at"`
+	ID         uuid.UUID  `json:"id"`
+	Jti        uuid.UUID  `json:"jti"`
+	UserID     uuid.UUID  `json:"user_id"`
+	DeviceID   *uuid.UUID `json:"device_id"`
+	IssuedAt   time.Time  `json:"issued_at"`
+	ExpiresAt  time.Time  `json:"expires_at"`
+	RevokedAt  *time.Time `json:"revoked_at"`
+	LastUsedAt *time.Time `json:"last_used_at"`
 }
 
 type OauthGrant struct {
-	ID                  uuid.UUID          `json:"id"`
-	AccountID           uuid.UUID          `json:"account_id"`
-	Provider            string             `json:"provider"`
-	ExternalUserID      *string            `json:"external_user_id"`
-	AccessTokenEnc      []byte             `json:"access_token_enc"`
-	RefreshTokenEnc     []byte             `json:"refresh_token_enc"`
-	EncKeyVersion       int16              `json:"enc_key_version"`
-	AccessTokenPlain    *string            `json:"access_token_plain"`
-	RefreshTokenPlain   *string            `json:"refresh_token_plain"`
-	GrantedScopes       []string           `json:"granted_scopes"`
-	ScopesVerifiedAt    *time.Time         `json:"scopes_verified_at"`
-	ExpiresAt           *time.Time         `json:"expires_at"`
-	LastRefreshedAt     *time.Time         `json:"last_refreshed_at"`
-	RefreshFailureCount int32              `json:"refresh_failure_count"`
-	LastRefreshError    *string            `json:"last_refresh_error"`
-	RevokedAt           *time.Time         `json:"revoked_at"`
-	RevokedReason       *string            `json:"revoked_reason"`
-	CreatedAt           pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	ID                  uuid.UUID  `json:"id"`
+	AccountID           uuid.UUID  `json:"account_id"`
+	Provider            string     `json:"provider"`
+	ExternalUserID      *string    `json:"external_user_id"`
+	AccessTokenEnc      []byte     `json:"access_token_enc"`
+	RefreshTokenEnc     []byte     `json:"refresh_token_enc"`
+	EncKeyVersion       int16      `json:"enc_key_version"`
+	AccessTokenPlain    *string    `json:"access_token_plain"`
+	RefreshTokenPlain   *string    `json:"refresh_token_plain"`
+	GrantedScopes       []string   `json:"granted_scopes"`
+	ScopesVerifiedAt    *time.Time `json:"scopes_verified_at"`
+	ExpiresAt           *time.Time `json:"expires_at"`
+	LastRefreshedAt     *time.Time `json:"last_refreshed_at"`
+	RefreshFailureCount int32      `json:"refresh_failure_count"`
+	LastRefreshError    *string    `json:"last_refresh_error"`
+	RevokedAt           *time.Time `json:"revoked_at"`
+	RevokedReason       *string    `json:"revoked_reason"`
+	CreatedAt           time.Time  `json:"created_at"`
+	UpdatedAt           time.Time  `json:"updated_at"`
 }
 
 type Permission struct {
-	ID          uuid.UUID        `json:"id"`
-	Name        string           `json:"name"`
-	Description *string          `json:"description"`
-	CreatedAt   pgtype.Timestamp `json:"created_at"`
-	UpdatedAt   pgtype.Timestamp `json:"updated_at"`
+	ID          uuid.UUID  `json:"id"`
+	Name        string     `json:"name"`
+	Description *string    `json:"description"`
+	CreatedAt   *time.Time `json:"created_at"`
+	UpdatedAt   *time.Time `json:"updated_at"`
+}
+
+type Plan struct {
+	ID              int32      `json:"id"`
+	Code            string     `json:"code"`
+	Price           int64      `json:"price"`
+	Currency        string     `json:"currency"`
+	BillingInterval int16      `json:"billing_interval"`
+	Active          *bool      `json:"active"`
+	Visible         *bool      `json:"visible"`
+	Description     *string    `json:"description"`
+	CreatedBy       *uuid.UUID `json:"created_by"`
+	CreatedAt       *time.Time `json:"created_at"`
+	UpdatedAt       *time.Time `json:"updated_at"`
 }
 
 type RefreshToken struct {
-	ID         uuid.UUID        `json:"id"`
-	TokenHash  string           `json:"token_hash"`
-	UserID     uuid.UUID        `json:"user_id"`
-	DeviceID   pgtype.UUID      `json:"device_id"`
-	JwtJti     pgtype.UUID      `json:"jwt_jti"`
-	IssuedAt   pgtype.Timestamp `json:"issued_at"`
-	ExpiresAt  pgtype.Timestamp `json:"expires_at"`
-	UsedAt     pgtype.Timestamp `json:"used_at"`
-	RevokedAt  pgtype.Timestamp `json:"revoked_at"`
-	ReplacedBy pgtype.UUID      `json:"replaced_by"`
-	FamilyID   uuid.UUID        `json:"family_id"`
+	ID         uuid.UUID  `json:"id"`
+	TokenHash  string     `json:"token_hash"`
+	UserID     uuid.UUID  `json:"user_id"`
+	DeviceID   *uuid.UUID `json:"device_id"`
+	JwtJti     *uuid.UUID `json:"jwt_jti"`
+	IssuedAt   time.Time  `json:"issued_at"`
+	ExpiresAt  time.Time  `json:"expires_at"`
+	UsedAt     *time.Time `json:"used_at"`
+	RevokedAt  *time.Time `json:"revoked_at"`
+	ReplacedBy *uuid.UUID `json:"replaced_by"`
+	FamilyID   uuid.UUID  `json:"family_id"`
 }
 
 type Role struct {
-	ID          uuid.UUID        `json:"id"`
-	Name        string           `json:"name"`
-	Description *string          `json:"description"`
-	CreatedAt   pgtype.Timestamp `json:"created_at"`
-	UpdatedAt   pgtype.Timestamp `json:"updated_at"`
-	IsDefault   bool             `json:"is_default"`
+	ID          uuid.UUID  `json:"id"`
+	Name        string     `json:"name"`
+	Description *string    `json:"description"`
+	CreatedAt   *time.Time `json:"created_at"`
+	UpdatedAt   *time.Time `json:"updated_at"`
+	IsDefault   bool       `json:"is_default"`
 }
 
 type RolePermission struct {
@@ -241,67 +359,81 @@ type RolePermissionsView struct {
 }
 
 type ServiceToken struct {
-	ID               uuid.UUID          `json:"id"`
-	AccountID        uuid.UUID          `json:"account_id"`
-	Name             string             `json:"name"`
-	TokenHash        string             `json:"token_hash"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	LastUsedAt       *time.Time         `json:"last_used_at"`
-	ExpiresAt        *time.Time         `json:"expires_at"`
-	RotatedAt        *time.Time         `json:"rotated_at"`
-	RevokedAt        *time.Time         `json:"revoked_at"`
-	Description      *string            `json:"description"`
-	Scopes           []string           `json:"scopes"`
-	MaxUses          *int32             `json:"max_uses"`
-	UseCount         *int32             `json:"use_count"`
-	RotationPolicy   []byte             `json:"rotation_policy"`
-	IpWhitelist      []string           `json:"ip_whitelist"`
-	UserAgentPattern *string            `json:"user_agent_pattern"`
-	CreatedBy        pgtype.UUID        `json:"created_by"`
-	Metadata         []byte             `json:"metadata"`
+	ID               uuid.UUID  `json:"id"`
+	AccountID        uuid.UUID  `json:"account_id"`
+	Name             string     `json:"name"`
+	TokenHash        string     `json:"token_hash"`
+	CreatedAt        time.Time  `json:"created_at"`
+	LastUsedAt       *time.Time `json:"last_used_at"`
+	ExpiresAt        *time.Time `json:"expires_at"`
+	RotatedAt        *time.Time `json:"rotated_at"`
+	RevokedAt        *time.Time `json:"revoked_at"`
+	Description      *string    `json:"description"`
+	Scopes           []string   `json:"scopes"`
+	MaxUses          *int32     `json:"max_uses"`
+	UseCount         *int32     `json:"use_count"`
+	RotationPolicy   []byte     `json:"rotation_policy"`
+	IpWhitelist      []string   `json:"ip_whitelist"`
+	UserAgentPattern *string    `json:"user_agent_pattern"`
+	CreatedBy        *uuid.UUID `json:"created_by"`
+	Metadata         []byte     `json:"metadata"`
 }
 
 type Social struct {
-	UserID            string           `json:"user_id"`
-	IDToken           *string          `json:"id_token"`
-	AccountID         uuid.UUID        `json:"account_id"`
-	Provider          string           `json:"provider"`
-	Email             *string          `json:"email"`
-	Name              *string          `json:"name"`
-	FirstName         *string          `json:"first_name"`
-	LastName          *string          `json:"last_name"`
-	NickName          *string          `json:"nick_name"`
-	Description       *string          `json:"description"`
-	AvatarUrl         *string          `json:"avatar_url"`
-	Location          *string          `json:"location"`
-	AccessToken       *string          `json:"access_token"`
-	AccessTokenSecret *string          `json:"access_token_secret"`
-	RefreshToken      *string          `json:"refresh_token"`
-	ExpiresAt         pgtype.Timestamp `json:"expires_at"`
-	CreatedAt         pgtype.Timestamp `json:"created_at"`
-	UpdatedAt         pgtype.Timestamp `json:"updated_at"`
+	UserID            string     `json:"user_id"`
+	IDToken           *string    `json:"id_token"`
+	AccountID         uuid.UUID  `json:"account_id"`
+	Provider          string     `json:"provider"`
+	Email             *string    `json:"email"`
+	Name              *string    `json:"name"`
+	FirstName         *string    `json:"first_name"`
+	LastName          *string    `json:"last_name"`
+	NickName          *string    `json:"nick_name"`
+	Description       *string    `json:"description"`
+	AvatarUrl         *string    `json:"avatar_url"`
+	Location          *string    `json:"location"`
+	AccessToken       *string    `json:"access_token"`
+	AccessTokenSecret *string    `json:"access_token_secret"`
+	RefreshToken      *string    `json:"refresh_token"`
+	ExpiresAt         *time.Time `json:"expires_at"`
+	CreatedAt         *time.Time `json:"created_at"`
+	UpdatedAt         *time.Time `json:"updated_at"`
 }
 
 type StreakMilestone struct {
-	ID           uuid.UUID   `json:"id"`
-	ActivityID   pgtype.UUID `json:"activity_id"`
-	DaysRequired int16       `json:"days_required"`
-	BonusPoints  int16       `json:"bonus_points"`
-	Title        string      `json:"title"`
-	Description  *string     `json:"description"`
-	IsActive     *bool       `json:"is_active"`
+	ID           uuid.UUID  `json:"id"`
+	ActivityID   *uuid.UUID `json:"activity_id"`
+	DaysRequired int16      `json:"days_required"`
+	BonusPoints  int16      `json:"bonus_points"`
+	Title        string     `json:"title"`
+	Description  *string    `json:"description"`
+	IsActive     *bool      `json:"is_active"`
+}
+
+type Subscription struct {
+	ID                 int64              `json:"id"`
+	UserID             uuid.UUID          `json:"user_id"`
+	PlanID             int64              `json:"plan_id"`
+	Status             SubscriptionStatus `json:"status"`
+	StartedAt          time.Time          `json:"started_at"`
+	CurrentPeriodStart time.Time          `json:"current_period_start"`
+	CurrentPeriodEnd   *time.Time         `json:"current_period_end"`
+	CancelAtPeriodEnd  bool               `json:"cancel_at_period_end"`
+	CancelledAt        *time.Time         `json:"cancelled_at"`
+	CreatedAt          time.Time          `json:"created_at"`
+	UpdatedAt          time.Time          `json:"updated_at"`
 }
 
 type UserDevice struct {
-	ID           uuid.UUID        `json:"id"`
-	UserID       uuid.UUID        `json:"user_id"`
-	DeviceName   *string          `json:"device_name"`
-	Platform     *string          `json:"platform"`
-	DeviceToken  *string          `json:"device_token"`
-	LastActiveAt pgtype.Timestamp `json:"last_active_at"`
-	CreatedAt    pgtype.Timestamp `json:"created_at"`
-	IpAddress    *netip.Addr      `json:"ip_address"`
-	Country      *string          `json:"country"`
+	ID           uuid.UUID   `json:"id"`
+	UserID       uuid.UUID   `json:"user_id"`
+	DeviceName   *string     `json:"device_name"`
+	Platform     *string     `json:"platform"`
+	DeviceToken  *string     `json:"device_token"`
+	LastActiveAt *time.Time  `json:"last_active_at"`
+	CreatedAt    time.Time   `json:"created_at"`
+	IpAddress    *netip.Addr `json:"ip_address"`
+	Country      *string     `json:"country"`
 }
 
 type UserPermissionsView struct {
@@ -318,42 +450,42 @@ type UserRole struct {
 }
 
 type UserRolesView struct {
-	UserID          uuid.UUID        `json:"user_id"`
-	Email           string           `json:"email"`
-	Name            string           `json:"name"`
-	RoleID          uuid.UUID        `json:"role_id"`
-	RoleName        string           `json:"role_name"`
-	RoleDescription *string          `json:"role_description"`
-	RoleCreatedAt   pgtype.Timestamp `json:"role_created_at"`
+	UserID          uuid.UUID  `json:"user_id"`
+	Email           string     `json:"email"`
+	Name            string     `json:"name"`
+	RoleID          uuid.UUID  `json:"role_id"`
+	RoleName        string     `json:"role_name"`
+	RoleDescription *string    `json:"role_description"`
+	RoleCreatedAt   *time.Time `json:"role_created_at"`
 }
 
 type UserStreak struct {
-	ID                 int64            `json:"id"`
-	AccountID          uuid.UUID        `json:"account_id"`
-	ActivityID         uuid.UUID        `json:"activity_id"`
-	CurrentStreak      int16            `json:"current_streak"`
-	LongestStreak      int16            `json:"longest_streak"`
-	LastCompletionDate pgtype.Date      `json:"last_completion_date"`
-	StreakStartedAt    pgtype.Date      `json:"streak_started_at"`
-	TotalCompletions   int32            `json:"total_completions"`
-	CreatedAt          pgtype.Timestamp `json:"created_at"`
-	UpdatedAt          pgtype.Timestamp `json:"updated_at"`
+	ID                 int64       `json:"id"`
+	AccountID          uuid.UUID   `json:"account_id"`
+	ActivityID         uuid.UUID   `json:"activity_id"`
+	CurrentStreak      int16       `json:"current_streak"`
+	LongestStreak      int16       `json:"longest_streak"`
+	LastCompletionDate pgtype.Date `json:"last_completion_date"`
+	StreakStartedAt    pgtype.Date `json:"streak_started_at"`
+	TotalCompletions   int32       `json:"total_completions"`
+	CreatedAt          *time.Time  `json:"created_at"`
+	UpdatedAt          *time.Time  `json:"updated_at"`
 }
 
 type UserStreakAchievement struct {
-	ID                 int64            `json:"id"`
-	AccountID          uuid.UUID        `json:"account_id"`
-	StreakMilestoneID  uuid.UUID        `json:"streak_milestone_id"`
-	UserStreakID       int64            `json:"user_streak_id"`
-	AchievedAt         pgtype.Timestamp `json:"achieved_at"`
-	BonusPointsAwarded int16            `json:"bonus_points_awarded"`
+	ID                 int64      `json:"id"`
+	AccountID          uuid.UUID  `json:"account_id"`
+	StreakMilestoneID  uuid.UUID  `json:"streak_milestone_id"`
+	UserStreakID       int64      `json:"user_streak_id"`
+	AchievedAt         *time.Time `json:"achieved_at"`
+	BonusPointsAwarded int16      `json:"bonus_points_awarded"`
 }
 
 type VibepointTransaction struct {
-	ID             int64            `json:"id"`
-	AccountID      uuid.UUID        `json:"account_id"`
-	AwardingReason *string          `json:"awarding_reason"`
-	PointsAwarded  int16            `json:"points_awarded"`
-	AwardedAt      pgtype.Timestamp `json:"awarded_at"`
-	AwardedBy      *string          `json:"awarded_by"`
+	ID             int64      `json:"id"`
+	AccountID      uuid.UUID  `json:"account_id"`
+	AwardingReason *string    `json:"awarding_reason"`
+	PointsAwarded  int16      `json:"points_awarded"`
+	AwardedAt      *time.Time `json:"awarded_at"`
+	AwardedBy      *string    `json:"awarded_by"`
 }

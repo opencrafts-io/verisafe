@@ -161,6 +161,21 @@ func (mr *MockQuerierMockRecorder) CreateActivity(ctx, arg any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateActivity", reflect.TypeOf((*MockQuerier)(nil).CreateActivity), ctx, arg)
 }
 
+// CreateEntitlement mocks base method.
+func (m *MockQuerier) CreateEntitlement(ctx context.Context, arg repository.CreateEntitlementParams) (repository.CreateEntitlementRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateEntitlement", ctx, arg)
+	ret0, _ := ret[0].(repository.CreateEntitlementRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateEntitlement indicates an expected call of CreateEntitlement.
+func (mr *MockQuerierMockRecorder) CreateEntitlement(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateEntitlement", reflect.TypeOf((*MockQuerier)(nil).CreateEntitlement), ctx, arg)
+}
+
 // CreateInstitution mocks base method.
 func (m *MockQuerier) CreateInstitution(ctx context.Context, arg repository.CreateInstitutionParams) (repository.Institution, error) {
 	m.ctrl.T.Helper()
@@ -189,6 +204,21 @@ func (m *MockQuerier) CreatePermission(ctx context.Context, arg repository.Creat
 func (mr *MockQuerierMockRecorder) CreatePermission(ctx, arg any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreatePermission", reflect.TypeOf((*MockQuerier)(nil).CreatePermission), ctx, arg)
+}
+
+// CreatePlan mocks base method.
+func (m *MockQuerier) CreatePlan(ctx context.Context, arg repository.CreatePlanParams) (repository.CreatePlanRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreatePlan", ctx, arg)
+	ret0, _ := ret[0].(repository.CreatePlanRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreatePlan indicates an expected call of CreatePlan.
+func (mr *MockQuerierMockRecorder) CreatePlan(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreatePlan", reflect.TypeOf((*MockQuerier)(nil).CreatePlan), ctx, arg)
 }
 
 // CreateRole mocks base method.
@@ -263,6 +293,34 @@ func (m *MockQuerier) DeleteActivity(ctx context.Context, id uuid.UUID) error {
 func (mr *MockQuerierMockRecorder) DeleteActivity(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteActivity", reflect.TypeOf((*MockQuerier)(nil).DeleteActivity), ctx, id)
+}
+
+// DeleteEntitlement mocks base method.
+func (m *MockQuerier) DeleteEntitlement(ctx context.Context, arg repository.DeleteEntitlementParams) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteEntitlement", ctx, arg)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteEntitlement indicates an expected call of DeleteEntitlement.
+func (mr *MockQuerierMockRecorder) DeleteEntitlement(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteEntitlement", reflect.TypeOf((*MockQuerier)(nil).DeleteEntitlement), ctx, arg)
+}
+
+// DeleteEntitlementsByPlanCode mocks base method.
+func (m *MockQuerier) DeleteEntitlementsByPlanCode(ctx context.Context, code string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteEntitlementsByPlanCode", ctx, code)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteEntitlementsByPlanCode indicates an expected call of DeleteEntitlementsByPlanCode.
+func (mr *MockQuerierMockRecorder) DeleteEntitlementsByPlanCode(ctx, code any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteEntitlementsByPlanCode", reflect.TypeOf((*MockQuerier)(nil).DeleteEntitlementsByPlanCode), ctx, code)
 }
 
 // DeleteInstitution mocks base method.
@@ -652,6 +710,21 @@ func (mr *MockQuerierMockRecorder) GetAllUserRoles(ctx, userID any) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllUserRoles", reflect.TypeOf((*MockQuerier)(nil).GetAllUserRoles), ctx, userID)
 }
 
+// GetEntitlement mocks base method.
+func (m *MockQuerier) GetEntitlement(ctx context.Context, arg repository.GetEntitlementParams) (repository.GetEntitlementRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetEntitlement", ctx, arg)
+	ret0, _ := ret[0].(repository.GetEntitlementRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetEntitlement indicates an expected call of GetEntitlement.
+func (mr *MockQuerierMockRecorder) GetEntitlement(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEntitlement", reflect.TypeOf((*MockQuerier)(nil).GetEntitlement), ctx, arg)
+}
+
 // GetGlobalLeaderBoardCount mocks base method.
 func (m *MockQuerier) GetGlobalLeaderBoardCount(ctx context.Context) (int64, error) {
 	m.ctrl.T.Helper()
@@ -770,6 +843,21 @@ func (m *MockQuerier) GetPermissionByID(ctx context.Context, id uuid.UUID) (repo
 func (mr *MockQuerierMockRecorder) GetPermissionByID(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPermissionByID", reflect.TypeOf((*MockQuerier)(nil).GetPermissionByID), ctx, id)
+}
+
+// GetPlanByCode mocks base method.
+func (m *MockQuerier) GetPlanByCode(ctx context.Context, code string) (repository.GetPlanByCodeRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPlanByCode", ctx, code)
+	ret0, _ := ret[0].(repository.GetPlanByCodeRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPlanByCode indicates an expected call of GetPlanByCode.
+func (mr *MockQuerierMockRecorder) GetPlanByCode(ctx, code any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPlanByCode", reflect.TypeOf((*MockQuerier)(nil).GetPlanByCode), ctx, code)
 }
 
 // GetRefreshTokenByHash mocks base method.
@@ -982,6 +1070,21 @@ func (mr *MockQuerierMockRecorder) ListActiveServiceTokens(ctx any) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListActiveServiceTokens", reflect.TypeOf((*MockQuerier)(nil).ListActiveServiceTokens), ctx)
 }
 
+// ListEntitlementsByPlanCode mocks base method.
+func (m *MockQuerier) ListEntitlementsByPlanCode(ctx context.Context, code string) ([]repository.ListEntitlementsByPlanCodeRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListEntitlementsByPlanCode", ctx, code)
+	ret0, _ := ret[0].([]repository.ListEntitlementsByPlanCodeRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListEntitlementsByPlanCode indicates an expected call of ListEntitlementsByPlanCode.
+func (mr *MockQuerierMockRecorder) ListEntitlementsByPlanCode(ctx, code any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListEntitlementsByPlanCode", reflect.TypeOf((*MockQuerier)(nil).ListEntitlementsByPlanCode), ctx, code)
+}
+
 // ListInstitutionConnections mocks base method.
 func (m *MockQuerier) ListInstitutionConnections(ctx context.Context, arg repository.ListInstitutionConnectionsParams) ([]repository.AccountInstitution, error) {
 	m.ctrl.T.Helper()
@@ -1040,6 +1143,21 @@ func (m *MockQuerier) ListOAuthGrantsByAccount(ctx context.Context, accountID uu
 func (mr *MockQuerierMockRecorder) ListOAuthGrantsByAccount(ctx, accountID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListOAuthGrantsByAccount", reflect.TypeOf((*MockQuerier)(nil).ListOAuthGrantsByAccount), ctx, accountID)
+}
+
+// ListPlans mocks base method.
+func (m *MockQuerier) ListPlans(ctx context.Context, visible *bool) ([]repository.ListPlansRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListPlans", ctx, visible)
+	ret0, _ := ret[0].([]repository.ListPlansRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListPlans indicates an expected call of ListPlans.
+func (mr *MockQuerierMockRecorder) ListPlans(ctx, visible any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListPlans", reflect.TypeOf((*MockQuerier)(nil).ListPlans), ctx, visible)
 }
 
 // ListServiceTokensByAccount mocks base method.
@@ -1418,6 +1536,21 @@ func (mr *MockQuerierMockRecorder) UpdateActivity(ctx, arg any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateActivity", reflect.TypeOf((*MockQuerier)(nil).UpdateActivity), ctx, arg)
 }
 
+// UpdateEntitlement mocks base method.
+func (m *MockQuerier) UpdateEntitlement(ctx context.Context, arg repository.UpdateEntitlementParams) (repository.UpdateEntitlementRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateEntitlement", ctx, arg)
+	ret0, _ := ret[0].(repository.UpdateEntitlementRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateEntitlement indicates an expected call of UpdateEntitlement.
+func (mr *MockQuerierMockRecorder) UpdateEntitlement(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateEntitlement", reflect.TypeOf((*MockQuerier)(nil).UpdateEntitlement), ctx, arg)
+}
+
 // UpdateInstitution mocks base method.
 func (m *MockQuerier) UpdateInstitution(ctx context.Context, arg repository.UpdateInstitutionParams) (repository.Institution, error) {
 	m.ctrl.T.Helper()
@@ -1446,6 +1579,21 @@ func (m *MockQuerier) UpdatePermission(ctx context.Context, arg repository.Updat
 func (mr *MockQuerierMockRecorder) UpdatePermission(ctx, arg any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatePermission", reflect.TypeOf((*MockQuerier)(nil).UpdatePermission), ctx, arg)
+}
+
+// UpdatePlan mocks base method.
+func (m *MockQuerier) UpdatePlan(ctx context.Context, arg repository.UpdatePlanParams) (repository.UpdatePlanRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdatePlan", ctx, arg)
+	ret0, _ := ret[0].(repository.UpdatePlanRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdatePlan indicates an expected call of UpdatePlan.
+func (mr *MockQuerierMockRecorder) UpdatePlan(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatePlan", reflect.TypeOf((*MockQuerier)(nil).UpdatePlan), ctx, arg)
 }
 
 // UpdateRole mocks base method.

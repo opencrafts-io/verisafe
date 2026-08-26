@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/repository"
 )
@@ -99,21 +98,22 @@ func deviceRegistrationInputToRepoParams(
 		parsed, err := time.Parse(time.RFC3339, input.LastActiveAt)
 		if err != nil {
 			return repository.RecordUserDeviceParams{},
-				fmt.Errorf("%w: invalid timestamp: %v", core.ErrInvalidInput, err)
+				fmt.Errorf(
+					"%w: invalid timestamp: %v",
+					core.ErrInvalidInput,
+					err,
+				)
 		}
 		lastActive = parsed
 	}
 	return repository.RecordUserDeviceParams{
-		UserID:      input.UserID,
-		DeviceName:  &input.DeviceName,
-		Platform:    &input.Platform,
-		DeviceToken: &input.DeviceToken,
-		IpAddress:   input.IpAddress,
-		Country:     input.Country,
-		LastActiveAt: pgtype.Timestamp{
-			Time:  lastActive,
-			Valid: true,
-		},
+		UserID:       input.UserID,
+		DeviceName:   &input.DeviceName,
+		Platform:     &input.Platform,
+		DeviceToken:  &input.DeviceToken,
+		IpAddress:    input.IpAddress,
+		Country:      input.Country,
+		LastActiveAt: &lastActive,
 	}, nil
 }
 
@@ -134,8 +134,8 @@ func deviceRowToOutput(row repository.UserDevice) DeviceOutput {
 		DeviceToken:  derefString(row.DeviceToken),
 		IpAddress:    ip_address,
 		Country:      derefString(row.Country),
-		LastActiveAt: row.LastActiveAt.Time.Format(time.RFC3339),
-		CreatedAt:    row.CreatedAt.Time.Format(time.RFC3339),
+		LastActiveAt: row.LastActiveAt.Format(time.RFC3339),
+		CreatedAt:    row.CreatedAt.Format(time.RFC3339),
 	}
 }
 
