@@ -15,3 +15,5 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITLEAK_TOKEN }}
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+          GITLEAKS_BASELINE_PATH: .gitleaks-baseline.json
