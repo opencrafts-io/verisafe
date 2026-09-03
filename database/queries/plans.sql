@@ -4,9 +4,10 @@
 -- at the moment.
 select
     code,
+    name,
     price,
     currency,
-    billing_interval,
+    billing_interval_days,
     active,
     visible,
     description,
@@ -14,17 +15,17 @@ select
     created_at,
     updated_at
 from public.plans
-where sqlc.narg('visible')::bool is null
-   or visible = sqlc.narg('visible')::bool
+where sqlc.narg('visible')::bool is null or visible = sqlc.narg('visible')::bool
 ;
 
 -- name: GetPlanByCode :one
 -- Retrieves a plan by its code
 select
     code,
+    name,
     price,
     currency,
-    billing_interval,
+    billing_interval_days,
     active,
     visible,
     description,
@@ -41,9 +42,10 @@ where code = $1
 -- Creates a plan and returns its details.
 INSERT INTO public.plans (
     code,
+    name,
     price,
     currency,
-    billing_interval,
+    billing_interval_days,
     active,
     visible,
     created_by,
@@ -56,16 +58,19 @@ INSERT INTO public.plans (
     $5,
     $6,
     $7,
-    $8
+    $8,
+    $9
 )
 RETURNING
     code,
+    name,
     price,
     currency,
-    billing_interval,
+    billing_interval_days,
     active,
     visible,
     description,
+    created_by,
     created_at,
     updated_at;
 
@@ -73,9 +78,10 @@ RETURNING
 -- Updates only the provided fields and returns the updated plan.
 UPDATE public.plans
 SET
+    name = COALESCE(sqlc.narg('name'),name),
     price = COALESCE(sqlc.narg('price'), price),
     currency = COALESCE(sqlc.narg('currency'), currency),
-    billing_interval = COALESCE(sqlc.narg('billing_interval'), billing_interval),
+    billing_interval_days = COALESCE(sqlc.narg('billing_interval_days'), billing_interval_days),
     active = COALESCE(sqlc.narg('active'), active),
     visible = COALESCE(sqlc.narg('visible'), visible),
     description = COALESCE(sqlc.narg('description'), description),
@@ -83,11 +89,13 @@ SET
 WHERE code = sqlc.arg('code')
 RETURNING
     code,
+    name,
     price,
     currency,
-    billing_interval,
+    billing_interval_days,
     active,
     visible,
     description,
+    created_by,
     created_at,
     updated_at;

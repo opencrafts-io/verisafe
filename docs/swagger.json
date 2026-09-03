@@ -4789,7 +4789,7 @@
                 "active": {
                     "type": "boolean"
                 },
-                "billing_interval": {
+                "billing_interval_days": {
                     "type": "integer"
                 },
                 "code": {
@@ -4802,6 +4802,9 @@
                     "type": "string"
                 },
                 "description": {
+                    "type": "string"
+                },
+                "name": {
                     "type": "string"
                 },
                 "price": {
@@ -4855,7 +4858,7 @@
                 "active": {
                     "type": "boolean"
                 },
-                "billing_interval": {
+                "billing_interval_days": {
                     "type": "integer"
                 },
                 "code": {
@@ -4871,6 +4874,9 @@
                     "type": "string"
                 },
                 "description": {
+                    "type": "string"
+                },
+                "name": {
                     "type": "string"
                 },
                 "price": {
@@ -4910,7 +4916,7 @@
                 "active": {
                     "type": "boolean"
                 },
-                "billing_interval": {
+                "billing_interval_days": {
                     "type": "integer"
                 },
                 "code": {
@@ -4920,6 +4926,9 @@
                     "type": "string"
                 },
                 "description": {
+                    "type": "string"
+                },
+                "name": {
                     "type": "string"
                 },
                 "price": {

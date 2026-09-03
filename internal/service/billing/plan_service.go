@@ -128,15 +128,20 @@ func (ps *planService) CreatePlan(
 	ctx context.Context,
 	params CreatePlan,
 ) (*Plan, error) {
+	if params.Name == "" {
+		return nil, fmt.Errorf("plan name cannot be empty")
+	}
+
 	rawPlan, err := ps.querier.CreatePlan(ctx, repository.CreatePlanParams{
-		Code:            params.Code,
-		Currency:        params.Currency,
-		Price:           params.Price,
-		BillingInterval: params.BillingInterval,
-		Active:          &params.Active,
-		Visible:         &params.Visible,
-		CreatedBy:       &params.CreatedBy,
-		Description:     params.Description,
+		Code:                params.Code,
+		Name:                params.Name,
+		Currency:            params.Currency,
+		Price:               params.Price,
+		BillingIntervalDays: params.BillingIntervalDays,
+		Active:              &params.Active,
+		Visible:             &params.Visible,
+		CreatedBy:           &params.CreatedBy,
+		Description:         params.Description,
 	})
 	if err != nil {
 		ps.Logger.ErrorContext(
@@ -175,14 +180,20 @@ func (ps *planService) UpdatePlan(
 	ctx context.Context,
 	params UpdatePlan,
 ) (*Plan, error) {
+	if params.Name != nil {
+		if *params.Name == "" {
+			return nil, fmt.Errorf("cannot update plan name to empty string")
+		}
+	}
 	rawPlan, err := ps.querier.UpdatePlan(ctx, repository.UpdatePlanParams{
-		Code:            params.Code,
-		Currency:        params.Currency,
-		Price:           params.Price,
-		BillingInterval: params.BillingInterval,
-		Active:          params.Active,
-		Visible:         params.Visible,
-		Description:     params.Description,
+		Name:                params.Name,
+		Code:                params.Code,
+		Currency:            params.Currency,
+		Price:               params.Price,
+		BillingIntervalDays: params.BillingIntervalDays,
+		Active:              params.Active,
+		Visible:             params.Visible,
+		Description:         params.Description,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

@@ -99,16 +99,17 @@ func testListPlansRow() repository.ListPlansRow {
 	updatedAt := time.Now()
 
 	return repository.ListPlansRow{
-		Code:            "PRO",
-		Price:           2500,
-		Currency:        "KES",
-		BillingInterval: 30,
-		Active:          &active,
-		Visible:         &visible,
-		Description:     &description,
-		CreatedBy:       &createdBy,
-		CreatedAt:       &createdAt,
-		UpdatedAt:       &updatedAt,
+		Code:                "PLN-001",
+		Name:                "PRO",
+		Price:               2500,
+		Currency:            "KES",
+		BillingIntervalDays: 30,
+		Active:              &active,
+		Visible:             &visible,
+		Description:         &description,
+		CreatedBy:           &createdBy,
+		CreatedAt:           &createdAt,
+		UpdatedAt:           &updatedAt,
 	}
 }
 
@@ -121,16 +122,17 @@ func testGetPlanByCodeRow() repository.GetPlanByCodeRow {
 	updatedAt := time.Now()
 
 	return repository.GetPlanByCodeRow{
-		Code:            "PRO",
-		Price:           2500,
-		Currency:        "KES",
-		BillingInterval: 30,
-		Active:          &active,
-		Visible:         &visible,
-		Description:     &description,
-		CreatedBy:       &createdBy,
-		CreatedAt:       &createdAt,
-		UpdatedAt:       &updatedAt,
+		Code:                "PRO",
+		Name:                "PRO",
+		Price:               2500,
+		Currency:            "KES",
+		BillingIntervalDays: 30,
+		Active:              &active,
+		Visible:             &visible,
+		Description:         &description,
+		CreatedBy:           &createdBy,
+		CreatedAt:           &createdAt,
+		UpdatedAt:           &updatedAt,
 	}
 }
 
@@ -142,15 +144,16 @@ func testCreatePlanRow() repository.CreatePlanRow {
 	updatedAt := time.Now()
 
 	return repository.CreatePlanRow{
-		Code:            "PRO",
-		Price:           2500,
-		Currency:        "KES",
-		BillingInterval: 30,
-		Active:          &active,
-		Visible:         &visible,
-		Description:     &description,
-		CreatedAt:       &createdAt,
-		UpdatedAt:       &updatedAt,
+		Name:                "PRO",
+		Code:                "PRO",
+		Price:               2500,
+		Currency:            "KES",
+		BillingIntervalDays: 30,
+		Active:              &active,
+		Visible:             &visible,
+		Description:         &description,
+		CreatedAt:           &createdAt,
+		UpdatedAt:           &updatedAt,
 	}
 }
 
@@ -162,15 +165,16 @@ func testUpdatePlanRow() repository.UpdatePlanRow {
 	updatedAt := time.Now()
 
 	return repository.UpdatePlanRow{
-		Code:            "PRO",
-		Price:           3000,
-		Currency:        "KES",
-		BillingInterval: 30,
-		Active:          &active,
-		Visible:         &visible,
-		Description:     &description,
-		CreatedAt:       &createdAt,
-		UpdatedAt:       &updatedAt,
+		Code:                "PRO",
+		Name:                "PRO",
+		Price:               3000,
+		Currency:            "KES",
+		BillingIntervalDays: 30,
+		Active:              &active,
+		Visible:             &visible,
+		Description:         &description,
+		CreatedAt:           &createdAt,
+		UpdatedAt:           &updatedAt,
 	}
 }
 
@@ -201,9 +205,14 @@ func TestPlanService_ListPlans(t *testing.T) {
 		require.Len(t, result, 2)
 
 		assert.Equal(t, expected[0].Code, result[0].Code)
+		assert.Equal(t, expected[0].Name, result[0].Name)
 		assert.Equal(t, expected[0].Price, result[0].Price)
 		assert.Equal(t, expected[0].Currency, result[0].Currency)
-		assert.Equal(t, expected[0].BillingInterval, result[0].BillingInterval)
+		assert.Equal(
+			t,
+			expected[0].BillingIntervalDays,
+			result[0].BillingIntervalDays,
+		)
 		assert.Equal(t, expected[0].Active, result[0].Active)
 		assert.Equal(t, expected[0].Visible, result[0].Visible)
 		assert.Equal(t, expected[0].Description, result[0].Description)
@@ -308,9 +317,10 @@ func TestPlanService_GetPlanByCode(t *testing.T) {
 		require.NotNil(t, result)
 
 		assert.Equal(t, rawPlan.Code, result.Code)
+		assert.Equal(t, rawPlan.Name, result.Name)
 		assert.Equal(t, rawPlan.Price, result.Price)
 		assert.Equal(t, rawPlan.Currency, result.Currency)
-		assert.Equal(t, rawPlan.BillingInterval, result.BillingInterval)
+		assert.Equal(t, rawPlan.BillingIntervalDays, result.BillingIntervalDays)
 		assert.Equal(t, rawPlan.Active, result.Active)
 		assert.Equal(t, rawPlan.Visible, result.Visible)
 		assert.Equal(t, rawPlan.Description, result.Description)
@@ -372,27 +382,29 @@ func TestPlanService_CreatePlan(t *testing.T) {
 		description := "Professional billing plan"
 
 		params := CreatePlan{
-			Code:            "PRO",
-			Price:           2500,
-			Currency:        "KES",
-			BillingInterval: 30,
-			Active:          true,
-			Visible:         true,
-			CreatedBy:       createdBy,
-			Description:     &description,
+			Code:                "PRO",
+			Name:                "PRO",
+			Price:               2500,
+			Currency:            "KES",
+			BillingIntervalDays: 30,
+			Active:              true,
+			Visible:             true,
+			CreatedBy:           createdBy,
+			Description:         &description,
 		}
 
 		rawPlan := testCreatePlanRow()
 
 		expectedParams := repository.CreatePlanParams{
-			Code:            params.Code,
-			Currency:        params.Currency,
-			Price:           params.Price,
-			BillingInterval: params.BillingInterval,
-			Active:          &params.Active,
-			Visible:         &params.Visible,
-			CreatedBy:       &createdBy,
-			Description:     params.Description,
+			Name:                params.Name,
+			Code:                params.Code,
+			Currency:            params.Currency,
+			Price:               params.Price,
+			BillingIntervalDays: params.BillingIntervalDays,
+			Active:              &params.Active,
+			Visible:             &params.Visible,
+			CreatedBy:           &createdBy,
+			Description:         params.Description,
 		}
 
 		mockRepo := new(mockQuerier)
@@ -412,7 +424,7 @@ func TestPlanService_CreatePlan(t *testing.T) {
 		assert.Equal(t, rawPlan.Code, result.Code)
 		assert.Equal(t, rawPlan.Price, result.Price)
 		assert.Equal(t, rawPlan.Currency, result.Currency)
-		assert.Equal(t, rawPlan.BillingInterval, result.BillingInterval)
+		assert.Equal(t, rawPlan.BillingIntervalDays, result.BillingIntervalDays)
 		assert.Equal(t, rawPlan.Active, result.Active)
 		assert.Equal(t, rawPlan.Visible, result.Visible)
 		assert.Equal(t, rawPlan.Description, result.Description)
@@ -428,26 +440,28 @@ func TestPlanService_CreatePlan(t *testing.T) {
 		createdBy := uuid.New()
 
 		params := CreatePlan{
-			Code:            "PRO",
-			Price:           2500,
-			Currency:        "KES",
-			BillingInterval: 30,
-			Active:          true,
-			Visible:         true,
-			CreatedBy:       createdBy,
+			Code:                "PRO",
+			Name:                "pro",
+			Price:               2500,
+			Currency:            "KES",
+			BillingIntervalDays: 30,
+			Active:              true,
+			Visible:             true,
+			CreatedBy:           createdBy,
 		}
 
 		repositoryErr := errors.New("duplicate plan code")
 
 		expectedParams := repository.CreatePlanParams{
-			Code:            params.Code,
-			Currency:        params.Currency,
-			Price:           params.Price,
-			BillingInterval: params.BillingInterval,
-			Active:          &params.Active,
-			Visible:         &params.Visible,
-			CreatedBy:       &createdBy,
-			Description:     params.Description,
+			Name:                params.Name,
+			Code:                params.Code,
+			Currency:            params.Currency,
+			Price:               params.Price,
+			BillingIntervalDays: params.BillingIntervalDays,
+			Active:              &params.Active,
+			Visible:             &params.Visible,
+			CreatedBy:           &createdBy,
+			Description:         params.Description,
 		}
 
 		mockRepo := new(mockQuerier)
@@ -480,25 +494,25 @@ func TestPlanService_UpdatePlan(t *testing.T) {
 		description := "Updated professional plan"
 
 		params := UpdatePlan{
-			Code:            "PRO",
-			Price:           &price,
-			Currency:        &currency,
-			BillingInterval: &interval,
-			Active:          &active,
-			Visible:         &visible,
-			Description:     &description,
+			Code:                "PRO",
+			Price:               &price,
+			Currency:            &currency,
+			BillingIntervalDays: &interval,
+			Active:              &active,
+			Visible:             &visible,
+			Description:         &description,
 		}
 
 		rawPlan := testUpdatePlanRow()
 
 		expectedParams := repository.UpdatePlanParams{
-			Code:            params.Code,
-			Currency:        params.Currency,
-			Price:           params.Price,
-			BillingInterval: params.BillingInterval,
-			Active:          params.Active,
-			Visible:         params.Visible,
-			Description:     params.Description,
+			Code:                params.Code,
+			Currency:            params.Currency,
+			Price:               params.Price,
+			BillingIntervalDays: params.BillingIntervalDays,
+			Active:              params.Active,
+			Visible:             params.Visible,
+			Description:         params.Description,
 		}
 
 		mockRepo := new(mockQuerier)
@@ -518,7 +532,7 @@ func TestPlanService_UpdatePlan(t *testing.T) {
 		assert.Equal(t, rawPlan.Code, result.Code)
 		assert.Equal(t, rawPlan.Price, result.Price)
 		assert.Equal(t, rawPlan.Currency, result.Currency)
-		assert.Equal(t, rawPlan.BillingInterval, result.BillingInterval)
+		assert.Equal(t, rawPlan.BillingIntervalDays, result.BillingIntervalDays)
 		assert.Equal(t, rawPlan.Active, result.Active)
 		assert.Equal(t, rawPlan.Visible, result.Visible)
 		assert.Equal(t, rawPlan.Description, result.Description)
@@ -539,13 +553,13 @@ func TestPlanService_UpdatePlan(t *testing.T) {
 		}
 
 		expectedParams := repository.UpdatePlanParams{
-			Code:            params.Code,
-			Currency:        params.Currency,
-			Price:           params.Price,
-			BillingInterval: params.BillingInterval,
-			Active:          params.Active,
-			Visible:         params.Visible,
-			Description:     params.Description,
+			Code:                params.Code,
+			Currency:            params.Currency,
+			Price:               params.Price,
+			BillingIntervalDays: params.BillingIntervalDays,
+			Active:              params.Active,
+			Visible:             params.Visible,
+			Description:         params.Description,
 		}
 
 		mockRepo := new(mockQuerier)
@@ -578,13 +592,13 @@ func TestPlanService_UpdatePlan(t *testing.T) {
 		repositoryErr := errors.New("database unavailable")
 
 		expectedParams := repository.UpdatePlanParams{
-			Code:            params.Code,
-			Currency:        params.Currency,
-			Price:           params.Price,
-			BillingInterval: params.BillingInterval,
-			Active:          params.Active,
-			Visible:         params.Visible,
-			Description:     params.Description,
+			Code:                params.Code,
+			Currency:            params.Currency,
+			Price:               params.Price,
+			BillingIntervalDays: params.BillingIntervalDays,
+			Active:              params.Active,
+			Visible:             params.Visible,
+			Description:         params.Description,
 		}
 
 		mockRepo := new(mockQuerier)
