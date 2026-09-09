@@ -3,7 +3,6 @@ package billing
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -26,13 +25,13 @@ type OrderItemHandler struct {
 }
 
 const (
-	msgCreateOrderItemFailed  = "Failed to create order item."
-	msgFetchOrderItemFailed   = "Failed to fetch order item."
-	msgFetchOrderItemsFailed  = "Failed to fetch order items."
-	msgUpdateOrderItemFailed  = "Failed to update order item."
-	msgDeleteOrderItemFailed  = "Failed to delete order item."
-	msgDeleteOrderItemsFailed = "Failed to delete order items."
-	msgOrderItemNotFound      = "Order item not found."
+	msgCreateOrderItemFailed  = "failed to create order item"
+	msgFetchOrderItemFailed   = "failed to fetch order item"
+	msgFetchOrderItemsFailed  = "failed to fetch order items"
+	msgUpdateOrderItemFailed  = "failed to update order item"
+	msgDeleteOrderItemFailed  = "failed to delete order item"
+	msgDeleteOrderItemsFailed = "failed to delete order items"
+	msgOrderItemNotFound      = "order item not found"
 )
 
 func (oih *OrderItemHandler) svc(
@@ -143,7 +142,7 @@ func (oih *OrderItemHandler) CreateOrderItem(
 
 	claims, ok := middleware.ClaimsFromContext(r.Context())
 	if !ok {
-		return fmt.Errorf(msgAuthRequired)
+		return errors.New("failed to extract credentials from context")
 	}
 
 	userID, err := uuid.Parse(claims.Subject)
