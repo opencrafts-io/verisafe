@@ -3141,6 +3141,415 @@
                 }
             }
         },
+        "/orders": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Lists orders with optional status and pagination filters.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "List orders",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Order status",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of orders per page",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/billing.Order"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid claims",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch orders",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Creates a new billing order for the authenticated user.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Create an order",
+                "parameters": [
+                    {
+                        "description": "Order to create",
+                        "name": "order",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/billing.CreateOrder"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/billing.Order"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid claims",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to create order",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/orders/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Retrieves an order by its identifier.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Get an order",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Order ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/billing.Order"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid claims",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "Order not found",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch order",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Updates mutable fields of an order.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Update an order",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Order ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Order updates",
+                        "name": "order",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/billing.UpdateOrder"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/billing.Order"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid claims",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "Order not found",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to update order",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/orders/{id}/cancellation": {
+            "post": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Cancels an order if it is currently cancellable.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Cancel an order",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Order ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/billing.Order"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid claims",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "Order not found or cannot be cancelled",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to cancel order",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/orders/{id}/payment": {
+            "post": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Marks an order as paid.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Mark an order as paid",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Order ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/billing.Order"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid claims",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "Order not found",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to mark order as paid",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/orders/{id}/totals/recalculation": {
+            "post": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Recalculates the subtotal, discount, tax, and total for an order.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Recalculate order totals",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Order ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "description": "Missing or invalid claims",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to recalculate order totals",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
         "/permissions": {
             "get": {
                 "security": [
@@ -4783,6 +5192,26 @@
                 }
             }
         },
+        "billing.CreateOrder": {
+            "type": "object",
+            "properties": {
+                "currency": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
         "billing.CreatePlan": {
             "type": "object",
             "properties": {
@@ -4852,6 +5281,56 @@
                 }
             }
         },
+        "billing.Order": {
+            "type": "object",
+            "properties": {
+                "cancelled_at": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "currency": {
+                    "type": "string"
+                },
+                "discount": {
+                    "type": "integer"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "paid_at": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "subtotal": {
+                    "type": "integer"
+                },
+                "tax": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
         "billing.Plan": {
             "type": "object",
             "properties": {
@@ -4907,6 +5386,26 @@
                 },
                 "value": {
                     "type": "integer"
+                }
+            }
+        },
+        "billing.UpdateOrder": {
+            "type": "object",
+            "properties": {
+                "currency": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
                 }
             }
         },
