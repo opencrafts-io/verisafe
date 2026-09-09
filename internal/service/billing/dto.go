@@ -86,3 +86,115 @@ type DeleteEntitlement struct {
 	PlanCode string `json:"plan_code"`
 	Key      string `json:"key"`
 }
+
+type CreateOrder struct {
+	UserID    uuid.UUID  `json:"user_id"`
+	Currency  string     `json:"currency"`
+	Metadata  []byte     `json:"metadata"`
+	ExpiresAt *time.Time `json:"expires_at"`
+}
+
+type GetOrder struct {
+	ID string `json:"id"`
+}
+
+type GetUserOrder struct {
+	ID     string    `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+type ListOrdersByUser struct {
+	UserID     uuid.UUID `json:"user_id"`
+	PageSize   int32     `json:"page_size"`
+	PageOffset int32     `json:"page_offset"`
+}
+
+type ListOrdersByStatus struct {
+	Status     string `json:"status"`
+	PageSize   int32  `json:"page_size"`
+	PageOffset int32  `json:"page_offset"`
+}
+
+type UpdateOrder struct {
+	ID        string     `json:"id"`
+	Currency  string     `json:"currency"`
+	Metadata  []byte     `json:"metadata"`
+	ExpiresAt *time.Time `json:"expires_at"`
+}
+
+type CancelOrder struct {
+	ID string `json:"id"`
+}
+
+type MarkOrderPaid struct {
+	ID string `json:"id"`
+}
+
+type RecalculateOrderTotals struct {
+	ID string `json:"id"`
+}
+
+type Order struct {
+	ID          string     `json:"id"`
+	UserID      uuid.UUID  `json:"user_id"`
+	Status      string     `json:"status"`
+	Subtotal    int64      `json:"subtotal"`
+	Discount    int64      `json:"discount"`
+	Tax         int64      `json:"tax"`
+	Total       int64      `json:"total"`
+	Currency    string     `json:"currency"`
+	Metadata    []byte     `json:"metadata"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	PaidAt      *time.Time `json:"paid_at"`
+	CancelledAt *time.Time `json:"cancelled_at"`
+	ExpiresAt   *time.Time `json:"expires_at"`
+}
+
+type OrderItem struct {
+	ID        uuid.UUID `json:"id"`
+	OrderID   string    `json:"order_id"`
+	AddedBy   uuid.UUID `json:"added_by"`
+	UnitPrice int64     `json:"unit_price"`
+	Discount  int64     `json:"discount"`
+	Quantity  int16     `json:"quantity"`
+	Tax       int64     `json:"tax"`
+	PlanID    *int32    `json:"plan_id,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type CreateOrderItem struct {
+	OrderID   string    `json:"order_id"`
+	AddedBy   uuid.UUID `json:"added_by"`
+	UnitPrice int64     `json:"unit_price"`
+	Discount  int64     `json:"discount"`
+	Quantity  int16     `json:"quantity"`
+	Tax       int64     `json:"tax"`
+	PlanID    *int32    `json:"plan_id,omitempty"`
+}
+
+type GetOrderItem struct {
+	ID uuid.UUID `json:"id"`
+}
+
+type ListOrderItemsByOrder struct {
+	OrderID string `json:"order_id"`
+}
+
+type UpdateOrderItem struct {
+	ID        uuid.UUID `json:"id"`
+	UnitPrice int64     `json:"unit_price"`
+	Discount  int64     `json:"discount"`
+	Quantity  int16     `json:"quantity"`
+	Tax       int64     `json:"tax"`
+	PlanID    *int32    `json:"plan_id,omitempty"`
+}
+
+type DeleteOrderItem struct {
+	ID uuid.UUID `json:"id"`
+}
+
+type DeleteOrderItemsByOrder struct {
+	OrderID string `json:"order_id"`
+}

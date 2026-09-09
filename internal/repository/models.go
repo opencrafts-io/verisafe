@@ -108,6 +108,51 @@ func (ns NullEntitlementUnit) Value() (driver.Value, error) {
 	return string(ns.EntitlementUnit), nil
 }
 
+type OrderStatus string
+
+const (
+	OrderStatusPending   OrderStatus = "pending"
+	OrderStatusPaid      OrderStatus = "paid"
+	OrderStatusFailed    OrderStatus = "failed"
+	OrderStatusCancelled OrderStatus = "cancelled"
+	OrderStatusExpired   OrderStatus = "expired"
+)
+
+func (e *OrderStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = OrderStatus(s)
+	case string:
+		*e = OrderStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for OrderStatus: %T", src)
+	}
+	return nil
+}
+
+type NullOrderStatus struct {
+	OrderStatus OrderStatus `json:"order_status"`
+	Valid       bool        `json:"valid"` // Valid is true if OrderStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullOrderStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.OrderStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.OrderStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullOrderStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.OrderStatus), nil
+}
+
 type SubscriptionStatus string
 
 const (
@@ -298,6 +343,36 @@ type OauthGrant struct {
 	RevokedReason       *string    `json:"revoked_reason"`
 	CreatedAt           time.Time  `json:"created_at"`
 	UpdatedAt           time.Time  `json:"updated_at"`
+}
+
+type Order struct {
+	ID          string      `json:"id"`
+	UserID      uuid.UUID   `json:"user_id"`
+	Status      OrderStatus `json:"status"`
+	Subtotal    int64       `json:"subtotal"`
+	Total       int64       `json:"total"`
+	Currency    string      `json:"currency"`
+	Metadata    []byte      `json:"metadata"`
+	CreatedAt   time.Time   `json:"created_at"`
+	UpdatedAt   time.Time   `json:"updated_at"`
+	PaidAt      *time.Time  `json:"paid_at"`
+	CancelledAt *time.Time  `json:"cancelled_at"`
+	ExpiresAt   *time.Time  `json:"expires_at"`
+	Discount    int64       `json:"discount"`
+	Tax         int64       `json:"tax"`
+}
+
+type OrderItem struct {
+	ID        uuid.UUID `json:"id"`
+	OrderID   string    `json:"order_id"`
+	AddedBy   uuid.UUID `json:"added_by"`
+	UnitPrice int64     `json:"unit_price"`
+	Discount  int64     `json:"discount"`
+	Quantity  int16     `json:"quantity"`
+	Tax       int64     `json:"tax"`
+	PlanID    *int32    `json:"plan_id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type Permission struct {

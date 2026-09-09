@@ -1,0 +1,370 @@
+package billing
+
+import (
+	"encoding/json"
+	"errors"
+	"log/slog"
+	"net/http"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+
+	"github.com/opencrafts-io/verisafe/internal/config"
+	"github.com/opencrafts-io/verisafe/internal/core"
+	"github.com/opencrafts-io/verisafe/internal/middleware"
+	"github.com/opencrafts-io/verisafe/internal/repository"
+	billingSvc "github.com/opencrafts-io/verisafe/internal/service/billing"
+)
+
+type OrderItemHandler struct {
+	DB      core.IDBProvider
+	Logger  *slog.Logger
+	Cfg     *config.Config
+	Cacher  core.Cacher
+	Service func(repository.Querier) billingSvc.OrderItemService
+}
+
+const (
+	msgCreateOrderItemFailed  = "failed to create order item"
+	msgFetchOrderItemFailed   = "failed to fetch order item"
+	msgFetchOrderItemsFailed  = "failed to fetch order items"
+	msgUpdateOrderItemFailed  = "failed to update order item"
+	msgDeleteOrderItemFailed  = "failed to delete order item"
+	msgDeleteOrderItemsFailed = "failed to delete order items"
+	msgOrderItemNotFound      = "order item not found"
+)
+
+func (oih *OrderItemHandler) svc(
+	db repository.DBTX,
+) billingSvc.OrderItemService {
+	if oih.Service != nil {
+		return oih.Service(repository.New(db))
+	}
+
+	return billingSvc.NewOrderItemService(
+		repository.New(db),
+		oih.Logger,
+	)
+}
+
+func (oih *OrderItemHandler) RegisterHandlers(router core.Router) {
+	router.Handle(
+		"POST /orders/{order_id}/items",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(
+				oih.Cfg,
+				oih.DB,
+				oih.Cacher,
+				oih.Logger,
+			),
+			middleware.HasPermission([]string{"create:order-item:any"}),
+		)(core.AppHandler(oih.CreateOrderItem)),
+	)
+
+	router.Handle(
+		"GET /orders/{order_id}/items",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(
+				oih.Cfg,
+				oih.DB,
+				oih.Cacher,
+				oih.Logger,
+			),
+			middleware.HasPermission([]string{"read:order-item:any"}),
+		)(core.AppHandler(oih.ListOrderItemsByOrder)),
+	)
+
+	router.Handle(
+		"GET /orders/{order_id}/items/{id}",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(
+				oih.Cfg,
+				oih.DB,
+				oih.Cacher,
+				oih.Logger,
+			),
+			middleware.HasPermission([]string{"read:order-item:any"}),
+		)(core.AppHandler(oih.GetOrderItem)),
+	)
+
+	router.Handle(
+		"PATCH /orders/{order_id}/items/{id}",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(
+				oih.Cfg,
+				oih.DB,
+				oih.Cacher,
+				oih.Logger,
+			),
+			middleware.HasPermission([]string{"update:order-item:any"}),
+		)(core.AppHandler(oih.UpdateOrderItem)),
+	)
+
+	router.Handle(
+		"DELETE /orders/{order_id}/items/{id}",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(
+				oih.Cfg,
+				oih.DB,
+				oih.Cacher,
+				oih.Logger,
+			),
+			middleware.HasPermission([]string{"delete:order-item:any"}),
+		)(core.AppHandler(oih.DeleteOrderItem)),
+	)
+
+	router.Handle(
+		"DELETE /orders/{order_id}/items",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(
+				oih.Cfg,
+				oih.DB,
+				oih.Cacher,
+				oih.Logger,
+			),
+			middleware.HasPermission([]string{"delete:order-item:any"}),
+		)(core.AppHandler(oih.DeleteOrderItemsByOrder)),
+	)
+}
+
+func (oih *OrderItemHandler) CreateOrderItem(
+	w http.ResponseWriter,
+	r *http.Request,
+) error {
+	var req billingSvc.CreateOrderItem
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return core.ErrInvalidInput
+	}
+
+	orderID := r.PathValue("order_id")
+	req.OrderID = orderID
+
+	claims, ok := middleware.ClaimsFromContext(r.Context())
+	if !ok {
+		return errors.New("failed to extract credentials from context")
+	}
+
+	userID, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		return core.ErrInvalidInput
+	}
+
+	req.AddedBy = userID
+
+	item, err := core.InTx(
+		r.Context(),
+		oih.DB,
+		func(tx pgx.Tx) (*billingSvc.OrderItem, error) {
+			return oih.svc(tx).CreateOrderItem(
+				r.Context(),
+				req,
+			)
+		},
+	)
+	if err != nil {
+		oih.Logger.ErrorContext(
+			r.Context(),
+			"failed to create order item",
+			"error", err,
+			"order_id", orderID,
+		)
+
+		return errors.New(msgCreateOrderItemFailed)
+	}
+
+	core.WriteJSON(w, http.StatusCreated, item)
+	return nil
+}
+
+func (oih *OrderItemHandler) GetOrderItem(
+	w http.ResponseWriter,
+	r *http.Request,
+) error {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		return core.ErrInvalidInput
+	}
+
+	item, err := core.InTx(
+		r.Context(),
+		oih.DB,
+		func(tx pgx.Tx) (*billingSvc.OrderItem, error) {
+			return oih.svc(tx).GetOrderItem(
+				r.Context(),
+				billingSvc.GetOrderItem{
+					ID: id,
+				},
+			)
+		},
+	)
+	if err != nil {
+		if errors.Is(err, billingSvc.ErrOrderItemNotFound) {
+			return errors.New(msgOrderItemNotFound)
+		}
+
+		oih.Logger.ErrorContext(
+			r.Context(),
+			"failed to fetch order item",
+			"error", err,
+			"order_item_id", id,
+		)
+
+		return errors.New(msgFetchOrderItemFailed)
+	}
+
+	core.WriteJSON(w, http.StatusOK, item)
+	return nil
+}
+
+func (oih *OrderItemHandler) ListOrderItemsByOrder(
+	w http.ResponseWriter,
+	r *http.Request,
+) error {
+	orderID := r.PathValue("order_id")
+	items, err := core.InTx(
+		r.Context(),
+		oih.DB,
+		func(tx pgx.Tx) ([]billingSvc.OrderItem, error) {
+			return oih.svc(tx).ListOrderItemsByOrder(
+				r.Context(),
+				billingSvc.ListOrderItemsByOrder{
+					OrderID: orderID,
+				},
+			)
+		},
+	)
+	if err != nil {
+		oih.Logger.ErrorContext(
+			r.Context(),
+			"failed to fetch order items",
+			"error", err,
+			"order_id", orderID,
+		)
+
+		return errors.New(msgFetchOrderItemsFailed)
+	}
+	core.WriteJSON(w, http.StatusOK, items)
+	return nil
+}
+
+func (oih *OrderItemHandler) UpdateOrderItem(
+	w http.ResponseWriter,
+	r *http.Request,
+) error {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		return core.ErrInvalidInput
+	}
+
+	var req billingSvc.UpdateOrderItem
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return core.ErrInvalidInput
+	}
+
+	req.ID = id
+
+	item, err := core.InTx(
+		r.Context(),
+		oih.DB,
+		func(tx pgx.Tx) (*billingSvc.OrderItem, error) {
+			return oih.svc(tx).UpdateOrderItem(
+				r.Context(),
+				req,
+			)
+		},
+	)
+	if err != nil {
+		if errors.Is(err, billingSvc.ErrOrderItemNotFound) {
+			return errors.New(msgOrderItemNotFound)
+		}
+
+		oih.Logger.ErrorContext(
+			r.Context(),
+			"failed to update order item",
+			"error", err,
+			"order_item_id", id,
+		)
+
+		return errors.New(msgUpdateOrderItemFailed)
+	}
+
+	core.WriteJSON(w, http.StatusOK, item)
+
+	return nil
+}
+
+func (oih *OrderItemHandler) DeleteOrderItem(
+	w http.ResponseWriter,
+	r *http.Request,
+) error {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		return core.ErrInvalidInput
+	}
+
+	err = core.InTxDo(
+		r.Context(),
+		oih.DB,
+		func(tx pgx.Tx) error {
+			return oih.svc(tx).DeleteOrderItem(
+				r.Context(),
+				billingSvc.DeleteOrderItem{
+					ID: id,
+				},
+			)
+		},
+	)
+	if err != nil {
+		if errors.Is(err, billingSvc.ErrOrderItemNotFound) {
+			return errors.New(msgOrderItemNotFound)
+		}
+
+		oih.Logger.ErrorContext(
+			r.Context(),
+			"failed to delete order item",
+			"error", err,
+			"order_item_id", id,
+		)
+
+		return errors.New(msgDeleteOrderItemFailed)
+	}
+
+	core.NoContent(w)
+
+	return nil
+}
+
+func (oih *OrderItemHandler) DeleteOrderItemsByOrder(
+	w http.ResponseWriter,
+	r *http.Request,
+) error {
+	orderID := r.PathValue("order_id")
+
+	err := core.InTxDo(
+		r.Context(),
+		oih.DB,
+		func(tx pgx.Tx) error {
+			return oih.svc(tx).DeleteOrderItemsByOrder(
+				r.Context(),
+				billingSvc.DeleteOrderItemsByOrder{
+					OrderID: orderID,
+				},
+			)
+		},
+	)
+	if err != nil {
+		oih.Logger.ErrorContext(
+			r.Context(),
+			"failed to delete order items",
+			"error", err,
+			"order_id", orderID,
+		)
+
+		return errors.New(msgDeleteOrderItemsFailed)
+	}
+
+	core.NoContent(w)
+	return nil
+}

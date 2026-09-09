@@ -87,6 +87,21 @@ func (mr *MockQuerierMockRecorder) AssignRolePermission(ctx, arg any) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignRolePermission", reflect.TypeOf((*MockQuerier)(nil).AssignRolePermission), ctx, arg)
 }
 
+// CancelOrder mocks base method.
+func (m *MockQuerier) CancelOrder(ctx context.Context, id string) (repository.Order, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CancelOrder", ctx, id)
+	ret0, _ := ret[0].(repository.Order)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CancelOrder indicates an expected call of CancelOrder.
+func (mr *MockQuerierMockRecorder) CancelOrder(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CancelOrder", reflect.TypeOf((*MockQuerier)(nil).CancelOrder), ctx, id)
+}
+
 // ClaimRefreshToken mocks base method.
 func (m *MockQuerier) ClaimRefreshToken(ctx context.Context, tokenHash string) (repository.RefreshToken, error) {
 	m.ctrl.T.Helper()
@@ -129,6 +144,36 @@ func (m *MockQuerier) CountOAuthGrantsWithPlaintext(ctx context.Context) (int64,
 func (mr *MockQuerierMockRecorder) CountOAuthGrantsWithPlaintext(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CountOAuthGrantsWithPlaintext", reflect.TypeOf((*MockQuerier)(nil).CountOAuthGrantsWithPlaintext), ctx)
+}
+
+// CountOrdersByUser mocks base method.
+func (m *MockQuerier) CountOrdersByUser(ctx context.Context, userID uuid.UUID) (int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CountOrdersByUser", ctx, userID)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CountOrdersByUser indicates an expected call of CountOrdersByUser.
+func (mr *MockQuerierMockRecorder) CountOrdersByUser(ctx, userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CountOrdersByUser", reflect.TypeOf((*MockQuerier)(nil).CountOrdersByUser), ctx, userID)
+}
+
+// CountOrdersByUserAndStatus mocks base method.
+func (m *MockQuerier) CountOrdersByUserAndStatus(ctx context.Context, arg repository.CountOrdersByUserAndStatusParams) (int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CountOrdersByUserAndStatus", ctx, arg)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CountOrdersByUserAndStatus indicates an expected call of CountOrdersByUserAndStatus.
+func (mr *MockQuerierMockRecorder) CountOrdersByUserAndStatus(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CountOrdersByUserAndStatus", reflect.TypeOf((*MockQuerier)(nil).CountOrdersByUserAndStatus), ctx, arg)
 }
 
 // CreateAccount mocks base method.
@@ -189,6 +234,36 @@ func (m *MockQuerier) CreateInstitution(ctx context.Context, arg repository.Crea
 func (mr *MockQuerierMockRecorder) CreateInstitution(ctx, arg any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateInstitution", reflect.TypeOf((*MockQuerier)(nil).CreateInstitution), ctx, arg)
+}
+
+// CreateOrder mocks base method.
+func (m *MockQuerier) CreateOrder(ctx context.Context, arg repository.CreateOrderParams) (repository.Order, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateOrder", ctx, arg)
+	ret0, _ := ret[0].(repository.Order)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateOrder indicates an expected call of CreateOrder.
+func (mr *MockQuerierMockRecorder) CreateOrder(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateOrder", reflect.TypeOf((*MockQuerier)(nil).CreateOrder), ctx, arg)
+}
+
+// CreateOrderItem mocks base method.
+func (m *MockQuerier) CreateOrderItem(ctx context.Context, arg repository.CreateOrderItemParams) (repository.OrderItem, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateOrderItem", ctx, arg)
+	ret0, _ := ret[0].(repository.OrderItem)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateOrderItem indicates an expected call of CreateOrderItem.
+func (mr *MockQuerierMockRecorder) CreateOrderItem(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateOrderItem", reflect.TypeOf((*MockQuerier)(nil).CreateOrderItem), ctx, arg)
 }
 
 // CreatePermission mocks base method.
@@ -335,6 +410,35 @@ func (m *MockQuerier) DeleteInstitution(ctx context.Context, institutionID int32
 func (mr *MockQuerierMockRecorder) DeleteInstitution(ctx, institutionID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteInstitution", reflect.TypeOf((*MockQuerier)(nil).DeleteInstitution), ctx, institutionID)
+}
+
+// DeleteOrderItem mocks base method.
+func (m *MockQuerier) DeleteOrderItem(ctx context.Context, id uuid.UUID) (repository.OrderItem, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteOrderItem", ctx, id)
+	ret0, _ := ret[0].(repository.OrderItem)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DeleteOrderItem indicates an expected call of DeleteOrderItem.
+func (mr *MockQuerierMockRecorder) DeleteOrderItem(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteOrderItem", reflect.TypeOf((*MockQuerier)(nil).DeleteOrderItem), ctx, id)
+}
+
+// DeleteOrderItemsByOrder mocks base method.
+func (m *MockQuerier) DeleteOrderItemsByOrder(ctx context.Context, orderID string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteOrderItemsByOrder", ctx, orderID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteOrderItemsByOrder indicates an expected call of DeleteOrderItemsByOrder.
+func (mr *MockQuerierMockRecorder) DeleteOrderItemsByOrder(ctx, orderID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteOrderItemsByOrder", reflect.TypeOf((*MockQuerier)(nil).DeleteOrderItemsByOrder), ctx, orderID)
 }
 
 // DeleteServiceToken mocks base method.
@@ -830,6 +934,36 @@ func (mr *MockQuerierMockRecorder) GetOAuthGrantByID(ctx, id any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOAuthGrantByID", reflect.TypeOf((*MockQuerier)(nil).GetOAuthGrantByID), ctx, id)
 }
 
+// GetOrder mocks base method.
+func (m *MockQuerier) GetOrder(ctx context.Context, id string) (repository.Order, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOrder", ctx, id)
+	ret0, _ := ret[0].(repository.Order)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOrder indicates an expected call of GetOrder.
+func (mr *MockQuerierMockRecorder) GetOrder(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOrder", reflect.TypeOf((*MockQuerier)(nil).GetOrder), ctx, id)
+}
+
+// GetOrderItem mocks base method.
+func (m *MockQuerier) GetOrderItem(ctx context.Context, id uuid.UUID) (repository.OrderItem, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOrderItem", ctx, id)
+	ret0, _ := ret[0].(repository.OrderItem)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOrderItem indicates an expected call of GetOrderItem.
+func (mr *MockQuerierMockRecorder) GetOrderItem(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOrderItem", reflect.TypeOf((*MockQuerier)(nil).GetOrderItem), ctx, id)
+}
+
 // GetPermissionByID mocks base method.
 func (m *MockQuerier) GetPermissionByID(ctx context.Context, id uuid.UUID) (repository.Permission, error) {
 	m.ctrl.T.Helper()
@@ -995,6 +1129,21 @@ func (mr *MockQuerierMockRecorder) GetUserDevices(ctx, userID any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserDevices", reflect.TypeOf((*MockQuerier)(nil).GetUserDevices), ctx, userID)
 }
 
+// GetUserOrder mocks base method.
+func (m *MockQuerier) GetUserOrder(ctx context.Context, arg repository.GetUserOrderParams) (repository.Order, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUserOrder", ctx, arg)
+	ret0, _ := ret[0].(repository.Order)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUserOrder indicates an expected call of GetUserOrder.
+func (mr *MockQuerierMockRecorder) GetUserOrder(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserOrder", reflect.TypeOf((*MockQuerier)(nil).GetUserOrder), ctx, arg)
+}
+
 // GetUserPermissionNames mocks base method.
 func (m *MockQuerier) GetUserPermissionNames(ctx context.Context, userID uuid.UUID) ([]string, error) {
 	m.ctrl.T.Helper()
@@ -1145,6 +1294,66 @@ func (mr *MockQuerierMockRecorder) ListOAuthGrantsByAccount(ctx, accountID any) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListOAuthGrantsByAccount", reflect.TypeOf((*MockQuerier)(nil).ListOAuthGrantsByAccount), ctx, accountID)
 }
 
+// ListOrderItemsByOrder mocks base method.
+func (m *MockQuerier) ListOrderItemsByOrder(ctx context.Context, orderID string) ([]repository.OrderItem, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListOrderItemsByOrder", ctx, orderID)
+	ret0, _ := ret[0].([]repository.OrderItem)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListOrderItemsByOrder indicates an expected call of ListOrderItemsByOrder.
+func (mr *MockQuerierMockRecorder) ListOrderItemsByOrder(ctx, orderID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListOrderItemsByOrder", reflect.TypeOf((*MockQuerier)(nil).ListOrderItemsByOrder), ctx, orderID)
+}
+
+// ListOrders mocks base method.
+func (m *MockQuerier) ListOrders(ctx context.Context, arg repository.ListOrdersParams) ([]repository.Order, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListOrders", ctx, arg)
+	ret0, _ := ret[0].([]repository.Order)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListOrders indicates an expected call of ListOrders.
+func (mr *MockQuerierMockRecorder) ListOrders(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListOrders", reflect.TypeOf((*MockQuerier)(nil).ListOrders), ctx, arg)
+}
+
+// ListOrdersByStatus mocks base method.
+func (m *MockQuerier) ListOrdersByStatus(ctx context.Context, arg repository.ListOrdersByStatusParams) ([]repository.Order, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListOrdersByStatus", ctx, arg)
+	ret0, _ := ret[0].([]repository.Order)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListOrdersByStatus indicates an expected call of ListOrdersByStatus.
+func (mr *MockQuerierMockRecorder) ListOrdersByStatus(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListOrdersByStatus", reflect.TypeOf((*MockQuerier)(nil).ListOrdersByStatus), ctx, arg)
+}
+
+// ListOrdersByUser mocks base method.
+func (m *MockQuerier) ListOrdersByUser(ctx context.Context, arg repository.ListOrdersByUserParams) ([]repository.Order, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListOrdersByUser", ctx, arg)
+	ret0, _ := ret[0].([]repository.Order)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListOrdersByUser indicates an expected call of ListOrdersByUser.
+func (mr *MockQuerierMockRecorder) ListOrdersByUser(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListOrdersByUser", reflect.TypeOf((*MockQuerier)(nil).ListOrdersByUser), ctx, arg)
+}
+
 // ListPlans mocks base method.
 func (m *MockQuerier) ListPlans(ctx context.Context, visible *bool) ([]repository.ListPlansRow, error) {
 	m.ctrl.T.Helper()
@@ -1247,6 +1456,21 @@ func (mr *MockQuerierMockRecorder) MarkOAuthGrantRevoked(ctx, arg any) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkOAuthGrantRevoked", reflect.TypeOf((*MockQuerier)(nil).MarkOAuthGrantRevoked), ctx, arg)
 }
 
+// MarkOrderPaid mocks base method.
+func (m *MockQuerier) MarkOrderPaid(ctx context.Context, id string) (repository.Order, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MarkOrderPaid", ctx, id)
+	ret0, _ := ret[0].(repository.Order)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// MarkOrderPaid indicates an expected call of MarkOrderPaid.
+func (mr *MockQuerierMockRecorder) MarkOrderPaid(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkOrderPaid", reflect.TypeOf((*MockQuerier)(nil).MarkOrderPaid), ctx, id)
+}
+
 // MarkRefreshTokenUsed mocks base method.
 func (m *MockQuerier) MarkRefreshTokenUsed(ctx context.Context, id uuid.UUID) error {
 	m.ctrl.T.Helper()
@@ -1273,6 +1497,20 @@ func (m *MockQuerier) MarkTokensForRotation(ctx context.Context) error {
 func (mr *MockQuerierMockRecorder) MarkTokensForRotation(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkTokensForRotation", reflect.TypeOf((*MockQuerier)(nil).MarkTokensForRotation), ctx)
+}
+
+// RecalculateOrderTotals mocks base method.
+func (m *MockQuerier) RecalculateOrderTotals(ctx context.Context, orderID string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RecalculateOrderTotals", ctx, orderID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RecalculateOrderTotals indicates an expected call of RecalculateOrderTotals.
+func (mr *MockQuerierMockRecorder) RecalculateOrderTotals(ctx, orderID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecalculateOrderTotals", reflect.TypeOf((*MockQuerier)(nil).RecalculateOrderTotals), ctx, orderID)
 }
 
 // RecordActivityCompletion mocks base method.
@@ -1564,6 +1802,51 @@ func (m *MockQuerier) UpdateInstitution(ctx context.Context, arg repository.Upda
 func (mr *MockQuerierMockRecorder) UpdateInstitution(ctx, arg any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateInstitution", reflect.TypeOf((*MockQuerier)(nil).UpdateInstitution), ctx, arg)
+}
+
+// UpdateOrder mocks base method.
+func (m *MockQuerier) UpdateOrder(ctx context.Context, arg repository.UpdateOrderParams) (repository.Order, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateOrder", ctx, arg)
+	ret0, _ := ret[0].(repository.Order)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateOrder indicates an expected call of UpdateOrder.
+func (mr *MockQuerierMockRecorder) UpdateOrder(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateOrder", reflect.TypeOf((*MockQuerier)(nil).UpdateOrder), ctx, arg)
+}
+
+// UpdateOrderItem mocks base method.
+func (m *MockQuerier) UpdateOrderItem(ctx context.Context, arg repository.UpdateOrderItemParams) (repository.OrderItem, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateOrderItem", ctx, arg)
+	ret0, _ := ret[0].(repository.OrderItem)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateOrderItem indicates an expected call of UpdateOrderItem.
+func (mr *MockQuerierMockRecorder) UpdateOrderItem(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateOrderItem", reflect.TypeOf((*MockQuerier)(nil).UpdateOrderItem), ctx, arg)
+}
+
+// UpdateOrderStatus mocks base method.
+func (m *MockQuerier) UpdateOrderStatus(ctx context.Context, arg repository.UpdateOrderStatusParams) (repository.Order, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateOrderStatus", ctx, arg)
+	ret0, _ := ret[0].(repository.Order)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateOrderStatus indicates an expected call of UpdateOrderStatus.
+func (mr *MockQuerierMockRecorder) UpdateOrderStatus(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateOrderStatus", reflect.TypeOf((*MockQuerier)(nil).UpdateOrderStatus), ctx, arg)
 }
 
 // UpdatePermission mocks base method.
