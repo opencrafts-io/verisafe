@@ -12,7 +12,7 @@ import (
 )
 
 const createOrderItem = `-- name: CreateOrderItem :one
-INSERT INTO public.order_items (
+insert into public.order_items (
     order_id,
     added_by,
     unit_price,
@@ -21,7 +21,7 @@ INSERT INTO public.order_items (
     tax,
     plan_id
 )
-VALUES (
+values (
     $1,
     $2,
     $3,
@@ -30,7 +30,7 @@ VALUES (
     $6,
     $7
 )
-RETURNING id, order_id, added_by, unit_price, discount, quantity, tax, plan_id, created_at, updated_at
+returning id, order_id, added_by, unit_price, discount, quantity, tax, plan_id, created_at, updated_at
 `
 
 type CreateOrderItemParams struct {
@@ -70,15 +70,29 @@ func (q *Queries) CreateOrderItem(ctx context.Context, arg CreateOrderItemParams
 	return i, err
 }
 
-const deleteOrderItem = `-- name: DeleteOrderItem :exec
+const deleteOrderItem = `-- name: DeleteOrderItem :one
 delete from public.order_items
 where id = $1
+returning id, order_id, added_by, unit_price, discount, quantity, tax, plan_id, created_at, updated_at
 `
 
-// Delete one order item by its ID.
-func (q *Queries) DeleteOrderItem(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, deleteOrderItem, id)
-	return err
+// Delete one order item and return the deleted record.
+func (q *Queries) DeleteOrderItem(ctx context.Context, id uuid.UUID) (OrderItem, error) {
+	row := q.db.QueryRow(ctx, deleteOrderItem, id)
+	var i OrderItem
+	err := row.Scan(
+		&i.ID,
+		&i.OrderID,
+		&i.AddedBy,
+		&i.UnitPrice,
+		&i.Discount,
+		&i.Quantity,
+		&i.Tax,
+		&i.PlanID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const deleteOrderItemsByOrder = `-- name: DeleteOrderItemsByOrder :exec

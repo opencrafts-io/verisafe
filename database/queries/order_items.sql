@@ -1,6 +1,6 @@
 -- name: CreateOrderItem :one
 -- Create a new order item and return the created record.
-INSERT INTO public.order_items (
+insert into public.order_items (
     order_id,
     added_by,
     unit_price,
@@ -9,7 +9,7 @@ INSERT INTO public.order_items (
     tax,
     plan_id
 )
-VALUES (
+values (
     sqlc.arg(order_id),
     sqlc.arg(added_by),
     sqlc.arg(unit_price),
@@ -18,7 +18,7 @@ VALUES (
     sqlc.arg(tax),
     sqlc.narg(plan_id)
 )
-RETURNING *
+returning *
 ;
 
 
@@ -53,13 +53,12 @@ WHERE id = sqlc.arg(id)
 RETURNING *
 ;
 
-
--- name: DeleteOrderItem :exec
--- Delete one order item by its ID.
+-- name: DeleteOrderItem :one
+-- Delete one order item and return the deleted record.
 delete from public.order_items
 where id = sqlc.arg(id)
+returning *
 ;
-
 
 -- name: DeleteOrderItemsByOrder :exec
 -- Delete all items belonging to an order.

@@ -56,8 +56,8 @@ type Querier interface {
 	// Useful when replacing a plan's entire entitlement set atomically.
 	DeleteEntitlementsByPlanCode(ctx context.Context, code string) error
 	DeleteInstitution(ctx context.Context, institutionID int32) error
-	// Delete one order item by its ID.
-	DeleteOrderItem(ctx context.Context, id uuid.UUID) error
+	// Delete one order item and return the deleted record.
+	DeleteOrderItem(ctx context.Context, id uuid.UUID) (OrderItem, error)
 	// Delete all items belonging to an order.
 	DeleteOrderItemsByOrder(ctx context.Context, orderID string) error
 	DeleteServiceToken(ctx context.Context, id uuid.UUID) error
