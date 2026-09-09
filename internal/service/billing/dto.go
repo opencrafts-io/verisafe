@@ -86,3 +86,67 @@ type DeleteEntitlement struct {
 	PlanCode string `json:"plan_code"`
 	Key      string `json:"key"`
 }
+
+type CreateOrder struct {
+	UserID    uuid.UUID
+	Currency  string
+	Metadata  []byte
+	ExpiresAt *time.Time
+}
+
+type GetOrder struct {
+	ID string
+}
+
+type GetUserOrder struct {
+	ID     string
+	UserID uuid.UUID
+}
+
+type ListOrdersByUser struct {
+	UserID     uuid.UUID
+	PageSize   int32
+	PageOffset int32
+}
+
+type ListOrdersByStatus struct {
+	Status     string
+	PageSize   int32
+	PageOffset int32
+}
+
+type UpdateOrder struct {
+	ID        string
+	Currency  string
+	Metadata  []byte
+	ExpiresAt *time.Time
+}
+
+type CancelOrder struct {
+	ID string
+}
+
+type MarkOrderPaid struct {
+	ID string
+}
+
+type RecalculateOrderTotals struct {
+	ID string
+}
+
+type Order struct {
+	ID          string
+	UserID      uuid.UUID
+	Status      string
+	Subtotal    int64
+	Discount    int64
+	Tax         int64
+	Total       int64
+	Currency    string
+	Metadata    []byte
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	PaidAt      *time.Time
+	CancelledAt *time.Time
+	ExpiresAt   *time.Time
+}
