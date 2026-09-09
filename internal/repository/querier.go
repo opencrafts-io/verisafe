@@ -37,6 +37,8 @@ type Querier interface {
 	CreateInstitution(ctx context.Context, arg CreateInstitutionParams) (Institution, error)
 	// Create a new empty order and return the created record.
 	CreateOrder(ctx context.Context, arg CreateOrderParams) (Order, error)
+	// Create a new order item and return the created record.
+	CreateOrderItem(ctx context.Context, arg CreateOrderItemParams) (OrderItem, error)
 	// Creates a permission on the database
 	CreatePermission(ctx context.Context, arg CreatePermissionParams) (Permission, error)
 	// Creates a plan and returns its details.
@@ -54,6 +56,10 @@ type Querier interface {
 	// Useful when replacing a plan's entire entitlement set atomically.
 	DeleteEntitlementsByPlanCode(ctx context.Context, code string) error
 	DeleteInstitution(ctx context.Context, institutionID int32) error
+	// Delete one order item by its ID.
+	DeleteOrderItem(ctx context.Context, id uuid.UUID) error
+	// Delete all items belonging to an order.
+	DeleteOrderItemsByOrder(ctx context.Context, orderID string) error
 	DeleteServiceToken(ctx context.Context, id uuid.UUID) error
 	// Deletes streak milestone by ID
 	DeleteStreakMilestoneByID(ctx context.Context, id uuid.UUID) error
@@ -122,6 +128,8 @@ type Querier interface {
 	GetOAuthGrantByID(ctx context.Context, id uuid.UUID) (OauthGrant, error)
 	// Retrieve one order by its order ID.
 	GetOrder(ctx context.Context, id string) (Order, error)
+	// Retrieve one order item by its ID.
+	GetOrderItem(ctx context.Context, id uuid.UUID) (OrderItem, error)
 	GetPermissionByID(ctx context.Context, id uuid.UUID) (Permission, error)
 	// Retrieves a plan by its code
 	GetPlanByCode(ctx context.Context, code string) (GetPlanByCodeRow, error)
@@ -156,6 +164,8 @@ type Querier interface {
 	// Every provider an account has connected. Not paginated — the provider set
 	// is small and bounded by the registry.
 	ListOAuthGrantsByAccount(ctx context.Context, accountID uuid.UUID) ([]OauthGrant, error)
+	// Retrieve all items belonging to an order.
+	ListOrderItemsByOrder(ctx context.Context, orderID string) ([]OrderItem, error)
 	// List all orders with pagination.
 	ListOrders(ctx context.Context, arg ListOrdersParams) ([]Order, error)
 	// List orders with a specific status.
@@ -229,6 +239,8 @@ type Querier interface {
 	UpdateInstitution(ctx context.Context, arg UpdateInstitutionParams) (Institution, error)
 	// Update editable order details without changing financial totals.
 	UpdateOrder(ctx context.Context, arg UpdateOrderParams) (Order, error)
+	// Update an existing order item and return the updated record.
+	UpdateOrderItem(ctx context.Context, arg UpdateOrderItemParams) (OrderItem, error)
 	// Update the status of an order and return the updated order.
 	UpdateOrderStatus(ctx context.Context, arg UpdateOrderStatusParams) (Order, error)
 	UpdatePermission(ctx context.Context, arg UpdatePermissionParams) (Permission, error)
