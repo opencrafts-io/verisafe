@@ -35,6 +35,7 @@ INSERT INTO public.plans (
     $9
 )
 RETURNING
+id,
     code,
     name,
     price,
@@ -61,6 +62,7 @@ type CreatePlanParams struct {
 }
 
 type CreatePlanRow struct {
+	ID                  int32      `json:"id"`
 	Code                string     `json:"code"`
 	Name                string     `json:"name"`
 	Price               int64      `json:"price"`
@@ -89,6 +91,7 @@ func (q *Queries) CreatePlan(ctx context.Context, arg CreatePlanParams) (CreateP
 	)
 	var i CreatePlanRow
 	err := row.Scan(
+		&i.ID,
 		&i.Code,
 		&i.Name,
 		&i.Price,
@@ -106,6 +109,7 @@ func (q *Queries) CreatePlan(ctx context.Context, arg CreatePlanParams) (CreateP
 
 const getPlanByCode = `-- name: GetPlanByCode :one
 select
+    id,
     code,
     name,
     price,
@@ -122,6 +126,7 @@ where code = $1
 `
 
 type GetPlanByCodeRow struct {
+	ID                  int32      `json:"id"`
 	Code                string     `json:"code"`
 	Name                string     `json:"name"`
 	Price               int64      `json:"price"`
@@ -140,6 +145,7 @@ func (q *Queries) GetPlanByCode(ctx context.Context, code string) (GetPlanByCode
 	row := q.db.QueryRow(ctx, getPlanByCode, code)
 	var i GetPlanByCodeRow
 	err := row.Scan(
+		&i.ID,
 		&i.Code,
 		&i.Name,
 		&i.Price,
@@ -157,6 +163,7 @@ func (q *Queries) GetPlanByCode(ctx context.Context, code string) (GetPlanByCode
 
 const listPlans = `-- name: ListPlans :many
 select
+    id,
     code,
     name,
     price,
@@ -173,6 +180,7 @@ where $1::bool is null or visible = $1::bool
 `
 
 type ListPlansRow struct {
+	ID                  int32      `json:"id"`
 	Code                string     `json:"code"`
 	Name                string     `json:"name"`
 	Price               int64      `json:"price"`
@@ -199,6 +207,7 @@ func (q *Queries) ListPlans(ctx context.Context, visible *bool) ([]ListPlansRow,
 	for rows.Next() {
 		var i ListPlansRow
 		if err := rows.Scan(
+			&i.ID,
 			&i.Code,
 			&i.Name,
 			&i.Price,
@@ -234,6 +243,7 @@ SET
     updated_at = NOW()
 WHERE code = $8
 RETURNING
+id,
     code,
     name,
     price,
@@ -259,6 +269,7 @@ type UpdatePlanParams struct {
 }
 
 type UpdatePlanRow struct {
+	ID                  int32      `json:"id"`
 	Code                string     `json:"code"`
 	Name                string     `json:"name"`
 	Price               int64      `json:"price"`
@@ -286,6 +297,7 @@ func (q *Queries) UpdatePlan(ctx context.Context, arg UpdatePlanParams) (UpdateP
 	)
 	var i UpdatePlanRow
 	err := row.Scan(
+		&i.ID,
 		&i.Code,
 		&i.Name,
 		&i.Price,

@@ -7,6 +7,7 @@ import (
 )
 
 type Plan struct {
+	ID                  int32     `json:"id"`
 	Code                string    `json:"code"`
 	Name                string    `json:"name"`
 	Price               int64     `json:"price"`
