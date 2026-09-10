@@ -371,6 +371,20 @@ func (mr *MockQuerierMockRecorder) CreateStreakMilestone(ctx, arg any) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateStreakMilestone", reflect.TypeOf((*MockQuerier)(nil).CreateStreakMilestone), ctx, arg)
 }
 
+// CreateSubscriptionsForPaidOrder mocks base method.
+func (m *MockQuerier) CreateSubscriptionsForPaidOrder(ctx context.Context, orderID string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateSubscriptionsForPaidOrder", ctx, orderID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateSubscriptionsForPaidOrder indicates an expected call of CreateSubscriptionsForPaidOrder.
+func (mr *MockQuerierMockRecorder) CreateSubscriptionsForPaidOrder(ctx, orderID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSubscriptionsForPaidOrder", reflect.TypeOf((*MockQuerier)(nil).CreateSubscriptionsForPaidOrder), ctx, orderID)
+}
+
 // DeleteActivity mocks base method.
 func (m *MockQuerier) DeleteActivity(ctx context.Context, id uuid.UUID) error {
 	m.ctrl.T.Helper()
@@ -557,6 +571,21 @@ func (m *MockQuerier) GetAccountsCount(ctx context.Context) (int64, error) {
 func (mr *MockQuerierMockRecorder) GetAccountsCount(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAccountsCount", reflect.TypeOf((*MockQuerier)(nil).GetAccountsCount), ctx)
+}
+
+// GetActiveSubscriptionByUser mocks base method.
+func (m *MockQuerier) GetActiveSubscriptionByUser(ctx context.Context, userID uuid.UUID) (repository.GetActiveSubscriptionByUserRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetActiveSubscriptionByUser", ctx, userID)
+	ret0, _ := ret[0].(repository.GetActiveSubscriptionByUserRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetActiveSubscriptionByUser indicates an expected call of GetActiveSubscriptionByUser.
+func (mr *MockQuerierMockRecorder) GetActiveSubscriptionByUser(ctx, userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActiveSubscriptionByUser", reflect.TypeOf((*MockQuerier)(nil).GetActiveSubscriptionByUser), ctx, userID)
 }
 
 // GetActivityByID mocks base method.

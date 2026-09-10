@@ -401,6 +401,8 @@ type chargeResultTx struct {
 
 	rows       []pgx.Row
 	queryCalls int
+	execCalls  int
+	execArgs   [][]any
 	commits    int
 	rollbacks  int
 }
@@ -413,6 +415,16 @@ func (tx *chargeResultTx) QueryRow(
 	row := tx.rows[tx.queryCalls]
 	tx.queryCalls++
 	return row
+}
+
+func (tx *chargeResultTx) Exec(
+	_ context.Context,
+	_ string,
+	args ...any,
+) (pgconn.CommandTag, error) {
+	tx.execCalls++
+	tx.execArgs = append(tx.execArgs, args)
+	return pgconn.NewCommandTag("INSERT 0 1"), nil
 }
 
 func (tx *chargeResultTx) Commit(context.Context) error {
@@ -515,6 +527,40 @@ func TestChargeService_HandleChargeResultMarksOrderPaidOnSuccess(t *testing.T) {
 	assert.Equal(t, 1, tx.commits)
 	assert.Equal(t, 0, tx.rollbacks)
 	assert.True(t, conn.released)
+}
+
+func TestChargeService_HandleChargeResultActivatesPlanSubscriptions(t *testing.T) {
+	attempt := repository.ChargeAttempt{
+		ID:          uuid.New(),
+		OrderID:     "ORD-PLAN-001",
+		Status:      repository.ChargeAttemptStatusPending,
+		RequestedAt: time.Now(),
+	}
+	resolved := attempt
+	resolved.Status = repository.ChargeAttemptStatusSuccess
+	tx := &chargeResultTx{rows: []pgx.Row{
+		repositoryChargeAttemptRow(resolved),
+		successfulOrderRow(),
+	}}
+	conn := &chargeResultConnection{tx: tx}
+
+	err := newTestChargeService(
+		&chargingQuerier{getChargeAttempt: attempt},
+		&chargeResultDBProvider{conn: conn},
+		&chargingEventBus{},
+	).HandleChargeResult(
+		context.Background(),
+		chargeResultPayload(t, VeribrokeChargeResult{
+			RequestID: attempt.ID.String(),
+			Status:    "success",
+		}),
+	)
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, tx.execCalls)
+	require.Len(t, tx.execArgs, 1)
+	assert.Equal(t, []any{attempt.OrderID}, tx.execArgs[0])
+	assert.Equal(t, 1, tx.commits)
 }
 
 func TestChargeService_HandleChargeResultLeavesOrderUnpaidOnFailure(t *testing.T) {

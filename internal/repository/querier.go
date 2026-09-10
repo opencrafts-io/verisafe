@@ -50,6 +50,9 @@ type Querier interface {
 	CreateSocial(ctx context.Context, arg CreateSocialParams) (Social, error)
 	// Creates a streak milestone.
 	CreateStreakMilestone(ctx context.Context, arg CreateStreakMilestoneParams) (StreakMilestone, error)
+	// Activate each plan included in a paid order. The partial unique index on
+	// subscriptions keeps a user from receiving a second simultaneous active plan.
+	CreateSubscriptionsForPaidOrder(ctx context.Context, orderID string) error
 	DeleteActivity(ctx context.Context, id uuid.UUID) error
 	// Deletes an entitlement identified by plan code and key.
 	DeleteEntitlement(ctx context.Context, arg DeleteEntitlementParams) error
@@ -72,6 +75,8 @@ type Querier interface {
 	GetAccountByUsername(ctx context.Context, username string) (Account, error)
 	// Returns the number of all human accounts in the system
 	GetAccountsCount(ctx context.Context) (int64, error)
+	// Retrieves the caller's currently valid active subscription and its plan.
+	GetActiveSubscriptionByUser(ctx context.Context, userID uuid.UUID) (GetActiveSubscriptionByUserRow, error)
 	// Returns an activity specified by its id
 	GetActivityByID(ctx context.Context, id uuid.UUID) (Activity, error)
 	// Returns a list of oauth providers that they've granted

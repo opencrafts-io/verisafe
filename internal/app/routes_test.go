@@ -56,6 +56,7 @@ func testHandlers() []VerisafeHandler {
 		&billing.OrderHandler{},
 		&billing.OrderItemHandler{},
 		&billing.ChargeHandler{},
+		&billing.SubscriptionHandler{},
 	}
 }
 
@@ -172,6 +173,10 @@ func TestRouteTableMatchesGolden(t *testing.T) {
 
 func TestOrderPaymentEndpointIsNotRegistered(t *testing.T) {
 	assert.NotContains(t, routeTable(t), "POST /orders/{id}/payment")
+}
+
+func TestSubscriptionStatusEndpointIsRegistered(t *testing.T) {
+	assert.Contains(t, routeTable(t), "GET /subscriptions/me")
 }
 
 // Registering without panicking is weaker than the routes actually resolving,

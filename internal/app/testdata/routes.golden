@@ -52,6 +52,7 @@ GET /roles/{id}
 GET /socials/me
 GET /socials/user/{user_id}
 GET /streaks/milestone/active
+GET /subscriptions/me
 GET /users/activity/completions/for-user/{id}
 PATCH /accounts/me
 PATCH /accounts/me/phone

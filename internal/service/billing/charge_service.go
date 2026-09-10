@@ -385,6 +385,16 @@ func (s *chargeService) resolveSuccess(
 			)
 		}
 
+		if err := querier.CreateSubscriptionsForPaidOrder(
+			ctx,
+			attempt.OrderID,
+		); err != nil {
+			return struct{}{}, fmt.Errorf(
+				"activate subscriptions after charge success: %w",
+				err,
+			)
+		}
+
 		applied = true
 		return struct{}{}, nil
 	})

@@ -47,6 +47,24 @@ type ListPlans struct {
 	Visible *bool `json:"visible"`
 }
 
+type Subscription struct {
+	ID                 int64      `json:"id"`
+	PlanID             int64      `json:"plan_id"`
+	PlanCode           string     `json:"plan_code"`
+	PlanName           string     `json:"plan_name"`
+	Status             string     `json:"status"`
+	StartedAt          time.Time  `json:"started_at"`
+	CurrentPeriodStart time.Time  `json:"current_period_start"`
+	CurrentPeriodEnd   *time.Time `json:"current_period_end,omitempty"`
+	CancelAtPeriodEnd  bool       `json:"cancel_at_period_end"`
+	CancelledAt        *time.Time `json:"cancelled_at,omitempty"`
+}
+
+type SubscriptionStatus struct {
+	Active       bool          `json:"active"`
+	Subscription *Subscription `json:"subscription"`
+}
+
 type Entitlement struct {
 	PlanCode    string    `json:"plan_code"`
 	Key         string    `json:"key"`
