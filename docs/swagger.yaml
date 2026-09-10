@@ -168,6 +168,23 @@ definitions:
       user_id:
         type: string
     type: object
+  billing.CreateOrderItem:
+    properties:
+      added_by:
+        type: string
+      discount:
+        type: integer
+      order_id:
+        type: string
+      plan_id:
+        type: integer
+      quantity:
+        type: integer
+      tax:
+        type: integer
+      unit_price:
+        type: integer
+    type: object
   billing.CreatePlan:
     properties:
       active:
@@ -246,6 +263,29 @@ definitions:
       user_id:
         type: string
     type: object
+  billing.OrderItem:
+    properties:
+      added_by:
+        type: string
+      created_at:
+        type: string
+      discount:
+        type: integer
+      id:
+        type: string
+      order_id:
+        type: string
+      plan_id:
+        type: integer
+      quantity:
+        type: integer
+      tax:
+        type: integer
+      unit_price:
+        type: integer
+      updated_at:
+        type: string
+    type: object
   billing.Plan:
     properties:
       active:
@@ -262,6 +302,8 @@ definitions:
         type: string
       description:
         type: string
+      id:
+        type: integer
       name:
         type: string
       price:
@@ -326,6 +368,23 @@ definitions:
         items:
           type: integer
         type: array
+    type: object
+  billing.UpdateOrderItem:
+    properties:
+      discount:
+        type: integer
+      id:
+        type: string
+      order_id:
+        type: string
+      plan_id:
+        type: integer
+      quantity:
+        type: integer
+      tax:
+        type: integer
+      unit_price:
+        type: integer
     type: object
   billing.UpdatePlan:
     properties:
@@ -3469,6 +3528,239 @@ paths:
       - BearerToken: []
       - ApiKey: []
       summary: Recalculate order totals
+      tags:
+      - orders
+  /orders/{order_id}/items:
+    delete:
+      description: Deletes all items from an order.
+      parameters:
+      - description: Order ID
+        in: path
+        name: order_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to delete order items
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Delete order items
+      tags:
+      - orders
+    get:
+      description: Lists all items for an order.
+      parameters:
+      - description: Order ID
+        in: path
+        name: order_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/billing.OrderItem'
+            type: array
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to fetch order items
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: List order items
+      tags:
+      - orders
+    post:
+      consumes:
+      - application/json
+      description: Adds an item to an order for the authenticated user.
+      parameters:
+      - description: Order ID
+        in: path
+        name: order_id
+        required: true
+        type: string
+      - description: Order item to create
+        in: body
+        name: item
+        required: true
+        schema:
+          $ref: '#/definitions/billing.CreateOrderItem'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/billing.OrderItem'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to create order item
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Create an order item
+      tags:
+      - orders
+  /orders/{order_id}/items/{id}:
+    delete:
+      description: Deletes an item from an order.
+      parameters:
+      - description: Order ID
+        in: path
+        name: order_id
+        required: true
+        type: string
+      - description: Order item ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Invalid order item ID
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Order item not found
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to delete order item
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Delete an order item
+      tags:
+      - orders
+    get:
+      description: Retrieves an item from an order by its identifier.
+      parameters:
+      - description: Order ID
+        in: path
+        name: order_id
+        required: true
+        type: string
+      - description: Order item ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/billing.OrderItem'
+        "400":
+          description: Invalid order item ID
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Order item not found
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to fetch order item
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Get an order item
+      tags:
+      - orders
+    patch:
+      consumes:
+      - application/json
+      description: Updates mutable fields of an order item.
+      parameters:
+      - description: Order ID
+        in: path
+        name: order_id
+        required: true
+        type: string
+      - description: Order item ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Order item updates
+        in: body
+        name: item
+        required: true
+        schema:
+          $ref: '#/definitions/billing.UpdateOrderItem'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/billing.OrderItem'
+        "400":
+          description: Invalid request body or order item ID
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Order item not found
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to update order item
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Update an order item
       tags:
       - orders
   /permissions:

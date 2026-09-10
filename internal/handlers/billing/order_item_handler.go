@@ -127,6 +127,22 @@ func (oih *OrderItemHandler) RegisterHandlers(router core.Router) {
 	)
 }
 
+// CreateOrderItem godoc
+//
+// @Summary      Create an order item
+// @Description  Adds an item to an order for the authenticated user.
+// @Tags         orders
+// @Accept       json
+// @Produce      json
+// @Param        order_id path      string                  true  "Order ID"
+// @Param        item     body      billing.CreateOrderItem true  "Order item to create"
+// @Success      201      {object}  billing.OrderItem
+// @Failure      400      {object}  core.APIError "Invalid request body"
+// @Failure      401      {object}  core.APIError "Missing or invalid claims"
+// @Failure      500      {object}  core.APIError "Failed to create order item"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /orders/{order_id}/items [post]
 func (oih *OrderItemHandler) CreateOrderItem(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -177,6 +193,22 @@ func (oih *OrderItemHandler) CreateOrderItem(
 	return nil
 }
 
+// GetOrderItem godoc
+//
+// @Summary      Get an order item
+// @Description  Retrieves an item from an order by its identifier.
+// @Tags         orders
+// @Produce      json
+// @Param        order_id path      string true "Order ID"
+// @Param        id       path      string true "Order item ID"
+// @Success      200      {object}  billing.OrderItem
+// @Failure      400      {object}  core.APIError "Invalid order item ID"
+// @Failure      401      {object}  core.APIError "Missing or invalid claims"
+// @Failure      404      {object}  core.APIError "Order item not found"
+// @Failure      500      {object}  core.APIError "Failed to fetch order item"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /orders/{order_id}/items/{id} [get]
 func (oih *OrderItemHandler) GetOrderItem(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -218,6 +250,19 @@ func (oih *OrderItemHandler) GetOrderItem(
 	return nil
 }
 
+// ListOrderItemsByOrder godoc
+//
+// @Summary      List order items
+// @Description  Lists all items for an order.
+// @Tags         orders
+// @Produce      json
+// @Param        order_id path     string true "Order ID"
+// @Success      200      {array}  billing.OrderItem
+// @Failure      401      {object} core.APIError "Missing or invalid claims"
+// @Failure      500      {object} core.APIError "Failed to fetch order items"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /orders/{order_id}/items [get]
 func (oih *OrderItemHandler) ListOrderItemsByOrder(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -249,6 +294,24 @@ func (oih *OrderItemHandler) ListOrderItemsByOrder(
 	return nil
 }
 
+// UpdateOrderItem godoc
+//
+// @Summary      Update an order item
+// @Description  Updates mutable fields of an order item.
+// @Tags         orders
+// @Accept       json
+// @Produce      json
+// @Param        order_id path      string                  true "Order ID"
+// @Param        id       path      string                  true "Order item ID"
+// @Param        item     body      billing.UpdateOrderItem true "Order item updates"
+// @Success      200      {object}  billing.OrderItem
+// @Failure      400      {object}  core.APIError "Invalid request body or order item ID"
+// @Failure      401      {object}  core.APIError "Missing or invalid claims"
+// @Failure      404      {object}  core.APIError "Order item not found"
+// @Failure      500      {object}  core.APIError "Failed to update order item"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /orders/{order_id}/items/{id} [patch]
 func (oih *OrderItemHandler) UpdateOrderItem(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -297,6 +360,22 @@ func (oih *OrderItemHandler) UpdateOrderItem(
 	return nil
 }
 
+// DeleteOrderItem godoc
+//
+// @Summary      Delete an order item
+// @Description  Deletes an item from an order.
+// @Tags         orders
+// @Produce      json
+// @Param        order_id path string true "Order ID"
+// @Param        id       path string true "Order item ID"
+// @Success      204
+// @Failure      400 {object} core.APIError "Invalid order item ID"
+// @Failure      401 {object} core.APIError "Missing or invalid claims"
+// @Failure      404 {object} core.APIError "Order item not found"
+// @Failure      500 {object} core.APIError "Failed to delete order item"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /orders/{order_id}/items/{id} [delete]
 func (oih *OrderItemHandler) DeleteOrderItem(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -339,6 +418,19 @@ func (oih *OrderItemHandler) DeleteOrderItem(
 	return nil
 }
 
+// DeleteOrderItemsByOrder godoc
+//
+// @Summary      Delete order items
+// @Description  Deletes all items from an order.
+// @Tags         orders
+// @Produce      json
+// @Param        order_id path string true "Order ID"
+// @Success      204
+// @Failure      401 {object} core.APIError "Missing or invalid claims"
+// @Failure      500 {object} core.APIError "Failed to delete order items"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /orders/{order_id}/items [delete]
 func (oih *OrderItemHandler) DeleteOrderItemsByOrder(
 	w http.ResponseWriter,
 	r *http.Request,
