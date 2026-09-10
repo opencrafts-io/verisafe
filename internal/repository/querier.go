@@ -31,6 +31,7 @@ type Querier interface {
 	// An activity is basically an action that a user can
 	// take to be awarded vibe points
 	CreateActivity(ctx context.Context, arg CreateActivityParams) (Activity, error)
+	CreateChargeAttempt(ctx context.Context, arg CreateChargeAttemptParams) (ChargeAttempt, error)
 	// Creates a new entitlement under the plan identified by its public code.
 	// Resolves plan_id internally so callers never see or supply it.
 	CreateEntitlement(ctx context.Context, arg CreateEntitlementParams) (CreateEntitlementRow, error)
@@ -113,6 +114,7 @@ type Querier interface {
 	GetAllUserRoleNames(ctx context.Context, userID uuid.UUID) ([]string, error)
 	// Retrieves all roles that a user has
 	GetAllUserRoles(ctx context.Context, userID uuid.UUID) ([]UserRolesView, error)
+	GetChargeAttempt(ctx context.Context, id uuid.UUID) (ChargeAttempt, error)
 	// Retrieves a single entitlement by plan code and key.
 	GetEntitlement(ctx context.Context, arg GetEntitlementParams) (GetEntitlementRow, error)
 	GetGlobalLeaderBoardCount(ctx context.Context) (int64, error)
@@ -130,6 +132,7 @@ type Querier interface {
 	GetOrder(ctx context.Context, id string) (Order, error)
 	// Retrieve one order item by its ID.
 	GetOrderItem(ctx context.Context, id uuid.UUID) (OrderItem, error)
+	GetPendingChargeAttemptByOrder(ctx context.Context, arg GetPendingChargeAttemptByOrderParams) (ChargeAttempt, error)
 	GetPermissionByID(ctx context.Context, id uuid.UUID) (Permission, error)
 	// Retrieves a plan by its code
 	GetPlanByCode(ctx context.Context, code string) (GetPlanByCodeRow, error)
