@@ -3534,61 +3534,6 @@
                 }
             }
         },
-        "/orders/{id}/payment": {
-            "post": {
-                "security": [
-                    {
-                        "BearerToken": []
-                    },
-                    {
-                        "ApiKey": []
-                    }
-                ],
-                "description": "Marks an order as paid.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "orders"
-                ],
-                "summary": "Mark an order as paid",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Order ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/billing.Order"
-                        }
-                    },
-                    "401": {
-                        "description": "Missing or invalid claims",
-                        "schema": {
-                            "$ref": "#/definitions/core.APIError"
-                        }
-                    },
-                    "404": {
-                        "description": "Order not found",
-                        "schema": {
-                            "$ref": "#/definitions/core.APIError"
-                        }
-                    },
-                    "500": {
-                        "description": "Failed to mark order as paid",
-                        "schema": {
-                            "$ref": "#/definitions/core.APIError"
-                        }
-                    }
-                }
-            }
-        },
         "/orders/{id}/totals/recalculation": {
             "post": {
                 "security": [

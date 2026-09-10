@@ -175,12 +175,15 @@ func TestChargeService_ChargeOrderPublishesAttemptIDAndOrderTotal(t *testing.T) 
 }
 
 func TestChargeService_ChargeOrderRejectsIneligibleOrders(t *testing.T) {
+	expiredAt := time.Now().Add(-time.Minute)
+
 	tests := []struct {
-		name   string
-		status repository.OrderStatus
-		total  int64
-		phone  string
-		want   error
+		name      string
+		status    repository.OrderStatus
+		total     int64
+		expiresAt *time.Time
+		phone     string
+		want      error
 	}{
 		{
 			name:   "paid",
@@ -202,6 +205,14 @@ func TestChargeService_ChargeOrderRejectsIneligibleOrders(t *testing.T) {
 			total:  5800,
 			phone:  "254712345678",
 			want:   ErrOrderNotChargeable,
+		},
+		{
+			name:      "past expiry time",
+			status:    repository.OrderStatusPending,
+			total:     5800,
+			expiresAt: &expiredAt,
+			phone:     "254712345678",
+			want:      ErrOrderNotChargeable,
 		},
 		{
 			name:   "zero total",
@@ -230,6 +241,7 @@ func TestChargeService_ChargeOrderRejectsIneligibleOrders(t *testing.T) {
 			order := testOrder()
 			order.Status = tt.status
 			order.Total = tt.total
+			order.ExpiresAt = tt.expiresAt
 			querier := &chargingQuerier{order: order}
 			bus := &chargingEventBus{}
 
@@ -317,6 +329,25 @@ func TestChargeService_ChargeOrderDoesNotPublishWhenCreationFails(t *testing.T) 
 
 	assert.Nil(t, attempt)
 	assert.ErrorIs(t, err, createErr)
+	assert.Empty(t, bus.published)
+}
+
+func TestChargeService_ChargeOrderRejectsAStaleOrderTotal(t *testing.T) {
+	order := testOrder()
+	querier := &chargingQuerier{
+		order:            order,
+		createAttemptErr: pgx.ErrNoRows,
+	}
+	bus := &chargingEventBus{}
+
+	attempt, err := newTestChargeService(querier, nil, bus).ChargeOrder(
+		context.Background(),
+		ChargeOrder{OrderID: order.ID, PayerPhoneNumber: "254712345678"},
+	)
+
+	assert.Nil(t, attempt)
+	assert.ErrorIs(t, err, ErrOrderNotChargeable)
+	assert.Len(t, querier.createdAttemptParams, 1)
 	assert.Empty(t, bus.published)
 }
 

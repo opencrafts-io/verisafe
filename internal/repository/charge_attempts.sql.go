@@ -12,29 +12,42 @@ import (
 )
 
 const createChargeAttempt = `-- name: CreateChargeAttempt :one
-INSERT INTO charge_attempts (id, order_id, payer_phone_number, amount)
-VALUES (
-    $1,
-    $2,
-    $3,
-    $4
+WITH chargeable_order AS (
+    SELECT o.id, o.total
+    FROM public.orders AS o
+    WHERE o.id = $4
+      AND o.status IN (
+          'pending'::public.order_status,
+          'failed'::public.order_status
+      )
+      AND (o.expires_at IS NULL OR o.expires_at > now())
+      AND o.total > 0
+    FOR UPDATE
 )
+INSERT INTO charge_attempts (id, order_id, payer_phone_number, amount)
+SELECT
+    $1,
+    chargeable_order.id,
+    $2,
+    $3
+FROM chargeable_order
+WHERE chargeable_order.total = $3
 RETURNING id, order_id, status, payer_phone_number, amount, notes, requested_at, resolved_at
 `
 
 type CreateChargeAttemptParams struct {
 	ID               uuid.UUID `json:"id"`
-	OrderID          string    `json:"order_id"`
 	PayerPhoneNumber string    `json:"payer_phone_number"`
 	Amount           int64     `json:"amount"`
+	OrderID          string    `json:"order_id"`
 }
 
 func (q *Queries) CreateChargeAttempt(ctx context.Context, arg CreateChargeAttemptParams) (ChargeAttempt, error) {
 	row := q.db.QueryRow(ctx, createChargeAttempt,
 		arg.ID,
-		arg.OrderID,
 		arg.PayerPhoneNumber,
 		arg.Amount,
+		arg.OrderID,
 	)
 	var i ChargeAttempt
 	err := row.Scan(

@@ -31,7 +31,6 @@ const (
 	msgFetchOrderFailed       = "Failed to fetch order."
 	msgUpdateOrderFailed      = "Failed to update order."
 	msgCancelOrderFailed      = "Failed to cancel order."
-	msgMarkOrderPaidFailed    = "Failed to mark order as paid."
 	msgRecalculateOrderFailed = "Failed to recalculate order totals."
 	msgOrderNotFound          = "Order not found."
 	msgOrderNotCancellable    = "Order cannot be cancelled."
@@ -112,19 +111,6 @@ func (oh *OrderHandler) RegisterHandlers(router core.Router) {
 			),
 			middleware.HasPermission([]string{"update:order:any"}),
 		)(core.AppHandler(oh.CancelOrder)),
-	)
-
-	router.Handle(
-		"POST /orders/{id}/payment",
-		middleware.CreateStack(
-			middleware.IsAuthenticated(
-				oh.Cfg,
-				oh.DB,
-				oh.Cacher,
-				oh.Logger,
-			),
-			middleware.HasPermission([]string{"update:order:any"}),
-		)(core.AppHandler(oh.MarkOrderPaid)),
 	)
 
 	router.Handle(
@@ -502,62 +488,6 @@ func (oh *OrderHandler) CancelOrder(
 		return core.Public(
 			core.ErrInternal,
 			msgCancelOrderFailed,
-		)
-	}
-
-	core.WriteJSON(w, http.StatusOK, order)
-	return nil
-}
-
-// MarkOrderPaid godoc
-//
-// @Summary      Mark an order as paid
-// @Description  Marks an order as paid.
-// @Tags         orders
-// @Produce      json
-// @Param        id  path      string  true  "Order ID"
-// @Success      200 {object} billing.Order
-// @Failure      401 {object} core.APIError "Missing or invalid claims"
-// @Failure      404 {object} core.APIError "Order not found"
-// @Failure      500 {object} core.APIError "Failed to mark order as paid"
-// @Security     BearerToken
-// @Security     ApiKey
-// @Router       /orders/{id}/payment [post]
-func (oh *OrderHandler) MarkOrderPaid(
-	w http.ResponseWriter,
-	r *http.Request,
-) error {
-	id := r.PathValue("id")
-
-	order, err := core.InTx(
-		r.Context(),
-		oh.DB,
-		func(tx pgx.Tx) (*billingSvc.Order, error) {
-			return oh.svc(tx).MarkOrderPaid(
-				r.Context(),
-				billingSvc.MarkOrderPaid{
-					ID: id,
-				},
-			)
-		},
-	)
-	if err != nil {
-		if errors.Is(err, billingSvc.ErrOrderNotFound) {
-			return core.Public(
-				core.ErrNotFound,
-				msgOrderNotFound,
-			)
-		}
-
-		oh.Logger.Error(
-			"Error while marking order as paid",
-			slog.Any("error", err),
-			slog.String("order_id", id),
-		)
-
-		return core.Public(
-			core.ErrInternal,
-			msgMarkOrderPaidFailed,
 		)
 	}
 

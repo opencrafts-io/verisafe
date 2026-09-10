@@ -87,13 +87,17 @@ INSERT INTO public.orders (
     user_id,
     currency,
     metadata,
-    expires_at
+    expires_at,
+    subtotal,
+    total
 )
 VALUES (
     $1,
     $2,
     $3,
-    $4
+    $4,
+    0,
+    0
 )
 RETURNING id, user_id, status, subtotal, total, currency, metadata, created_at, updated_at, paid_at, cancelled_at, expires_at, discount, tax
 `

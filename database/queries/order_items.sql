@@ -1,6 +1,22 @@
 -- name: CreateOrderItem :one
--- Create a new order item and return the created record.
-insert into public.order_items (
+-- Create a new item for an editable order and return the created record.
+WITH editable_order AS (
+    SELECT o.id
+    FROM public.orders AS o
+    WHERE o.id = sqlc.arg(order_id)
+      AND o.status NOT IN (
+          'paid'::public.order_status,
+          'cancelled'::public.order_status
+      )
+      AND NOT EXISTS (
+          SELECT 1
+          FROM public.charge_attempts AS ca
+          WHERE ca.order_id = o.id
+            AND ca.status = 'pending'::public.charge_attempt_status
+      )
+    FOR UPDATE
+)
+INSERT INTO public.order_items (
     order_id,
     added_by,
     unit_price,
@@ -9,17 +25,16 @@ insert into public.order_items (
     tax,
     plan_id
 )
-values (
-    sqlc.arg(order_id),
+SELECT
+    editable_order.id,
     sqlc.arg(added_by),
     sqlc.arg(unit_price),
     sqlc.arg(discount),
     sqlc.arg(quantity),
     sqlc.arg(tax),
     sqlc.narg(plan_id)
-)
-returning *
-;
+FROM editable_order
+RETURNING *;
 
 
 -- name: GetOrderItem :one
@@ -27,6 +42,7 @@ returning *
 select *
 from public.order_items
 where id = sqlc.arg(id)
+  AND order_id = sqlc.arg(order_id)
 ;
 
 
@@ -40,8 +56,24 @@ order by created_at asc
 
 
 -- name: UpdateOrderItem :one
--- Update an existing order item and return the updated record.
-UPDATE public.order_items
+-- Update an item only while its parent order is editable.
+WITH editable_order AS (
+    SELECT o.id
+    FROM public.orders AS o
+    WHERE o.id = sqlc.arg(order_id)
+      AND o.status NOT IN (
+          'paid'::public.order_status,
+          'cancelled'::public.order_status
+      )
+      AND NOT EXISTS (
+          SELECT 1
+          FROM public.charge_attempts AS ca
+          WHERE ca.order_id = o.id
+            AND ca.status = 'pending'::public.charge_attempt_status
+      )
+    FOR UPDATE
+)
+UPDATE public.order_items AS oi
 SET
     unit_price = sqlc.arg(unit_price),
     discount = sqlc.arg(discount),
@@ -49,19 +81,52 @@ SET
     tax = sqlc.arg(tax),
     plan_id = sqlc.narg(plan_id),
     updated_at = now()
-WHERE id = sqlc.arg(id)
-RETURNING *
-;
+WHERE oi.id = sqlc.arg(id)
+  AND oi.order_id = editable_order.id
+RETURNING oi.*;
 
 -- name: DeleteOrderItem :one
--- Delete one order item and return the deleted record.
-delete from public.order_items
-where id = sqlc.arg(id)
-returning *
-;
+-- Delete an item only while its parent order is editable.
+WITH editable_order AS (
+    SELECT o.id
+    FROM public.orders AS o
+    WHERE o.id = sqlc.arg(order_id)
+      AND o.status NOT IN (
+          'paid'::public.order_status,
+          'cancelled'::public.order_status
+      )
+      AND NOT EXISTS (
+          SELECT 1
+          FROM public.charge_attempts AS ca
+          WHERE ca.order_id = o.id
+            AND ca.status = 'pending'::public.charge_attempt_status
+      )
+    FOR UPDATE
+)
+DELETE FROM public.order_items AS oi
+USING editable_order
+WHERE oi.id = sqlc.arg(id)
+  AND oi.order_id = editable_order.id
+RETURNING oi.*;
 
 -- name: DeleteOrderItemsByOrder :exec
--- Delete all items belonging to an order.
-delete from public.order_items
-where order_id = sqlc.arg(order_id)
-;
+-- Delete all items only while the parent order is editable.
+WITH editable_order AS (
+    SELECT o.id
+    FROM public.orders AS o
+    WHERE o.id = sqlc.arg(order_id)
+      AND o.status NOT IN (
+          'paid'::public.order_status,
+          'cancelled'::public.order_status
+      )
+      AND NOT EXISTS (
+          SELECT 1
+          FROM public.charge_attempts AS ca
+          WHERE ca.order_id = o.id
+            AND ca.status = 'pending'::public.charge_attempt_status
+      )
+    FOR UPDATE
+)
+DELETE FROM public.order_items AS oi
+USING editable_order
+WHERE oi.order_id = editable_order.id;

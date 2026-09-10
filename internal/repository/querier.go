@@ -38,7 +38,7 @@ type Querier interface {
 	CreateInstitution(ctx context.Context, arg CreateInstitutionParams) (Institution, error)
 	// Create a new empty order and return the created record.
 	CreateOrder(ctx context.Context, arg CreateOrderParams) (Order, error)
-	// Create a new order item and return the created record.
+	// Create a new item for an editable order and return the created record.
 	CreateOrderItem(ctx context.Context, arg CreateOrderItemParams) (OrderItem, error)
 	// Creates a permission on the database
 	CreatePermission(ctx context.Context, arg CreatePermissionParams) (Permission, error)
@@ -57,9 +57,9 @@ type Querier interface {
 	// Useful when replacing a plan's entire entitlement set atomically.
 	DeleteEntitlementsByPlanCode(ctx context.Context, code string) error
 	DeleteInstitution(ctx context.Context, institutionID int32) error
-	// Delete one order item and return the deleted record.
-	DeleteOrderItem(ctx context.Context, id uuid.UUID) (OrderItem, error)
-	// Delete all items belonging to an order.
+	// Delete an item only while its parent order is editable.
+	DeleteOrderItem(ctx context.Context, arg DeleteOrderItemParams) (OrderItem, error)
+	// Delete all items only while the parent order is editable.
 	DeleteOrderItemsByOrder(ctx context.Context, orderID string) error
 	DeleteServiceToken(ctx context.Context, id uuid.UUID) error
 	// Deletes streak milestone by ID
@@ -131,7 +131,7 @@ type Querier interface {
 	// Retrieve one order by its order ID.
 	GetOrder(ctx context.Context, id string) (Order, error)
 	// Retrieve one order item by its ID.
-	GetOrderItem(ctx context.Context, id uuid.UUID) (OrderItem, error)
+	GetOrderItem(ctx context.Context, arg GetOrderItemParams) (OrderItem, error)
 	GetPendingChargeAttemptsByOrder(ctx context.Context, arg GetPendingChargeAttemptsByOrderParams) ([]ChargeAttempt, error)
 	GetPermissionByID(ctx context.Context, id uuid.UUID) (Permission, error)
 	// Retrieves a plan by its code
@@ -243,7 +243,7 @@ type Querier interface {
 	UpdateInstitution(ctx context.Context, arg UpdateInstitutionParams) (Institution, error)
 	// Update editable order details without changing financial totals.
 	UpdateOrder(ctx context.Context, arg UpdateOrderParams) (Order, error)
-	// Update an existing order item and return the updated record.
+	// Update an item only while its parent order is editable.
 	UpdateOrderItem(ctx context.Context, arg UpdateOrderItemParams) (OrderItem, error)
 	// Update the status of an order and return the updated order.
 	UpdateOrderStatus(ctx context.Context, arg UpdateOrderStatusParams) (Order, error)

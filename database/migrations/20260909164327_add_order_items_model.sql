@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS public.order_items (
 -- TODO: Extend later to add products instead of having
 -- them now
     created_at  timestamptz NOT NULL DEFAULT now(),
-    updated_at  timestamptz NOT NULL DEFAULT now()
+    updated_at  timestamptz NOT NULL DEFAULT now(),
 
 
     CONSTRAINT order_items_quantity_positive

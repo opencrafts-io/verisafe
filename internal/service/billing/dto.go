@@ -175,7 +175,8 @@ type CreateOrderItem struct {
 }
 
 type GetOrderItem struct {
-	ID uuid.UUID `json:"id"`
+	ID      uuid.UUID `json:"id"`
+	OrderID string    `json:"order_id"`
 }
 
 type ListOrderItemsByOrder struct {
@@ -184,6 +185,7 @@ type ListOrderItemsByOrder struct {
 
 type UpdateOrderItem struct {
 	ID        uuid.UUID `json:"id"`
+	OrderID   string    `json:"order_id"`
 	UnitPrice int64     `json:"unit_price"`
 	Discount  int64     `json:"discount"`
 	Quantity  int16     `json:"quantity"`
@@ -192,7 +194,8 @@ type UpdateOrderItem struct {
 }
 
 type DeleteOrderItem struct {
-	ID uuid.UUID `json:"id"`
+	ID      uuid.UUID `json:"id"`
+	OrderID string    `json:"order_id"`
 }
 
 type DeleteOrderItemsByOrder struct {

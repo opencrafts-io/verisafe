@@ -3413,40 +3413,6 @@ paths:
       summary: Charge an order
       tags:
       - orders
-  /orders/{id}/payment:
-    post:
-      description: Marks an order as paid.
-      parameters:
-      - description: Order ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/billing.Order'
-        "401":
-          description: Missing or invalid claims
-          schema:
-            $ref: '#/definitions/core.APIError'
-        "404":
-          description: Order not found
-          schema:
-            $ref: '#/definitions/core.APIError'
-        "500":
-          description: Failed to mark order as paid
-          schema:
-            $ref: '#/definitions/core.APIError'
-      security:
-      - BearerToken: []
-      - ApiKey: []
-      summary: Mark an order as paid
-      tags:
-      - orders
   /orders/{id}/totals/recalculation:
     post:
       description: Recalculates the subtotal, discount, tax, and total for an order.

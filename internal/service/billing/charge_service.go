@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -94,6 +95,9 @@ func (s *chargeService) ChargeOrder(
 	default:
 		return nil, ErrOrderNotChargeable
 	}
+	if order.ExpiresAt != nil && !order.ExpiresAt.After(time.Now()) {
+		return nil, ErrOrderNotChargeable
+	}
 
 	if order.Total <= 0 {
 		return nil, ErrInvalidChargeAmount
@@ -123,6 +127,10 @@ func (s *chargeService) ChargeOrder(
 		},
 	)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrOrderNotChargeable
+		}
+
 		if isPendingAttemptConflict(err) {
 			if _, lookupErr := s.pendingAttempts(
 				ctx,

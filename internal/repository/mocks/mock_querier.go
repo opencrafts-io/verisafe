@@ -428,18 +428,18 @@ func (mr *MockQuerierMockRecorder) DeleteInstitution(ctx, institutionID any) *go
 }
 
 // DeleteOrderItem mocks base method.
-func (m *MockQuerier) DeleteOrderItem(ctx context.Context, id uuid.UUID) (repository.OrderItem, error) {
+func (m *MockQuerier) DeleteOrderItem(ctx context.Context, arg repository.DeleteOrderItemParams) (repository.OrderItem, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteOrderItem", ctx, id)
+	ret := m.ctrl.Call(m, "DeleteOrderItem", ctx, arg)
 	ret0, _ := ret[0].(repository.OrderItem)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // DeleteOrderItem indicates an expected call of DeleteOrderItem.
-func (mr *MockQuerierMockRecorder) DeleteOrderItem(ctx, id any) *gomock.Call {
+func (mr *MockQuerierMockRecorder) DeleteOrderItem(ctx, arg any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteOrderItem", reflect.TypeOf((*MockQuerier)(nil).DeleteOrderItem), ctx, id)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteOrderItem", reflect.TypeOf((*MockQuerier)(nil).DeleteOrderItem), ctx, arg)
 }
 
 // DeleteOrderItemsByOrder mocks base method.
@@ -980,18 +980,18 @@ func (mr *MockQuerierMockRecorder) GetOrder(ctx, id any) *gomock.Call {
 }
 
 // GetOrderItem mocks base method.
-func (m *MockQuerier) GetOrderItem(ctx context.Context, id uuid.UUID) (repository.OrderItem, error) {
+func (m *MockQuerier) GetOrderItem(ctx context.Context, arg repository.GetOrderItemParams) (repository.OrderItem, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetOrderItem", ctx, id)
+	ret := m.ctrl.Call(m, "GetOrderItem", ctx, arg)
 	ret0, _ := ret[0].(repository.OrderItem)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetOrderItem indicates an expected call of GetOrderItem.
-func (mr *MockQuerierMockRecorder) GetOrderItem(ctx, id any) *gomock.Call {
+func (mr *MockQuerierMockRecorder) GetOrderItem(ctx, arg any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOrderItem", reflect.TypeOf((*MockQuerier)(nil).GetOrderItem), ctx, id)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOrderItem", reflect.TypeOf((*MockQuerier)(nil).GetOrderItem), ctx, arg)
 }
 
 // GetPendingChargeAttemptsByOrder mocks base method.

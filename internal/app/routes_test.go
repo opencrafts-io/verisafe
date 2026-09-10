@@ -53,6 +53,8 @@ func testHandlers() []VerisafeHandler {
 		&device.DeviceHandler{},
 		&oauth.OAuthBrokerHandler{},
 		&oauth.OAuthScopeHandler{},
+		&billing.OrderHandler{},
+		&billing.OrderItemHandler{},
 		&billing.ChargeHandler{},
 	}
 }
@@ -166,6 +168,10 @@ func TestRouteTableMatchesGolden(t *testing.T) {
 			"UPDATE_GOLDEN=1 and review the diff carefully -- every entry "+
 			"here is a live URL.",
 	)
+}
+
+func TestOrderPaymentEndpointIsNotRegistered(t *testing.T) {
+	assert.NotContains(t, routeTable(t), "POST /orders/{id}/payment")
 }
 
 // Registering without panicking is weaker than the routes actually resolving,

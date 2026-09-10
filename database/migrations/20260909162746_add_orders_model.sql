@@ -46,7 +46,7 @@ CREATE TABLE public.orders (
     status       public.order_status NOT NULL DEFAULT 'pending',
 
 -- Amounts are in cents/ the lowest denomination
-    subtotal     bigint NOT NULL, 
+    subtotal     bigint NOT NULL,
     total        bigint NOT NULL,
     currency     varchar(3) NOT NULL DEFAULT 'KES',
     metadata     jsonb NOT NULL DEFAULT '{}'::jsonb,
