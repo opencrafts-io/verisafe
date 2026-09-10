@@ -86,6 +86,9 @@ func (s *orderItemService) CreateOrderItem(
 
 		return nil, err
 	}
+	if err := s.recalculateOrderTotals(ctx, row.OrderID); err != nil {
+		return nil, err
+	}
 
 	item := s.mapOrderItem(row)
 	return &item, nil
@@ -95,7 +98,10 @@ func (s *orderItemService) GetOrderItem(
 	ctx context.Context,
 	req GetOrderItem,
 ) (*OrderItem, error) {
-	row, err := s.querier.GetOrderItem(ctx, req.ID)
+	row, err := s.querier.GetOrderItem(ctx, repository.GetOrderItemParams{
+		ID:      req.ID,
+		OrderID: req.OrderID,
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrOrderItemNotFound
@@ -151,6 +157,7 @@ func (s *orderItemService) UpdateOrderItem(
 		ctx,
 		repository.UpdateOrderItemParams{
 			ID:        req.ID,
+			OrderID:   req.OrderID,
 			UnitPrice: req.UnitPrice,
 			Discount:  req.Discount,
 			Quantity:  req.Quantity,
@@ -172,6 +179,9 @@ func (s *orderItemService) UpdateOrderItem(
 
 		return nil, err
 	}
+	if err := s.recalculateOrderTotals(ctx, row.OrderID); err != nil {
+		return nil, err
+	}
 
 	item := s.mapOrderItem(row)
 	return &item, nil
@@ -181,7 +191,10 @@ func (s *orderItemService) DeleteOrderItem(
 	ctx context.Context,
 	req DeleteOrderItem,
 ) error {
-	_, err := s.querier.DeleteOrderItem(ctx, req.ID)
+	row, err := s.querier.DeleteOrderItem(ctx, repository.DeleteOrderItemParams{
+		ID:      req.ID,
+		OrderID: req.OrderID,
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrOrderItemNotFound
@@ -194,6 +207,9 @@ func (s *orderItemService) DeleteOrderItem(
 			"order_item_id", req.ID,
 		)
 
+		return err
+	}
+	if err := s.recalculateOrderTotals(ctx, row.OrderID); err != nil {
 		return err
 	}
 
@@ -216,6 +232,26 @@ func (s *orderItemService) DeleteOrderItemsByOrder(
 			"order_id", req.OrderID,
 		)
 
+		return err
+	}
+	if err := s.recalculateOrderTotals(ctx, req.OrderID); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *orderItemService) recalculateOrderTotals(
+	ctx context.Context,
+	orderID string,
+) error {
+	if err := s.querier.RecalculateOrderTotals(ctx, orderID); err != nil {
+		s.logger.ErrorContext(
+			ctx,
+			"failed to recalculate order totals after item mutation",
+			"error", err,
+			"order_id", orderID,
+		)
 		return err
 	}
 

@@ -3,6 +3,8 @@ DELETE /api/v1/service-tokens/{id}
 DELETE /institutions/account
 DELETE /institutions/delete/{id}
 DELETE /oauth/{provider}/grant
+DELETE /orders/{order_id}/items
+DELETE /orders/{order_id}/items/{id}
 DELETE /permissions/revoke/{perm_id}/{role_id}
 DELETE /roles/revoke/{user_id}/{role_id}
 DELETE /streaks/milestone/{id}
@@ -33,6 +35,10 @@ GET /leaderboard/global/{user}
 GET /oauth/grants
 GET /oauth/scopes
 GET /oauth/{provider}/callback
+GET /orders
+GET /orders/{id}
+GET /orders/{order_id}/items
+GET /orders/{order_id}/items/{id}
 GET /permissions
 GET /permissions/assign/{perm_id}/{role_id}
 GET /permissions/user/{id}
@@ -46,11 +52,14 @@ GET /roles/{id}
 GET /socials/me
 GET /socials/user/{user_id}
 GET /streaks/milestone/active
+GET /subscriptions/me
 GET /users/activity/completions/for-user/{id}
 PATCH /accounts/me
 PATCH /accounts/me/phone
 PATCH /activity/{id}
 PATCH /institutions/update/{id}
+PATCH /orders/{id}
+PATCH /orders/{order_id}/items/{id}
 PATCH /permissions/{id}
 PATCH /roles/{id}
 POST /accounts/bot/create
@@ -65,6 +74,11 @@ POST /institutions/register
 POST /oauth/{provider}/authorize
 POST /oauth/{provider}/reconcile
 POST /oauth/{provider}/token
+POST /orders
+POST /orders/{id}/cancellation
+POST /orders/{id}/charge
+POST /orders/{id}/totals/recalculation
+POST /orders/{order_id}/items
 POST /permissions/create
 POST /roles/create
 POST /streaks/milestone/create

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -9,8 +10,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/opencrafts-io/verisafe/internal/config"
+	"github.com/opencrafts-io/verisafe/internal/eventbus"
 	"github.com/opencrafts-io/verisafe/internal/handlers/account"
 	"github.com/opencrafts-io/verisafe/internal/handlers/activity"
+	"github.com/opencrafts-io/verisafe/internal/handlers/billing"
 	"github.com/opencrafts-io/verisafe/internal/handlers/device"
 	"github.com/opencrafts-io/verisafe/internal/handlers/institution"
 	"github.com/opencrafts-io/verisafe/internal/handlers/leaderboard"
@@ -20,6 +24,8 @@ import (
 	"github.com/opencrafts-io/verisafe/internal/handlers/servicetoken"
 	"github.com/opencrafts-io/verisafe/internal/handlers/social"
 	"github.com/opencrafts-io/verisafe/internal/handlers/streak"
+	billingSvc "github.com/opencrafts-io/verisafe/internal/service/billing"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -47,7 +53,69 @@ func testHandlers() []VerisafeHandler {
 		&device.DeviceHandler{},
 		&oauth.OAuthBrokerHandler{},
 		&oauth.OAuthScopeHandler{},
+		&billing.OrderHandler{},
+		&billing.OrderItemHandler{},
+		&billing.ChargeHandler{},
+		&billing.SubscriptionHandler{},
 	}
+}
+
+type chargeResultServiceStub struct {
+	received [][]byte
+}
+
+func (*chargeResultServiceStub) ChargeOrder(
+	context.Context,
+	billingSvc.ChargeOrder,
+) (*billingSvc.ChargeAttempt, error) {
+	return nil, nil
+}
+
+func (s *chargeResultServiceStub) HandleChargeResult(
+	_ context.Context,
+	event []byte,
+) error {
+	s.received = append(s.received, event)
+	return nil
+}
+
+type chargeResultEventBusStub struct {
+	routingKey string
+	handler    func([]byte)
+}
+
+func (*chargeResultEventBusStub) Publish(context.Context, string, any) error {
+	return nil
+}
+
+func (b *chargeResultEventBusStub) Subscribe(
+	routingKey string,
+	handler func([]byte),
+) error {
+	b.routingKey = routingKey
+	b.handler = handler
+	return nil
+}
+
+func (*chargeResultEventBusStub) Close() {}
+
+var _ eventbus.EventBus = (*chargeResultEventBusStub)(nil)
+
+func TestAppSubscribesToVeribrokeChargeResults(t *testing.T) {
+	service := &chargeResultServiceStub{}
+	bus := &chargeResultEventBusStub{}
+	a := &App{
+		config:            &config.Config{},
+		chargeService:     service,
+		veribrokeEventBus: bus,
+	}
+
+	require.NoError(t, a.subscribeChargeResults())
+	assert.Equal(t, "verisafe.charge-result", bus.routingKey)
+	require.NotNil(t, bus.handler)
+
+	bus.handler([]byte(`{"request_id":"abc","status":"success"}`))
+	assert.Equal(t, [][]byte{[]byte(`{"request_id":"abc","status":"success"}`)}, service.received)
 }
 
 // recordingRouter captures the patterns passed to it. This is the reason
@@ -101,6 +169,14 @@ func TestRouteTableMatchesGolden(t *testing.T) {
 			"UPDATE_GOLDEN=1 and review the diff carefully -- every entry "+
 			"here is a live URL.",
 	)
+}
+
+func TestOrderPaymentEndpointIsNotRegistered(t *testing.T) {
+	assert.NotContains(t, routeTable(t), "POST /orders/{id}/payment")
+}
+
+func TestSubscriptionStatusEndpointIsRegistered(t *testing.T) {
+	assert.Contains(t, routeTable(t), "GET /subscriptions/me")
 }
 
 // Registering without panicking is weaker than the routes actually resolving,

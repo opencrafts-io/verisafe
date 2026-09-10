@@ -12,7 +12,23 @@ import (
 )
 
 const createOrderItem = `-- name: CreateOrderItem :one
-insert into public.order_items (
+WITH editable_order AS (
+    SELECT o.id
+    FROM public.orders AS o
+    WHERE o.id = $7
+      AND o.status NOT IN (
+          'paid'::public.order_status,
+          'cancelled'::public.order_status
+      )
+      AND NOT EXISTS (
+          SELECT 1
+          FROM public.charge_attempts AS ca
+          WHERE ca.order_id = o.id
+            AND ca.status = 'pending'::public.charge_attempt_status
+      )
+    FOR UPDATE
+)
+INSERT INTO public.order_items (
     order_id,
     added_by,
     unit_price,
@@ -21,38 +37,38 @@ insert into public.order_items (
     tax,
     plan_id
 )
-values (
+SELECT
+    editable_order.id,
     $1,
     $2,
     $3,
     $4,
     $5,
-    $6,
-    $7
-)
-returning id, order_id, added_by, unit_price, discount, quantity, tax, plan_id, created_at, updated_at
+    $6
+FROM editable_order
+RETURNING id, order_id, added_by, unit_price, discount, quantity, tax, plan_id, created_at, updated_at
 `
 
 type CreateOrderItemParams struct {
-	OrderID   string    `json:"order_id"`
 	AddedBy   uuid.UUID `json:"added_by"`
 	UnitPrice int64     `json:"unit_price"`
 	Discount  int64     `json:"discount"`
 	Quantity  int16     `json:"quantity"`
 	Tax       int64     `json:"tax"`
 	PlanID    *int32    `json:"plan_id"`
+	OrderID   string    `json:"order_id"`
 }
 
-// Create a new order item and return the created record.
+// Create a new item for an editable order and return the created record.
 func (q *Queries) CreateOrderItem(ctx context.Context, arg CreateOrderItemParams) (OrderItem, error) {
 	row := q.db.QueryRow(ctx, createOrderItem,
-		arg.OrderID,
 		arg.AddedBy,
 		arg.UnitPrice,
 		arg.Discount,
 		arg.Quantity,
 		arg.Tax,
 		arg.PlanID,
+		arg.OrderID,
 	)
 	var i OrderItem
 	err := row.Scan(
@@ -71,14 +87,37 @@ func (q *Queries) CreateOrderItem(ctx context.Context, arg CreateOrderItemParams
 }
 
 const deleteOrderItem = `-- name: DeleteOrderItem :one
-delete from public.order_items
-where id = $1
-returning id, order_id, added_by, unit_price, discount, quantity, tax, plan_id, created_at, updated_at
+WITH editable_order AS (
+    SELECT o.id
+    FROM public.orders AS o
+    WHERE o.id = $2
+      AND o.status NOT IN (
+          'paid'::public.order_status,
+          'cancelled'::public.order_status
+      )
+      AND NOT EXISTS (
+          SELECT 1
+          FROM public.charge_attempts AS ca
+          WHERE ca.order_id = o.id
+            AND ca.status = 'pending'::public.charge_attempt_status
+      )
+    FOR UPDATE
+)
+DELETE FROM public.order_items AS oi
+USING editable_order
+WHERE oi.id = $1
+  AND oi.order_id = editable_order.id
+RETURNING oi.id, oi.order_id, oi.added_by, oi.unit_price, oi.discount, oi.quantity, oi.tax, oi.plan_id, oi.created_at, oi.updated_at
 `
 
-// Delete one order item and return the deleted record.
-func (q *Queries) DeleteOrderItem(ctx context.Context, id uuid.UUID) (OrderItem, error) {
-	row := q.db.QueryRow(ctx, deleteOrderItem, id)
+type DeleteOrderItemParams struct {
+	ID      uuid.UUID `json:"id"`
+	OrderID string    `json:"order_id"`
+}
+
+// Delete an item only while its parent order is editable.
+func (q *Queries) DeleteOrderItem(ctx context.Context, arg DeleteOrderItemParams) (OrderItem, error) {
+	row := q.db.QueryRow(ctx, deleteOrderItem, arg.ID, arg.OrderID)
 	var i OrderItem
 	err := row.Scan(
 		&i.ID,
@@ -96,11 +135,28 @@ func (q *Queries) DeleteOrderItem(ctx context.Context, id uuid.UUID) (OrderItem,
 }
 
 const deleteOrderItemsByOrder = `-- name: DeleteOrderItemsByOrder :exec
-delete from public.order_items
-where order_id = $1
+WITH editable_order AS (
+    SELECT o.id
+    FROM public.orders AS o
+    WHERE o.id = $1
+      AND o.status NOT IN (
+          'paid'::public.order_status,
+          'cancelled'::public.order_status
+      )
+      AND NOT EXISTS (
+          SELECT 1
+          FROM public.charge_attempts AS ca
+          WHERE ca.order_id = o.id
+            AND ca.status = 'pending'::public.charge_attempt_status
+      )
+    FOR UPDATE
+)
+DELETE FROM public.order_items AS oi
+USING editable_order
+WHERE oi.order_id = editable_order.id
 `
 
-// Delete all items belonging to an order.
+// Delete all items only while the parent order is editable.
 func (q *Queries) DeleteOrderItemsByOrder(ctx context.Context, orderID string) error {
 	_, err := q.db.Exec(ctx, deleteOrderItemsByOrder, orderID)
 	return err
@@ -110,11 +166,17 @@ const getOrderItem = `-- name: GetOrderItem :one
 select id, order_id, added_by, unit_price, discount, quantity, tax, plan_id, created_at, updated_at
 from public.order_items
 where id = $1
+  AND order_id = $2
 `
 
+type GetOrderItemParams struct {
+	ID      uuid.UUID `json:"id"`
+	OrderID string    `json:"order_id"`
+}
+
 // Retrieve one order item by its ID.
-func (q *Queries) GetOrderItem(ctx context.Context, id uuid.UUID) (OrderItem, error) {
-	row := q.db.QueryRow(ctx, getOrderItem, id)
+func (q *Queries) GetOrderItem(ctx context.Context, arg GetOrderItemParams) (OrderItem, error) {
+	row := q.db.QueryRow(ctx, getOrderItem, arg.ID, arg.OrderID)
 	var i OrderItem
 	err := row.Scan(
 		&i.ID,
@@ -171,7 +233,23 @@ func (q *Queries) ListOrderItemsByOrder(ctx context.Context, orderID string) ([]
 }
 
 const updateOrderItem = `-- name: UpdateOrderItem :one
-UPDATE public.order_items
+WITH editable_order AS (
+    SELECT o.id
+    FROM public.orders AS o
+    WHERE o.id = $7
+      AND o.status NOT IN (
+          'paid'::public.order_status,
+          'cancelled'::public.order_status
+      )
+      AND NOT EXISTS (
+          SELECT 1
+          FROM public.charge_attempts AS ca
+          WHERE ca.order_id = o.id
+            AND ca.status = 'pending'::public.charge_attempt_status
+      )
+    FOR UPDATE
+)
+UPDATE public.order_items AS oi
 SET
     unit_price = $1,
     discount = $2,
@@ -179,8 +257,9 @@ SET
     tax = $4,
     plan_id = $5,
     updated_at = now()
-WHERE id = $6
-RETURNING id, order_id, added_by, unit_price, discount, quantity, tax, plan_id, created_at, updated_at
+WHERE oi.id = $6
+  AND oi.order_id = editable_order.id
+RETURNING oi.id, oi.order_id, oi.added_by, oi.unit_price, oi.discount, oi.quantity, oi.tax, oi.plan_id, oi.created_at, oi.updated_at
 `
 
 type UpdateOrderItemParams struct {
@@ -190,9 +269,10 @@ type UpdateOrderItemParams struct {
 	Tax       int64     `json:"tax"`
 	PlanID    *int32    `json:"plan_id"`
 	ID        uuid.UUID `json:"id"`
+	OrderID   string    `json:"order_id"`
 }
 
-// Update an existing order item and return the updated record.
+// Update an item only while its parent order is editable.
 func (q *Queries) UpdateOrderItem(ctx context.Context, arg UpdateOrderItemParams) (OrderItem, error) {
 	row := q.db.QueryRow(ctx, updateOrderItem,
 		arg.UnitPrice,
@@ -201,6 +281,7 @@ func (q *Queries) UpdateOrderItem(ctx context.Context, arg UpdateOrderItemParams
 		arg.Tax,
 		arg.PlanID,
 		arg.ID,
+		arg.OrderID,
 	)
 	var i OrderItem
 	err := row.Scan(

@@ -116,6 +116,32 @@ definitions:
       refresh_token:
         type: string
     type: object
+  billing.ChargeAttempt:
+    properties:
+      amount:
+        type: integer
+      id:
+        type: string
+      notes:
+        type: string
+      order_id:
+        type: string
+      payer_phone_number:
+        type: string
+      requested_at:
+        type: string
+      resolved_at:
+        type: string
+      status:
+        type: string
+    type: object
+  billing.ChargeOrder:
+    properties:
+      order_id:
+        type: string
+      payer_phone_number:
+        type: string
+    type: object
   billing.CreateEntitlement:
     properties:
       description:
@@ -244,6 +270,36 @@ definitions:
         type: string
       visible:
         type: boolean
+    type: object
+  billing.Subscription:
+    properties:
+      cancel_at_period_end:
+        type: boolean
+      cancelled_at:
+        type: string
+      current_period_end:
+        type: string
+      current_period_start:
+        type: string
+      id:
+        type: integer
+      plan_code:
+        type: string
+      plan_id:
+        type: integer
+      plan_name:
+        type: string
+      started_at:
+        type: string
+      status:
+        type: string
+    type: object
+  billing.SubscriptionStatus:
+    properties:
+      active:
+        type: boolean
+      subscription:
+        $ref: '#/definitions/billing.Subscription'
     type: object
   billing.UpdateEntitlement:
     properties:
@@ -3333,22 +3389,34 @@ paths:
       summary: Cancel an order
       tags:
       - orders
-  /orders/{id}/payment:
+  /orders/{id}/charge:
     post:
-      description: Marks an order as paid.
+      consumes:
+      - application/json
+      description: Requests an M-Pesa STK charge for an unpaid order.
       parameters:
       - description: Order ID
         in: path
         name: id
         required: true
         type: string
+      - description: Payer phone number
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/billing.ChargeOrder'
       produces:
       - application/json
       responses:
-        "200":
-          description: OK
+        "202":
+          description: Accepted
           schema:
-            $ref: '#/definitions/billing.Order'
+            $ref: '#/definitions/billing.ChargeAttempt'
+        "400":
+          description: Invalid request body or order
+          schema:
+            $ref: '#/definitions/core.APIError'
         "401":
           description: Missing or invalid claims
           schema:
@@ -3357,14 +3425,22 @@ paths:
           description: Order not found
           schema:
             $ref: '#/definitions/core.APIError'
+        "409":
+          description: Order cannot be charged
+          schema:
+            $ref: '#/definitions/core.APIError'
         "500":
-          description: Failed to mark order as paid
+          description: Failed to charge order
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "503":
+          description: RabbitMQ unavailable
           schema:
             $ref: '#/definitions/core.APIError'
       security:
       - BearerToken: []
       - ApiKey: []
-      summary: Mark an order as paid
+      summary: Charge an order
       tags:
       - orders
   /orders/{id}/totals/recalculation:
@@ -4279,6 +4355,31 @@ paths:
       summary: Create a streak milestone
       tags:
       - streaks
+  /subscriptions/me:
+    get:
+      description: Returns whether the caller has a currently active subscription
+        and its plan details when present.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/billing.SubscriptionStatus'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to fetch subscription status
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Get the authenticated user's subscription status
+      tags:
+      - subscriptions
   /users/activity/complete:
     post:
       consumes:

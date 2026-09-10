@@ -58,6 +58,49 @@ func (ns NullAccountType) Value() (driver.Value, error) {
 	return string(ns.AccountType), nil
 }
 
+type ChargeAttemptStatus string
+
+const (
+	ChargeAttemptStatusPending ChargeAttemptStatus = "pending"
+	ChargeAttemptStatusSuccess ChargeAttemptStatus = "success"
+	ChargeAttemptStatusFailure ChargeAttemptStatus = "failure"
+)
+
+func (e *ChargeAttemptStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ChargeAttemptStatus(s)
+	case string:
+		*e = ChargeAttemptStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ChargeAttemptStatus: %T", src)
+	}
+	return nil
+}
+
+type NullChargeAttemptStatus struct {
+	ChargeAttemptStatus ChargeAttemptStatus `json:"charge_attempt_status"`
+	Valid               bool                `json:"valid"` // Valid is true if ChargeAttemptStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullChargeAttemptStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.ChargeAttemptStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ChargeAttemptStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullChargeAttemptStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ChargeAttemptStatus), nil
+}
+
 type EntitlementUnit string
 
 const (
@@ -289,6 +332,17 @@ type ActivityCompletion struct {
 	CompletionDate pgtype.Date `json:"completion_date"`
 	PointsEarned   int16       `json:"points_earned"`
 	Metadata       []byte      `json:"metadata"`
+}
+
+type ChargeAttempt struct {
+	ID               uuid.UUID           `json:"id"`
+	OrderID          string              `json:"order_id"`
+	Status           ChargeAttemptStatus `json:"status"`
+	PayerPhoneNumber string              `json:"payer_phone_number"`
+	Amount           int64               `json:"amount"`
+	Notes            *string             `json:"notes"`
+	RequestedAt      time.Time           `json:"requested_at"`
+	ResolvedAt       *time.Time          `json:"resolved_at"`
 }
 
 type Entitlement struct {

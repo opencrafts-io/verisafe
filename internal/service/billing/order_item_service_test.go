@@ -38,9 +38,9 @@ func (m *mockQuerier) CreateOrderItem(
 
 func (m *mockQuerier) GetOrderItem(
 	ctx context.Context,
-	id uuid.UUID,
+	params repository.GetOrderItemParams,
 ) (repository.OrderItem, error) {
-	args := m.Called(ctx, id)
+	args := m.Called(ctx, params)
 
 	var item repository.OrderItem
 	if value := args.Get(0); value != nil {
@@ -80,9 +80,9 @@ func (m *mockQuerier) UpdateOrderItem(
 
 func (m *mockQuerier) DeleteOrderItem(
 	ctx context.Context,
-	id uuid.UUID,
+	params repository.DeleteOrderItemParams,
 ) (repository.OrderItem, error) {
-	args := m.Called(ctx, id)
+	args := m.Called(ctx, params)
 
 	var item repository.OrderItem
 	if value := args.Get(0); value != nil {
@@ -156,6 +156,7 @@ func TestOrderItemService_CreateOrderItem(t *testing.T) {
 			ctx,
 			expectedParams,
 		).Return(row, nil).Once()
+		q.On("RecalculateOrderTotals", ctx, row.OrderID).Return(nil).Once()
 
 		result, err := service.CreateOrderItem(ctx, req)
 
@@ -225,13 +226,18 @@ func TestOrderItemService_GetOrderItem(t *testing.T) {
 		row := testOrderItem()
 
 		req := GetOrderItem{
-			ID: row.ID,
+			ID:      row.ID,
+			OrderID: row.OrderID,
+		}
+		expectedParams := repository.GetOrderItemParams{
+			ID:      req.ID,
+			OrderID: req.OrderID,
 		}
 
 		q.On(
 			"GetOrderItem",
 			ctx,
-			req.ID,
+			expectedParams,
 		).Return(row, nil).Once()
 
 		result, err := service.GetOrderItem(ctx, req)
@@ -258,13 +264,18 @@ func TestOrderItemService_GetOrderItem(t *testing.T) {
 		id := uuid.New()
 
 		req := GetOrderItem{
-			ID: id,
+			ID:      id,
+			OrderID: "ORD-001",
+		}
+		expectedParams := repository.GetOrderItemParams{
+			ID:      req.ID,
+			OrderID: req.OrderID,
 		}
 
 		q.On(
 			"GetOrderItem",
 			ctx,
-			id,
+			expectedParams,
 		).Return(repository.OrderItem{}, pgx.ErrNoRows).Once()
 
 		result, err := service.GetOrderItem(ctx, req)
@@ -283,7 +294,12 @@ func TestOrderItemService_GetOrderItem(t *testing.T) {
 		id := uuid.New()
 
 		req := GetOrderItem{
-			ID: id,
+			ID:      id,
+			OrderID: "ORD-001",
+		}
+		expectedParams := repository.GetOrderItemParams{
+			ID:      req.ID,
+			OrderID: req.OrderID,
 		}
 
 		expectedErr := errors.New("database error")
@@ -291,7 +307,7 @@ func TestOrderItemService_GetOrderItem(t *testing.T) {
 		q.On(
 			"GetOrderItem",
 			ctx,
-			id,
+			expectedParams,
 		).Return(repository.OrderItem{}, expectedErr).Once()
 
 		result, err := service.GetOrderItem(ctx, req)
@@ -402,6 +418,7 @@ func TestOrderItemService_UpdateOrderItem(t *testing.T) {
 
 		req := UpdateOrderItem{
 			ID:        id,
+			OrderID:   "ORD-001",
 			UnitPrice: 3000,
 			Discount:  150,
 			Quantity:  3,
@@ -419,6 +436,7 @@ func TestOrderItemService_UpdateOrderItem(t *testing.T) {
 
 		expectedParams := repository.UpdateOrderItemParams{
 			ID:        req.ID,
+			OrderID:   req.OrderID,
 			UnitPrice: req.UnitPrice,
 			Discount:  req.Discount,
 			Quantity:  req.Quantity,
@@ -431,6 +449,7 @@ func TestOrderItemService_UpdateOrderItem(t *testing.T) {
 			ctx,
 			expectedParams,
 		).Return(row, nil).Once()
+		q.On("RecalculateOrderTotals", ctx, row.OrderID).Return(nil).Once()
 
 		result, err := service.UpdateOrderItem(ctx, req)
 
@@ -455,6 +474,7 @@ func TestOrderItemService_UpdateOrderItem(t *testing.T) {
 
 		req := UpdateOrderItem{
 			ID:        id,
+			OrderID:   "ORD-001",
 			UnitPrice: 3000,
 			Discount:  150,
 			Quantity:  3,
@@ -463,6 +483,7 @@ func TestOrderItemService_UpdateOrderItem(t *testing.T) {
 
 		expectedParams := repository.UpdateOrderItemParams{
 			ID:        req.ID,
+			OrderID:   req.OrderID,
 			UnitPrice: req.UnitPrice,
 			Discount:  req.Discount,
 			Quantity:  req.Quantity,
@@ -493,6 +514,7 @@ func TestOrderItemService_UpdateOrderItem(t *testing.T) {
 
 		req := UpdateOrderItem{
 			ID:        id,
+			OrderID:   "ORD-001",
 			UnitPrice: 3000,
 			Discount:  150,
 			Quantity:  3,
@@ -501,6 +523,7 @@ func TestOrderItemService_UpdateOrderItem(t *testing.T) {
 
 		expectedParams := repository.UpdateOrderItemParams{
 			ID:        req.ID,
+			OrderID:   req.OrderID,
 			UnitPrice: req.UnitPrice,
 			Discount:  req.Discount,
 			Quantity:  req.Quantity,
@@ -536,7 +559,12 @@ func TestOrderItemService_DeleteOrderItem(t *testing.T) {
 		id := uuid.New()
 
 		req := DeleteOrderItem{
-			ID: id,
+			ID:      id,
+			OrderID: "ORD-001",
+		}
+		expectedParams := repository.DeleteOrderItemParams{
+			ID:      req.ID,
+			OrderID: req.OrderID,
 		}
 
 		row := testOrderItem()
@@ -545,8 +573,9 @@ func TestOrderItemService_DeleteOrderItem(t *testing.T) {
 		q.On(
 			"DeleteOrderItem",
 			ctx,
-			id,
+			expectedParams,
 		).Return(row, nil).Once()
+		q.On("RecalculateOrderTotals", ctx, row.OrderID).Return(nil).Once()
 
 		err := service.DeleteOrderItem(ctx, req)
 
@@ -562,13 +591,18 @@ func TestOrderItemService_DeleteOrderItem(t *testing.T) {
 		id := uuid.New()
 
 		req := DeleteOrderItem{
-			ID: id,
+			ID:      id,
+			OrderID: "ORD-001",
+		}
+		expectedParams := repository.DeleteOrderItemParams{
+			ID:      req.ID,
+			OrderID: req.OrderID,
 		}
 
 		q.On(
 			"DeleteOrderItem",
 			ctx,
-			id,
+			expectedParams,
 		).Return(repository.OrderItem{}, pgx.ErrNoRows).Once()
 
 		err := service.DeleteOrderItem(ctx, req)
@@ -586,7 +620,12 @@ func TestOrderItemService_DeleteOrderItem(t *testing.T) {
 		id := uuid.New()
 
 		req := DeleteOrderItem{
-			ID: id,
+			ID:      id,
+			OrderID: "ORD-001",
+		}
+		expectedParams := repository.DeleteOrderItemParams{
+			ID:      req.ID,
+			OrderID: req.OrderID,
 		}
 
 		expectedErr := errors.New("database error")
@@ -594,7 +633,7 @@ func TestOrderItemService_DeleteOrderItem(t *testing.T) {
 		q.On(
 			"DeleteOrderItem",
 			ctx,
-			id,
+			expectedParams,
 		).Return(repository.OrderItem{}, expectedErr).Once()
 
 		err := service.DeleteOrderItem(ctx, req)
@@ -622,6 +661,7 @@ func TestOrderItemService_DeleteOrderItemsByOrder(t *testing.T) {
 			ctx,
 			req.OrderID,
 		).Return(nil).Once()
+		q.On("RecalculateOrderTotals", ctx, req.OrderID).Return(nil).Once()
 
 		err := service.DeleteOrderItemsByOrder(ctx, req)
 

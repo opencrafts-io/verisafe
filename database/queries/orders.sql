@@ -4,13 +4,17 @@ INSERT INTO public.orders (
     user_id,
     currency,
     metadata,
-    expires_at
+    expires_at,
+    subtotal,
+    total
 )
 VALUES (
     sqlc.arg(user_id),
     sqlc.arg(currency),
     sqlc.arg(metadata),
-    sqlc.narg(expires_at)
+    sqlc.narg(expires_at),
+    0,
+    0
 )
 RETURNING *;
 

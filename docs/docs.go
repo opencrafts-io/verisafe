@@ -3455,7 +3455,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/orders/{id}/payment": {
+        "/orders/{id}/charge": {
             "post": {
                 "security": [
                     {
@@ -3465,14 +3465,17 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
-                "description": "Marks an order as paid.",
+                "description": "Requests an M-Pesa STK charge for an unpaid order.",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "orders"
                 ],
-                "summary": "Mark an order as paid",
+                "summary": "Charge an order",
                 "parameters": [
                     {
                         "type": "string",
@@ -3480,13 +3483,28 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "Payer phone number",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/billing.ChargeOrder"
+                        }
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "OK",
+                    "202": {
+                        "description": "Accepted",
                         "schema": {
-                            "$ref": "#/definitions/billing.Order"
+                            "$ref": "#/definitions/billing.ChargeAttempt"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body or order",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
                         }
                     },
                     "401": {
@@ -3501,8 +3519,20 @@ const docTemplate = `{
                             "$ref": "#/definitions/core.APIError"
                         }
                     },
+                    "409": {
+                        "description": "Order cannot be charged",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
                     "500": {
-                        "description": "Failed to mark order as paid",
+                        "description": "Failed to charge order",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "503": {
+                        "description": "RabbitMQ unavailable",
                         "schema": {
                             "$ref": "#/definitions/core.APIError"
                         }
@@ -4880,6 +4910,46 @@ const docTemplate = `{
                 }
             }
         },
+        "/subscriptions/me": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Returns whether the caller has a currently active subscription and its plan details when present.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "subscriptions"
+                ],
+                "summary": "Get the authenticated user's subscription status",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/billing.SubscriptionStatus"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid claims",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch subscription status",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
         "/users/activity/complete": {
             "post": {
                 "security": [
@@ -5178,6 +5248,46 @@ const docTemplate = `{
                 }
             }
         },
+        "billing.ChargeAttempt": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "order_id": {
+                    "type": "string"
+                },
+                "payer_phone_number": {
+                    "type": "string"
+                },
+                "requested_at": {
+                    "type": "string"
+                },
+                "resolved_at": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "billing.ChargeOrder": {
+            "type": "object",
+            "properties": {
+                "order_id": {
+                    "type": "string"
+                },
+                "payer_phone_number": {
+                    "type": "string"
+                }
+            }
+        },
         "billing.CreateEntitlement": {
             "type": "object",
             "properties": {
@@ -5372,6 +5482,52 @@ const docTemplate = `{
                 },
                 "visible": {
                     "type": "boolean"
+                }
+            }
+        },
+        "billing.Subscription": {
+            "type": "object",
+            "properties": {
+                "cancel_at_period_end": {
+                    "type": "boolean"
+                },
+                "cancelled_at": {
+                    "type": "string"
+                },
+                "current_period_end": {
+                    "type": "string"
+                },
+                "current_period_start": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "plan_code": {
+                    "type": "string"
+                },
+                "plan_id": {
+                    "type": "integer"
+                },
+                "plan_name": {
+                    "type": "string"
+                },
+                "started_at": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "billing.SubscriptionStatus": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "boolean"
+                },
+                "subscription": {
+                    "$ref": "#/definitions/billing.Subscription"
                 }
             }
         },

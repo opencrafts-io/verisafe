@@ -142,7 +142,7 @@ func (oih *OrderItemHandler) CreateOrderItem(
 
 	claims, ok := middleware.ClaimsFromContext(r.Context())
 	if !ok {
-		return errors.New("failed to extract credentials from context")
+		return core.Public(core.ErrUnauthorized, msgAuthRequired)
 	}
 
 	userID, err := uuid.Parse(claims.Subject)
@@ -170,7 +170,7 @@ func (oih *OrderItemHandler) CreateOrderItem(
 			"order_id", orderID,
 		)
 
-		return errors.New(msgCreateOrderItemFailed)
+		return core.Public(core.ErrInternal, msgCreateOrderItemFailed)
 	}
 
 	core.WriteJSON(w, http.StatusCreated, item)
@@ -193,14 +193,15 @@ func (oih *OrderItemHandler) GetOrderItem(
 			return oih.svc(tx).GetOrderItem(
 				r.Context(),
 				billingSvc.GetOrderItem{
-					ID: id,
+					ID:      id,
+					OrderID: r.PathValue("order_id"),
 				},
 			)
 		},
 	)
 	if err != nil {
 		if errors.Is(err, billingSvc.ErrOrderItemNotFound) {
-			return errors.New(msgOrderItemNotFound)
+			return core.Public(core.ErrNotFound, msgOrderItemNotFound)
 		}
 
 		oih.Logger.ErrorContext(
@@ -210,7 +211,7 @@ func (oih *OrderItemHandler) GetOrderItem(
 			"order_item_id", id,
 		)
 
-		return errors.New(msgFetchOrderItemFailed)
+		return core.Public(core.ErrInternal, msgFetchOrderItemFailed)
 	}
 
 	core.WriteJSON(w, http.StatusOK, item)
@@ -242,7 +243,7 @@ func (oih *OrderItemHandler) ListOrderItemsByOrder(
 			"order_id", orderID,
 		)
 
-		return errors.New(msgFetchOrderItemsFailed)
+		return core.Public(core.ErrInternal, msgFetchOrderItemsFailed)
 	}
 	core.WriteJSON(w, http.StatusOK, items)
 	return nil
@@ -264,6 +265,7 @@ func (oih *OrderItemHandler) UpdateOrderItem(
 	}
 
 	req.ID = id
+	req.OrderID = r.PathValue("order_id")
 
 	item, err := core.InTx(
 		r.Context(),
@@ -277,7 +279,7 @@ func (oih *OrderItemHandler) UpdateOrderItem(
 	)
 	if err != nil {
 		if errors.Is(err, billingSvc.ErrOrderItemNotFound) {
-			return errors.New(msgOrderItemNotFound)
+			return core.Public(core.ErrNotFound, msgOrderItemNotFound)
 		}
 
 		oih.Logger.ErrorContext(
@@ -287,7 +289,7 @@ func (oih *OrderItemHandler) UpdateOrderItem(
 			"order_item_id", id,
 		)
 
-		return errors.New(msgUpdateOrderItemFailed)
+		return core.Public(core.ErrInternal, msgUpdateOrderItemFailed)
 	}
 
 	core.WriteJSON(w, http.StatusOK, item)
@@ -311,14 +313,15 @@ func (oih *OrderItemHandler) DeleteOrderItem(
 			return oih.svc(tx).DeleteOrderItem(
 				r.Context(),
 				billingSvc.DeleteOrderItem{
-					ID: id,
+					ID:      id,
+					OrderID: r.PathValue("order_id"),
 				},
 			)
 		},
 	)
 	if err != nil {
 		if errors.Is(err, billingSvc.ErrOrderItemNotFound) {
-			return errors.New(msgOrderItemNotFound)
+			return core.Public(core.ErrNotFound, msgOrderItemNotFound)
 		}
 
 		oih.Logger.ErrorContext(
@@ -328,7 +331,7 @@ func (oih *OrderItemHandler) DeleteOrderItem(
 			"order_item_id", id,
 		)
 
-		return errors.New(msgDeleteOrderItemFailed)
+		return core.Public(core.ErrInternal, msgDeleteOrderItemFailed)
 	}
 
 	core.NoContent(w)
@@ -362,7 +365,7 @@ func (oih *OrderItemHandler) DeleteOrderItemsByOrder(
 			"order_id", orderID,
 		)
 
-		return errors.New(msgDeleteOrderItemsFailed)
+		return core.Public(core.ErrInternal, msgDeleteOrderItemsFailed)
 	}
 
 	core.NoContent(w)
