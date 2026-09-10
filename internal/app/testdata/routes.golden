@@ -65,6 +65,7 @@ POST /institutions/register
 POST /oauth/{provider}/authorize
 POST /oauth/{provider}/reconcile
 POST /oauth/{provider}/token
+POST /orders/{id}/charge
 POST /permissions/create
 POST /roles/create
 POST /streaks/milestone/create

@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
+
 	"github.com/opencrafts-io/verisafe/database"
 	"github.com/opencrafts-io/verisafe/internal/broker"
 	"github.com/opencrafts-io/verisafe/internal/config"
@@ -18,9 +20,10 @@ import (
 	"github.com/opencrafts-io/verisafe/internal/geo"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/providers"
+	"github.com/opencrafts-io/verisafe/internal/repository"
 	"github.com/opencrafts-io/verisafe/internal/secrets"
+	billingsvc "github.com/opencrafts-io/verisafe/internal/service/billing"
 	"github.com/opencrafts-io/verisafe/internal/service/grants"
-	"github.com/redis/go-redis/v9"
 )
 
 type App struct {
@@ -30,8 +33,10 @@ type App struct {
 	userEventBus         *eventbus.UserEventBus
 	notificationEventBus *eventbus.NotificationEventBus
 	institutionEventBus  *eventbus.InstitutionEventBus
+	veribrokeEventBus    eventbus.EventBus
 	geoIPLocator         *geo.GeoIPLocater
 	cacher               core.Cacher
+	chargeService        billingsvc.ChargeService
 
 	// Third-party OAuth plumbing: the provider registry, the AES-GCM sealer
 	// that protects stored provider tokens, and the token endpoint client.
@@ -126,6 +131,28 @@ func New(logger *slog.Logger, config *config.Config) (*App, error) {
 		return nil, err
 	}
 
+	veribrokeEventBus, err := eventbus.NewRabbitMQEventBus(
+		rabbitMQConnString,
+		"io.opencrafts.veribroke",
+		eventbus.DirectExchangeType,
+		logger,
+	)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"failed to initialize veribroke event bus: %w",
+			err,
+		)
+	}
+
+	db := &core.PgxPoolAdapter{Pool: connPool}
+	chargeService := billingsvc.NewChargeService(
+		config,
+		logger,
+		repository.New(connPool),
+		db,
+		veribrokeEventBus,
+	)
+
 	gil, err := geo.NewGeoIPLocater(
 		"",
 		"",
@@ -152,8 +179,10 @@ func New(logger *slog.Logger, config *config.Config) (*App, error) {
 		userEventBus:         userEventBus,
 		notificationEventBus: notificationEventBus,
 		institutionEventBus:  institutionEventBus,
+		veribrokeEventBus:    veribrokeEventBus,
 		geoIPLocator:         gil,
 		cacher:               cache,
+		chargeService:        chargeService,
 		oauthRegistry:        providers.NewRegistry(config),
 		tokenSealer:          tokenSealer,
 		tokenExchanger:       providers.NewOAuth2Exchanger(config, nil),
@@ -164,6 +193,9 @@ func New(logger *slog.Logger, config *config.Config) (*App, error) {
 // Starts the application server
 func (a *App) Start(ctx context.Context) error {
 	database.RunGooseMigrations(a.logger, a.pool)
+	if err := a.subscribeChargeResults(); err != nil {
+		return err
+	}
 
 	allowedOrigins := []string{
 		"*",
@@ -227,6 +259,26 @@ func (a *App) Start(ctx context.Context) error {
 	a.userEventBus.Close()
 	a.institutionEventBus.Close()
 	a.notificationEventBus.Close()
+	a.veribrokeEventBus.Close()
+	return nil
+}
+
+func (a *App) subscribeChargeResults() error {
+	routingKey := a.config.VeribrokeReplyRoutingKey()
+	if err := a.veribrokeEventBus.Subscribe(routingKey, func(event []byte) {
+		if err := a.chargeService.HandleChargeResult(
+			context.Background(),
+			event,
+		); err != nil {
+			a.logger.Warn(
+				"failed to handle veribroke charge result",
+				slog.Any("error", err),
+			)
+		}
+	}); err != nil {
+		return fmt.Errorf("subscribe to veribroke charge results: %w", err)
+	}
+
 	return nil
 }
 

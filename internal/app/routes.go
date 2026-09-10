@@ -179,6 +179,13 @@ func (a *App) loadRoutes() http.Handler {
 			Cfg:    a.config,
 			Cacher: a.cacher,
 		},
+		&billing.ChargeHandler{
+			DB:      db,
+			Logger:  a.logger,
+			Cfg:     a.config,
+			Cacher:  a.cacher,
+			Service: a.chargeService,
+		},
 	}
 
 	return buildRouter(verisafeHandlers)

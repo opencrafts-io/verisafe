@@ -13,7 +13,12 @@ import (
 
 const createChargeAttempt = `-- name: CreateChargeAttempt :one
 INSERT INTO charge_attempts (id, order_id, payer_phone_number, amount)
-VALUES ($1, $2, $3, $4)
+VALUES (
+    $1,
+    $2,
+    $3,
+    $4
+)
 RETURNING id, order_id, status, payer_phone_number, amount, notes, requested_at, resolved_at
 `
 
@@ -46,9 +51,9 @@ func (q *Queries) CreateChargeAttempt(ctx context.Context, arg CreateChargeAttem
 }
 
 const getChargeAttempt = `-- name: GetChargeAttempt :one
-select id, order_id, status, payer_phone_number, amount, notes, requested_at, resolved_at
-from charge_attempts
-where id = $1
+SELECT id, order_id, status, payer_phone_number, amount, notes, requested_at, resolved_at
+FROM charge_attempts
+WHERE id = $1
 `
 
 func (q *Queries) GetChargeAttempt(ctx context.Context, id uuid.UUID) (ChargeAttempt, error) {
@@ -67,23 +72,70 @@ func (q *Queries) GetChargeAttempt(ctx context.Context, id uuid.UUID) (ChargeAtt
 	return i, err
 }
 
-const getPendingChargeAttemptByOrder = `-- name: GetPendingChargeAttemptByOrder :one
-select id, order_id, status, payer_phone_number, amount, notes, requested_at, resolved_at
-from charge_attempts
-where order_id = $1 and status = 'pending'
-order by requested_at desc
-limit $2
-offset $3
+const getPendingChargeAttemptsByOrder = `-- name: GetPendingChargeAttemptsByOrder :many
+SELECT id, order_id, status, payer_phone_number, amount, notes, requested_at, resolved_at
+FROM charge_attempts
+WHERE order_id = $1
+  AND status = 'pending'
+ORDER BY requested_at DESC
+LIMIT $3
+OFFSET $2
 `
 
-type GetPendingChargeAttemptByOrderParams struct {
-	OrderID string `json:"order_id"`
-	Limit   int32  `json:"limit"`
-	Offset  int32  `json:"offset"`
+type GetPendingChargeAttemptsByOrderParams struct {
+	OrderID    string `json:"order_id"`
+	PageOffset int32  `json:"page_offset"`
+	PageSize   int32  `json:"page_size"`
 }
 
-func (q *Queries) GetPendingChargeAttemptByOrder(ctx context.Context, arg GetPendingChargeAttemptByOrderParams) (ChargeAttempt, error) {
-	row := q.db.QueryRow(ctx, getPendingChargeAttemptByOrder, arg.OrderID, arg.Limit, arg.Offset)
+func (q *Queries) GetPendingChargeAttemptsByOrder(ctx context.Context, arg GetPendingChargeAttemptsByOrderParams) ([]ChargeAttempt, error) {
+	rows, err := q.db.Query(ctx, getPendingChargeAttemptsByOrder, arg.OrderID, arg.PageOffset, arg.PageSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ChargeAttempt{}
+	for rows.Next() {
+		var i ChargeAttempt
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrderID,
+			&i.Status,
+			&i.PayerPhoneNumber,
+			&i.Amount,
+			&i.Notes,
+			&i.RequestedAt,
+			&i.ResolvedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const resolveChargeAttempt = `-- name: ResolveChargeAttempt :one
+UPDATE charge_attempts
+SET
+    status = $1,
+    notes = $2,
+    resolved_at = now()
+WHERE id = $3
+  AND status = 'pending'
+RETURNING id, order_id, status, payer_phone_number, amount, notes, requested_at, resolved_at
+`
+
+type ResolveChargeAttemptParams struct {
+	Status ChargeAttemptStatus `json:"status"`
+	Notes  *string             `json:"notes"`
+	ID     uuid.UUID           `json:"id"`
+}
+
+func (q *Queries) ResolveChargeAttempt(ctx context.Context, arg ResolveChargeAttemptParams) (ChargeAttempt, error) {
+	row := q.db.QueryRow(ctx, resolveChargeAttempt, arg.Status, arg.Notes, arg.ID)
 	var i ChargeAttempt
 	err := row.Scan(
 		&i.ID,

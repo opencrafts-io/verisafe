@@ -132,7 +132,7 @@ type Querier interface {
 	GetOrder(ctx context.Context, id string) (Order, error)
 	// Retrieve one order item by its ID.
 	GetOrderItem(ctx context.Context, id uuid.UUID) (OrderItem, error)
-	GetPendingChargeAttemptByOrder(ctx context.Context, arg GetPendingChargeAttemptByOrderParams) (ChargeAttempt, error)
+	GetPendingChargeAttemptsByOrder(ctx context.Context, arg GetPendingChargeAttemptsByOrderParams) ([]ChargeAttempt, error)
 	GetPermissionByID(ctx context.Context, id uuid.UUID) (Permission, error)
 	// Retrieves a plan by its code
 	GetPlanByCode(ctx context.Context, code string) (GetPlanByCodeRow, error)
@@ -216,6 +216,7 @@ type Querier interface {
 	// only last_active_at, ip_address, and country are updated.
 	RecordUserDevice(ctx context.Context, arg RecordUserDeviceParams) (UserDevice, error)
 	RemoveAccountInstitution(ctx context.Context, arg RemoveAccountInstitutionParams) error
+	ResolveChargeAttempt(ctx context.Context, arg ResolveChargeAttemptParams) (ChargeAttempt, error)
 	// RevokeRefreshTokenFamily revokes all active refresh tokens belonging to a given family.
 	// This is triggered when a refresh token reuse attack is detected — i.e. a token that
 	// has already been used is presented again. Revoking the entire family forces the user

@@ -116,6 +116,32 @@ definitions:
       refresh_token:
         type: string
     type: object
+  billing.ChargeAttempt:
+    properties:
+      amount:
+        type: integer
+      id:
+        type: string
+      notes:
+        type: string
+      order_id:
+        type: string
+      payer_phone_number:
+        type: string
+      requested_at:
+        type: string
+      resolved_at:
+        type: string
+      status:
+        type: string
+    type: object
+  billing.ChargeOrder:
+    properties:
+      order_id:
+        type: string
+      payer_phone_number:
+        type: string
+    type: object
   billing.CreateEntitlement:
     properties:
       description:
@@ -3331,6 +3357,60 @@ paths:
       - BearerToken: []
       - ApiKey: []
       summary: Cancel an order
+      tags:
+      - orders
+  /orders/{id}/charge:
+    post:
+      consumes:
+      - application/json
+      description: Requests an M-Pesa STK charge for an unpaid order.
+      parameters:
+      - description: Order ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Payer phone number
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/billing.ChargeOrder'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/billing.ChargeAttempt'
+        "400":
+          description: Invalid request body or order
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Order not found
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "409":
+          description: Order cannot be charged
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to charge order
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "503":
+          description: RabbitMQ unavailable
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Charge an order
       tags:
       - orders
   /orders/{id}/payment:

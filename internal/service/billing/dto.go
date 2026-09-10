@@ -198,3 +198,38 @@ type DeleteOrderItem struct {
 type DeleteOrderItemsByOrder struct {
 	OrderID string `json:"order_id"`
 }
+
+type ChargeAttempt struct {
+	ID               uuid.UUID  `json:"id"`
+	OrderID          string     `json:"order_id"`
+	Status           string     `json:"status"`
+	PayerPhoneNumber string     `json:"payer_phone_number"`
+	Amount           int64      `json:"amount"`
+	Notes            *string    `json:"notes,omitempty"`
+	RequestedAt      time.Time  `json:"requested_at"`
+	ResolvedAt       *time.Time `json:"resolved_at,omitempty"`
+}
+
+type CreateChargeAttempt struct {
+	ID               uuid.UUID `json:"id"`
+	OrderID          string    `json:"order_id"`
+	PayerPhoneNumber string    `json:"payer_phone_number"`
+	Amount           int64     `json:"amount"`
+}
+
+type ListPendingChargeAttempts struct {
+	OrderID string `json:"order_id"`
+	Limit   int32  `json:"limit"`
+	Offset  int32  `json:"offset"`
+}
+
+type ResolveChargeAttempt struct {
+	ID     uuid.UUID `json:"id"`
+	Status string    `json:"status"`
+	Notes  *string   `json:"notes,omitempty"`
+}
+
+type ChargeOrder struct {
+	OrderID          string `json:"order_id"`
+	PayerPhoneNumber string `json:"payer_phone_number"`
+}

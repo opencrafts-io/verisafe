@@ -71,6 +71,11 @@ type Config struct {
 		Exchange        string `envconfig:"RABBITMQ_EXCHANGE"`
 	}
 
+	BillingConfig struct {
+		ServiceName              string `envconfig:"BILLING_SERVICE_NAME"`
+		VeribrokeReplyRoutingKey string `envconfig:"VERIBROKE_REPLY_ROUTING_KEY"`
+	}
+
 	RedisConfig struct {
 		RedisAddress  string `envconfig:"REDIS_ADDRESS"`
 		RedisDB       int    `envconfig:"REDIS_DB"`
@@ -110,10 +115,12 @@ type Config struct {
 // Provider token defaults, applied by Validate when the corresponding env var
 // is unset or non-positive.
 const (
-	defaultRefreshSkewSeconds     = 120
-	defaultCacheTTLSeconds        = 300
-	defaultScopeUpgradeTTLSeconds = 600
-	defaultReconcileRatePerMin    = 60
+	defaultRefreshSkewSeconds       = 120
+	defaultCacheTTLSeconds          = 300
+	defaultScopeUpgradeTTLSeconds   = 600
+	defaultReconcileRatePerMin      = 60
+	defaultBillingServiceName       = "io.opencrafts.verisafe"
+	defaultVeribrokeReplyRoutingKey = "verisafe.charge-result"
 )
 
 // LoadConfig loads the env file specified and returns
@@ -176,7 +183,30 @@ func (cfg *Config) Validate() error {
 		return err
 	}
 
+	if cfg.BillingConfig.ServiceName == "" {
+		cfg.BillingConfig.ServiceName = defaultBillingServiceName
+	}
+	if cfg.BillingConfig.VeribrokeReplyRoutingKey == "" {
+		cfg.BillingConfig.VeribrokeReplyRoutingKey = defaultVeribrokeReplyRoutingKey
+	}
+
 	return nil
+}
+
+func (cfg *Config) BillingServiceName() string {
+	if cfg == nil || cfg.BillingConfig.ServiceName == "" {
+		return defaultBillingServiceName
+	}
+
+	return cfg.BillingConfig.ServiceName
+}
+
+func (cfg *Config) VeribrokeReplyRoutingKey() string {
+	if cfg == nil || cfg.BillingConfig.VeribrokeReplyRoutingKey == "" {
+		return defaultVeribrokeReplyRoutingKey
+	}
+
+	return cfg.BillingConfig.VeribrokeReplyRoutingKey
 }
 
 // validateProviderTokens fails fast on the third-party token encryption
