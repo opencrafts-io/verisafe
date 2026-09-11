@@ -186,6 +186,13 @@ func (a *App) loadRoutes() http.Handler {
 			Cacher:  a.cacher,
 			Service: a.chargeService,
 		},
+		&billing.CheckoutHandler{
+			DB:            db,
+			Logger:        a.logger,
+			Cfg:           a.config,
+			Cacher:        a.cacher,
+			ChargeService: a.chargeService,
+		},
 		&billing.SubscriptionHandler{
 			DB:     db,
 			Logger: a.logger,

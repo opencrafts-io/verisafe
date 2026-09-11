@@ -21,6 +21,8 @@ GET /api/v1/admin/service-tokens
 GET /api/v1/service-tokens
 GET /api/v1/service-tokens/stats
 GET /api/v1/service-tokens/{id}
+GET /checkout/orders/{order_id}
+GET /checkout/orders/{order_id}/items
 GET /devices/mine
 GET /docs/
 GET /institutions/accounts
@@ -69,6 +71,9 @@ POST /activity/add
 POST /api/v1/admin/service-tokens/cleanup
 POST /api/v1/service-tokens
 POST /api/v1/service-tokens/{id}/rotate
+POST /checkout-sessions
+POST /checkout-sessions/exchange
+POST /checkout/orders/{order_id}/charge
 POST /institutions/account
 POST /institutions/register
 POST /oauth/{provider}/authorize

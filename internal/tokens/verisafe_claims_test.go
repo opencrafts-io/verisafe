@@ -22,6 +22,14 @@ func signHS256(t *testing.T, claims *VerisafeClaims, secret string) string {
 	return signed
 }
 
+func signCheckoutHS256(t *testing.T, claims *CheckoutClaims, secret string) string {
+	t.Helper()
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signed, err := token.SignedString([]byte(secret))
+	require.NoError(t, err)
+	return signed
+}
+
 func validClaims() *VerisafeClaims {
 	return &VerisafeClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -108,6 +116,54 @@ func TestValidateJWT(t *testing.T) {
 
 		_, err = ValidateJWT(signed, testSecret)
 		assert.ErrorContains(t, err, "unexpected signing method")
+	})
+}
+
+func TestValidateCheckoutJWT(t *testing.T) {
+	valid := func() *CheckoutClaims {
+		return &CheckoutClaims{
+			TokenType: CheckoutTokenType,
+			OrderID:   "ORD-123",
+			Scopes:    []string{"checkout:order:read"},
+			RegisteredClaims: jwt.RegisteredClaims{
+				ID:        uuid.NewString(),
+				Subject:   uuid.NewString(),
+				Audience:  []string{CheckoutTokenAudience},
+				ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+				IssuedAt:  jwt.NewNumericDate(time.Now()),
+			},
+		}
+	}
+
+	t.Run("valid checkout token", func(t *testing.T) {
+		claims := valid()
+		signed := signCheckoutHS256(t, claims, testSecret)
+
+		got, err := ValidateCheckoutJWT(signed, testSecret)
+
+		require.NoError(t, err)
+		assert.Equal(t, claims.Subject, got.Subject)
+		assert.Equal(t, claims.OrderID, got.OrderID)
+	})
+
+	t.Run("wrong audience is rejected", func(t *testing.T) {
+		claims := valid()
+		claims.Audience = []string{"verisafe-api"}
+		signed := signCheckoutHS256(t, claims, testSecret)
+
+		_, err := ValidateCheckoutJWT(signed, testSecret)
+
+		assert.ErrorContains(t, err, "audience")
+	})
+
+	t.Run("wrong token type is rejected", func(t *testing.T) {
+		claims := valid()
+		claims.TokenType = "access"
+		signed := signCheckoutHS256(t, claims, testSecret)
+
+		_, err := ValidateCheckoutJWT(signed, testSecret)
+
+		assert.ErrorContains(t, err, "checkout token")
 	})
 }
 

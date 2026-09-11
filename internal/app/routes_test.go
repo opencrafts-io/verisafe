@@ -56,6 +56,7 @@ func testHandlers() []VerisafeHandler {
 		&billing.OrderHandler{},
 		&billing.OrderItemHandler{},
 		&billing.ChargeHandler{},
+		&billing.CheckoutHandler{},
 		&billing.SubscriptionHandler{},
 	}
 }
