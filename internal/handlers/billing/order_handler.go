@@ -57,7 +57,7 @@ func (oh *OrderHandler) RegisterHandlers(router core.Router) {
 				oh.Cacher,
 				oh.Logger,
 			),
-			middleware.HasPermission([]string{"create:order:any"}),
+			middleware.HasAnyPermission([]string{"create:order:own", "create:order:any"}),
 		)(core.AppHandler(oh.CreateOrder)),
 	)
 
@@ -70,7 +70,7 @@ func (oh *OrderHandler) RegisterHandlers(router core.Router) {
 				oh.Cacher,
 				oh.Logger,
 			),
-			middleware.HasPermission([]string{"read:order:any"}),
+			middleware.HasAnyPermission([]string{"read:order:own", "read:order:any"}),
 		)(core.AppHandler(oh.ListOrders)),
 	)
 
@@ -83,7 +83,7 @@ func (oh *OrderHandler) RegisterHandlers(router core.Router) {
 				oh.Cacher,
 				oh.Logger,
 			),
-			middleware.HasPermission([]string{"read:order:any"}),
+			middleware.HasAnyPermission([]string{"read:order:own", "read:order:any"}),
 		)(core.AppHandler(oh.GetOrder)),
 	)
 
@@ -96,7 +96,7 @@ func (oh *OrderHandler) RegisterHandlers(router core.Router) {
 				oh.Cacher,
 				oh.Logger,
 			),
-			middleware.HasPermission([]string{"update:order:any"}),
+			middleware.HasAnyPermission([]string{"update:order:own", "update:order:any"}),
 		)(core.AppHandler(oh.UpdateOrder)),
 	)
 
@@ -109,7 +109,7 @@ func (oh *OrderHandler) RegisterHandlers(router core.Router) {
 				oh.Cacher,
 				oh.Logger,
 			),
-			middleware.HasPermission([]string{"update:order:any"}),
+			middleware.HasAnyPermission([]string{"update:order:own", "update:order:any"}),
 		)(core.AppHandler(oh.CancelOrder)),
 	)
 
@@ -122,7 +122,7 @@ func (oh *OrderHandler) RegisterHandlers(router core.Router) {
 				oh.Cacher,
 				oh.Logger,
 			),
-			middleware.HasPermission([]string{"update:order:any"}),
+			middleware.HasAnyPermission([]string{"update:order:own", "update:order:any"}),
 		)(core.AppHandler(oh.RecalculateOrderTotals)),
 	)
 }
@@ -220,11 +220,24 @@ func (oh *OrderHandler) GetOrder(
 	r *http.Request,
 ) error {
 	id := r.PathValue("id")
+	userID, err := orderCallerID(r)
+	if err != nil {
+		return err
+	}
 
 	order, err := core.InTx(
 		r.Context(),
 		oh.DB,
 		func(tx pgx.Tx) (*billingSvc.Order, error) {
+			if !middleware.HasContextPermission(r.Context(), "read:order:any") {
+				return oh.svc(tx).GetUserOrder(
+					r.Context(),
+					billingSvc.GetUserOrder{
+						ID:     id,
+						UserID: userID,
+					},
+				)
+			}
 			return oh.svc(tx).GetOrder(
 				r.Context(),
 				billingSvc.GetOrder{
@@ -330,7 +343,8 @@ func (oh *OrderHandler) ListOrders(
 		r.Context(),
 		oh.DB,
 		func(tx pgx.Tx) ([]billingSvc.Order, error) {
-			if status := query.Get("status"); status != "" {
+			if status := query.Get("status"); status != "" &&
+				middleware.HasContextPermission(r.Context(), "read:order:any") {
 				return oh.svc(tx).ListOrdersByStatus(
 					r.Context(),
 					billingSvc.ListOrdersByStatus{
@@ -409,6 +423,9 @@ func (oh *OrderHandler) UpdateOrder(
 		r.Context(),
 		oh.DB,
 		func(tx pgx.Tx) (*billingSvc.Order, error) {
+			if err := oh.authorizeOwnOrderUpdate(r, tx, id); err != nil {
+				return nil, err
+			}
 			return oh.svc(tx).UpdateOrder(
 				r.Context(),
 				req,
@@ -463,6 +480,9 @@ func (oh *OrderHandler) CancelOrder(
 		r.Context(),
 		oh.DB,
 		func(tx pgx.Tx) (*billingSvc.Order, error) {
+			if err := oh.authorizeOwnOrderUpdate(r, tx, id); err != nil {
+				return nil, err
+			}
 			return oh.svc(tx).CancelOrder(
 				r.Context(),
 				billingSvc.CancelOrder{
@@ -518,6 +538,9 @@ func (oh *OrderHandler) RecalculateOrderTotals(
 		r.Context(),
 		oh.DB,
 		func(tx pgx.Tx) error {
+			if err := oh.authorizeOwnOrderUpdate(r, tx, id); err != nil {
+				return err
+			}
 			return oh.svc(tx).RecalculateOrderTotals(
 				r.Context(),
 				billingSvc.RecalculateOrderTotals{
@@ -541,4 +564,42 @@ func (oh *OrderHandler) RecalculateOrderTotals(
 
 	w.WriteHeader(http.StatusNoContent)
 	return nil
+}
+
+func (oh *OrderHandler) authorizeOwnOrderUpdate(
+	r *http.Request,
+	tx pgx.Tx,
+	orderID string,
+) error {
+	if middleware.HasContextPermission(r.Context(), "update:order:any") {
+		return nil
+	}
+
+	userID, err := orderCallerID(r)
+	if err != nil {
+		return err
+	}
+
+	_, err = oh.svc(tx).GetUserOrder(
+		r.Context(),
+		billingSvc.GetUserOrder{
+			ID:     orderID,
+			UserID: userID,
+		},
+	)
+	return err
+}
+
+func orderCallerID(r *http.Request) (uuid.UUID, error) {
+	claims, ok := middleware.ClaimsFromContext(r.Context())
+	if !ok {
+		return uuid.Nil, core.Public(core.ErrUnauthorized, msgAuthRequired)
+	}
+
+	userID, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		return uuid.Nil, core.Public(core.ErrInternal, msgFetchAccountFailed)
+	}
+
+	return userID, nil
 }

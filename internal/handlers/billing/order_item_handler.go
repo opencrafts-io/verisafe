@@ -57,7 +57,7 @@ func (oih *OrderItemHandler) RegisterHandlers(router core.Router) {
 				oih.Cacher,
 				oih.Logger,
 			),
-			middleware.HasPermission([]string{"create:order-item:any"}),
+			middleware.HasAnyPermission([]string{"create:order-item:own", "create:order-item:any"}),
 		)(core.AppHandler(oih.CreateOrderItem)),
 	)
 
@@ -70,7 +70,7 @@ func (oih *OrderItemHandler) RegisterHandlers(router core.Router) {
 				oih.Cacher,
 				oih.Logger,
 			),
-			middleware.HasPermission([]string{"read:order-item:any"}),
+			middleware.HasAnyPermission([]string{"read:order-item:own", "read:order-item:any"}),
 		)(core.AppHandler(oih.ListOrderItemsByOrder)),
 	)
 
@@ -83,7 +83,7 @@ func (oih *OrderItemHandler) RegisterHandlers(router core.Router) {
 				oih.Cacher,
 				oih.Logger,
 			),
-			middleware.HasPermission([]string{"read:order-item:any"}),
+			middleware.HasAnyPermission([]string{"read:order-item:own", "read:order-item:any"}),
 		)(core.AppHandler(oih.GetOrderItem)),
 	)
 
@@ -96,7 +96,7 @@ func (oih *OrderItemHandler) RegisterHandlers(router core.Router) {
 				oih.Cacher,
 				oih.Logger,
 			),
-			middleware.HasPermission([]string{"update:order-item:any"}),
+			middleware.HasAnyPermission([]string{"update:order-item:own", "update:order-item:any"}),
 		)(core.AppHandler(oih.UpdateOrderItem)),
 	)
 
@@ -109,7 +109,7 @@ func (oih *OrderItemHandler) RegisterHandlers(router core.Router) {
 				oih.Cacher,
 				oih.Logger,
 			),
-			middleware.HasPermission([]string{"delete:order-item:any"}),
+			middleware.HasAnyPermission([]string{"delete:order-item:own", "delete:order-item:any"}),
 		)(core.AppHandler(oih.DeleteOrderItem)),
 	)
 
@@ -122,7 +122,7 @@ func (oih *OrderItemHandler) RegisterHandlers(router core.Router) {
 				oih.Cacher,
 				oih.Logger,
 			),
-			middleware.HasPermission([]string{"delete:order-item:any"}),
+			middleware.HasAnyPermission([]string{"delete:order-item:own", "delete:order-item:any"}),
 		)(core.AppHandler(oih.DeleteOrderItemsByOrder)),
 	)
 }
@@ -172,6 +172,14 @@ func (oih *OrderItemHandler) CreateOrderItem(
 		r.Context(),
 		oih.DB,
 		func(tx pgx.Tx) (*billingSvc.OrderItem, error) {
+			if err := oih.authorizeOwnOrderItem(
+				r,
+				tx,
+				orderID,
+				"create:order-item:any",
+			); err != nil {
+				return nil, err
+			}
 			return oih.svc(tx).CreateOrderItem(
 				r.Context(),
 				req,
@@ -222,6 +230,14 @@ func (oih *OrderItemHandler) GetOrderItem(
 		r.Context(),
 		oih.DB,
 		func(tx pgx.Tx) (*billingSvc.OrderItem, error) {
+			if err := oih.authorizeOwnOrderItem(
+				r,
+				tx,
+				r.PathValue("order_id"),
+				"read:order-item:any",
+			); err != nil {
+				return nil, err
+			}
 			return oih.svc(tx).GetOrderItem(
 				r.Context(),
 				billingSvc.GetOrderItem{
@@ -272,6 +288,14 @@ func (oih *OrderItemHandler) ListOrderItemsByOrder(
 		r.Context(),
 		oih.DB,
 		func(tx pgx.Tx) ([]billingSvc.OrderItem, error) {
+			if err := oih.authorizeOwnOrderItem(
+				r,
+				tx,
+				orderID,
+				"read:order-item:any",
+			); err != nil {
+				return nil, err
+			}
 			return oih.svc(tx).ListOrderItemsByOrder(
 				r.Context(),
 				billingSvc.ListOrderItemsByOrder{
@@ -334,6 +358,14 @@ func (oih *OrderItemHandler) UpdateOrderItem(
 		r.Context(),
 		oih.DB,
 		func(tx pgx.Tx) (*billingSvc.OrderItem, error) {
+			if err := oih.authorizeOwnOrderItem(
+				r,
+				tx,
+				req.OrderID,
+				"update:order-item:any",
+			); err != nil {
+				return nil, err
+			}
 			return oih.svc(tx).UpdateOrderItem(
 				r.Context(),
 				req,
@@ -389,6 +421,14 @@ func (oih *OrderItemHandler) DeleteOrderItem(
 		r.Context(),
 		oih.DB,
 		func(tx pgx.Tx) error {
+			if err := oih.authorizeOwnOrderItem(
+				r,
+				tx,
+				r.PathValue("order_id"),
+				"delete:order-item:any",
+			); err != nil {
+				return err
+			}
 			return oih.svc(tx).DeleteOrderItem(
 				r.Context(),
 				billingSvc.DeleteOrderItem{
@@ -441,6 +481,14 @@ func (oih *OrderItemHandler) DeleteOrderItemsByOrder(
 		r.Context(),
 		oih.DB,
 		func(tx pgx.Tx) error {
+			if err := oih.authorizeOwnOrderItem(
+				r,
+				tx,
+				orderID,
+				"delete:order-item:any",
+			); err != nil {
+				return err
+			}
 			return oih.svc(tx).DeleteOrderItemsByOrder(
 				r.Context(),
 				billingSvc.DeleteOrderItemsByOrder{
@@ -462,4 +510,32 @@ func (oih *OrderItemHandler) DeleteOrderItemsByOrder(
 
 	core.NoContent(w)
 	return nil
+}
+
+func (oih *OrderItemHandler) authorizeOwnOrderItem(
+	r *http.Request,
+	tx pgx.Tx,
+	orderID string,
+	anyPermission string,
+) error {
+	if middleware.HasContextPermission(r.Context(), anyPermission) {
+		return nil
+	}
+
+	userID, err := orderCallerID(r)
+	if err != nil {
+		return err
+	}
+
+	_, err = billingSvc.NewOrderService(
+		repository.New(tx),
+		oih.Logger,
+	).GetUserOrder(
+		r.Context(),
+		billingSvc.GetUserOrder{
+			ID:     orderID,
+			UserID: userID,
+		},
+	)
+	return err
 }

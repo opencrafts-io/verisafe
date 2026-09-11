@@ -212,7 +212,7 @@ func TestOrderService_CreateOrder(t *testing.T) {
 		assert.Equal(t, row.Tax, result.Tax)
 		assert.Equal(t, row.Total, result.Total)
 		assert.Equal(t, row.Currency, result.Currency)
-		assert.Equal(t, row.Metadata, result.Metadata)
+		assert.JSONEq(t, string(row.Metadata), string(result.Metadata))
 		assert.Equal(t, row.CreatedAt, result.CreatedAt)
 		assert.Equal(t, row.UpdatedAt, result.UpdatedAt)
 		assert.Equal(t, row.ExpiresAt, result.ExpiresAt)
@@ -287,7 +287,7 @@ func TestOrderService_GetOrder(t *testing.T) {
 		assert.Equal(t, row.Tax, result.Tax)
 		assert.Equal(t, row.Total, result.Total)
 		assert.Equal(t, row.Currency, result.Currency)
-		assert.Equal(t, row.Metadata, result.Metadata)
+		assert.JSONEq(t, string(row.Metadata), string(result.Metadata))
 		assert.Equal(t, row.CreatedAt, result.CreatedAt)
 		assert.Equal(t, row.UpdatedAt, result.UpdatedAt)
 		assert.Equal(t, row.ExpiresAt, result.ExpiresAt)
@@ -707,7 +707,7 @@ func TestOrderService_UpdateOrder(t *testing.T) {
 
 		assert.Equal(t, row.ID, result.ID)
 		assert.Equal(t, row.Currency, result.Currency)
-		assert.Equal(t, row.Metadata, result.Metadata)
+		assert.JSONEq(t, string(row.Metadata), string(result.Metadata))
 		assert.Equal(t, row.ExpiresAt, result.ExpiresAt)
 
 		q.AssertExpectations(t)
