@@ -54,12 +54,12 @@ Reference material, once you know your way around:
 | [OAUTH_SCOPES.md](OAUTH_SCOPES.md) | Third-party grants, the token broker, incremental scopes |
 | [SERVICE_INTEGRATION.md](SERVICE_INTEGRATION.md) | Build guide: getting a Google/Spotify token from another service |
 | [RBAC.md](RBAC.md) | Roles, permissions, and how they are assigned |
+| [BILLING.md](BILLING.md) | Plans, orders, checkout sessions, charges, and subscriptions |
 | [SERVICE_TOKENS.md](SERVICE_TOKENS.md) | Service-to-service API keys |
 | [BOT_ACCOUNT_CREATION.md](BOT_ACCOUNT_CREATION.md) | Creating bot accounts |
 | [RABBITMQ_INTEGRATION.md](RABBITMQ_INTEGRATION.md) | Event publishing and consumption |
 | [setup.md](setup.md) | Getting the service running locally |
 | [adrs/](adrs/) | Why things are the way they are |
-
 
 
 

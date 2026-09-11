@@ -70,7 +70,10 @@ func (h *CheckoutHandler) RegisterHandlers(router core.Router) {
 		"POST /checkout-sessions",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(h.Cfg, h.DB, h.Cacher, h.Logger),
-			middleware.HasAnyPermission([]string{"update:order:own", "update:order:any"}),
+			middleware.HasAnyPermission([]string{
+				"create:checkout-session:own",
+				"create:checkout-session:any",
+			}),
 		)(core.AppHandler(h.CreateCheckoutSession)),
 	)
 
@@ -347,7 +350,7 @@ func (h *CheckoutHandler) authorizeCheckoutOrder(
 		h.DB,
 		func(tx pgx.Tx) error {
 			svc := billingSvc.NewOrderService(repository.New(tx), h.Logger)
-			if middleware.HasContextPermission(r.Context(), "update:order:any") {
+			if middleware.HasContextPermission(r.Context(), "create:checkout-session:any") {
 				_, err := svc.GetOrder(
 					r.Context(),
 					billingSvc.GetOrder{ID: orderID},
