@@ -142,6 +142,29 @@ definitions:
       payer_phone_number:
         type: string
     type: object
+  billing.CheckoutSessionResponse:
+    properties:
+      checkout_url:
+        type: string
+      expires_at:
+        type: string
+    type: object
+  billing.CheckoutTokenResponse:
+    properties:
+      access_token:
+        type: string
+      expires_at:
+        type: string
+      order_id:
+        type: string
+      token_type:
+        type: string
+    type: object
+  billing.CreateCheckoutSessionRequest:
+    properties:
+      order_id:
+        type: string
+    type: object
   billing.CreateEntitlement:
     properties:
       description:
@@ -229,6 +252,11 @@ definitions:
         type: string
       value:
         type: integer
+    type: object
+  billing.ExchangeCheckoutSessionRequest:
+    properties:
+      code:
+        type: string
     type: object
   billing.Order:
     properties:
@@ -2288,6 +2316,221 @@ paths:
       summary: Revoke the caller's access token (and optionally a refresh token family)
       tags:
       - auth
+  /checkout-sessions:
+    post:
+      consumes:
+      - application/json
+      description: Creates a short-lived browser checkout handoff for an unpaid order.
+      parameters:
+      - description: Order to check out
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/billing.CreateCheckoutSessionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/billing.CheckoutSessionResponse'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Order not found
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to create checkout session
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Create a checkout session
+      tags:
+      - checkout
+  /checkout-sessions/exchange:
+    post:
+      consumes:
+      - application/json
+      description: Exchanges a one-time checkout handoff code for a short-lived checkout
+        token.
+      parameters:
+      - description: Checkout handoff code
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/billing.ExchangeCheckoutSessionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/billing.CheckoutTokenResponse'
+        "400":
+          description: Missing checkout code
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Invalid or expired checkout code
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to start checkout session
+          schema:
+            $ref: '#/definitions/core.APIError'
+      summary: Exchange a checkout session code
+      tags:
+      - checkout
+  /checkout/orders/{order_id}:
+    get:
+      description: Retrieves the order bound to the checkout token or authorized access
+        token.
+      parameters:
+      - description: Order ID
+        in: path
+        name: order_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/billing.Order'
+        "401":
+          description: Missing or invalid checkout token
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "403":
+          description: Insufficient checkout scope or permission
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Order not found
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to fetch order
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Get a checkout order
+      tags:
+      - checkout
+  /checkout/orders/{order_id}/charge:
+    post:
+      consumes:
+      - application/json
+      description: Requests an M-Pesa STK charge for the order bound to the checkout
+        token or authorized access token.
+      parameters:
+      - description: Order ID
+        in: path
+        name: order_id
+        required: true
+        type: string
+      - description: Payer phone number
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/billing.ChargeOrder'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/billing.ChargeAttempt'
+        "400":
+          description: Invalid request body or order
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Missing or invalid checkout token
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "403":
+          description: Insufficient checkout scope or permission
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Order not found
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "409":
+          description: Order cannot be charged
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to charge order
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "503":
+          description: RabbitMQ unavailable
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Charge a checkout order
+      tags:
+      - checkout
+  /checkout/orders/{order_id}/items:
+    get:
+      description: Lists items for the order bound to the checkout token or authorized
+        access token.
+      parameters:
+      - description: Order ID
+        in: path
+        name: order_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/billing.OrderItem'
+            type: array
+        "401":
+          description: Missing or invalid checkout token
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "403":
+          description: Insufficient checkout scope or permission
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Order not found
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to fetch order items
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: List checkout order items
+      tags:
+      - checkout
   /devices/mine:
     get:
       description: Returns all devices registered to the currently authenticated user
