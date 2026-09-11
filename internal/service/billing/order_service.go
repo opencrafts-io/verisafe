@@ -2,6 +2,7 @@ package billing
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 
@@ -15,6 +16,8 @@ var (
 	ErrOrderNotFound       = errors.New("order not found")
 	ErrOrderNotCancellable = errors.New("order cannot be cancelled")
 )
+
+var defaultOrderMetadata = json.RawMessage(`{}`)
 
 type OrderService interface {
 	CreateOrder(
@@ -85,7 +88,7 @@ func (s *orderService) CreateOrder(
 	row, err := s.querier.CreateOrder(ctx, repository.CreateOrderParams{
 		UserID:    req.UserID,
 		Currency:  req.Currency,
-		Metadata:  req.Metadata,
+		Metadata:  normalizeOrderMetadata(req.Metadata),
 		ExpiresAt: req.ExpiresAt,
 	})
 	if err != nil {
@@ -231,7 +234,7 @@ func (s *orderService) UpdateOrder(
 		repository.UpdateOrderParams{
 			ID:        req.ID,
 			Currency:  req.Currency,
-			Metadata:  req.Metadata,
+			Metadata:  normalizeOrderMetadata(req.Metadata),
 			ExpiresAt: req.ExpiresAt,
 		},
 	)
@@ -330,5 +333,14 @@ func (s *orderService) mapOrder(row repository.Order) Order {
 		)
 	}
 
+	order.Metadata = json.RawMessage(row.Metadata)
 	return order
+}
+
+func normalizeOrderMetadata(metadata json.RawMessage) []byte {
+	if len(metadata) == 0 || string(metadata) == "null" {
+		return defaultOrderMetadata
+	}
+
+	return metadata
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/opencrafts-io/verisafe/internal/core"
+	"github.com/opencrafts-io/verisafe/internal/middleware"
 	billingSvc "github.com/opencrafts-io/verisafe/internal/service/billing"
 )
 
@@ -48,6 +49,7 @@ func TestChargeHandler_ChargeOrderUsesPathOrderID(t *testing.T) {
 		"/orders/ORD-path/charge",
 		bytes.NewBufferString(`{"order_id":"ORD-body","payer_phone_number":"254712345678"}`),
 	)
+	req = withChargeManagerPermission(req)
 	req.SetPathValue("id", "ORD-path")
 	res := httptest.NewRecorder()
 
@@ -95,6 +97,7 @@ func TestChargeHandler_ChargeOrderMapsBusinessErrors(t *testing.T) {
 				"/orders/ORD-001/charge",
 				bytes.NewBufferString(`{"payer_phone_number":"254712345678"}`),
 			)
+			req = withChargeManagerPermission(req)
 			req.SetPathValue("id", "ORD-001")
 			res := httptest.NewRecorder()
 
@@ -103,4 +106,12 @@ func TestChargeHandler_ChargeOrderMapsBusinessErrors(t *testing.T) {
 			assert.Equal(t, tt.status, res.Code)
 		})
 	}
+}
+
+func withChargeManagerPermission(req *http.Request) *http.Request {
+	ctx := middleware.WithPermissions(
+		req.Context(),
+		[]string{"update:order:any"},
+	)
+	return req.WithContext(ctx)
 }

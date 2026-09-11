@@ -204,6 +204,74 @@ func (ts tokenService) ValidateAccessToken(
 	return claims, nil
 }
 
+func (ts tokenService) IssueCheckoutToken(
+	ctx context.Context,
+	userID uuid.UUID,
+	orderID string,
+	ttl time.Duration,
+) (*CheckoutToken, error) {
+	jti, err := uuid.NewV6()
+	if err != nil {
+		return nil, err
+	}
+
+	expiry := time.Now().Add(ttl)
+	claims := CheckoutClaims{
+		TokenType: CheckoutTokenType,
+		OrderID:   orderID,
+		Scopes: []string{
+			"checkout:order:read",
+			"checkout:order-item:read",
+			"checkout:order:charge",
+		},
+		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        jti.String(),
+			Subject:   userID.String(),
+			Issuer:    "https://verisafe.opencrafts.io/",
+			Audience:  []string{CheckoutTokenAudience},
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(expiry),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signed, err := token.SignedString([]byte(ts.config.JWTConfig.ApiSecret))
+	if err != nil {
+		return nil, err
+	}
+
+	return &CheckoutToken{
+		AccessToken: signed,
+		ExpiresAt:   expiry,
+		OrderID:     orderID,
+	}, nil
+}
+
+func (ts tokenService) ValidateCheckoutToken(
+	ctx context.Context,
+	rawToken string,
+) (*CheckoutClaims, error) {
+	claims, err := ValidateCheckoutJWT(rawToken, ts.config.JWTConfig.ApiSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	jti, err := uuid.Parse(claims.ID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid jti: %w", err)
+	}
+
+	revoked, err := ts.IsAccessTokenRevoked(ctx, jti)
+	if err != nil {
+		return nil, fmt.Errorf("blocklist check failed: %w", err)
+	}
+	if revoked {
+		return nil, fmt.Errorf("token has been revoked")
+	}
+
+	return claims, nil
+}
+
 func (ts *tokenService) signJwt(
 	jti uuid.UUID,
 	userID uuid.UUID,

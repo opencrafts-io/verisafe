@@ -6,9 +6,11 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/opencrafts-io/verisafe/internal/config"
 	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
+	"github.com/opencrafts-io/verisafe/internal/repository"
 	billingSvc "github.com/opencrafts-io/verisafe/internal/service/billing"
 )
 
@@ -34,7 +36,7 @@ func (h *ChargeHandler) RegisterHandlers(router core.Router) {
 		"POST /orders/{id}/charge",
 		middleware.CreateStack(
 			middleware.IsAuthenticated(h.Cfg, h.DB, h.Cacher, h.Logger),
-			middleware.HasPermission([]string{"update:order:any"}),
+			middleware.HasAnyPermission([]string{"update:order:own", "update:order:any"}),
 		)(core.AppHandler(h.ChargeOrder)),
 	)
 }
@@ -69,6 +71,13 @@ func (h *ChargeHandler) ChargeOrder(
 	}
 
 	req.OrderID = r.PathValue("id")
+	if err := h.authorizeChargeOrder(r, req.OrderID); err != nil {
+		if errors.Is(err, billingSvc.ErrOrderNotFound) {
+			return core.Public(core.ErrNotFound, msgOrderNotFound)
+		}
+		return err
+	}
+
 	attempt, err := h.Service.ChargeOrder(r.Context(), req)
 	if err != nil {
 		switch {
@@ -97,4 +106,36 @@ func (h *ChargeHandler) ChargeOrder(
 
 	core.WriteJSON(w, http.StatusAccepted, attempt)
 	return nil
+}
+
+func (h *ChargeHandler) authorizeChargeOrder(
+	r *http.Request,
+	orderID string,
+) error {
+	if middleware.HasContextPermission(r.Context(), "update:order:any") {
+		return nil
+	}
+
+	userID, err := orderCallerID(r)
+	if err != nil {
+		return err
+	}
+
+	return core.InTxDo(
+		r.Context(),
+		h.DB,
+		func(tx pgx.Tx) error {
+			_, err := billingSvc.NewOrderService(
+				repository.New(tx),
+				h.Logger,
+			).GetUserOrder(
+				r.Context(),
+				billingSvc.GetUserOrder{
+					ID:     orderID,
+					UserID: userID,
+				},
+			)
+			return err
+		},
+	)
 }

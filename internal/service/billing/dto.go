@@ -1,6 +1,7 @@
 package billing
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -107,10 +108,10 @@ type DeleteEntitlement struct {
 }
 
 type CreateOrder struct {
-	UserID    uuid.UUID  `json:"user_id"`
-	Currency  string     `json:"currency"`
-	Metadata  []byte     `json:"metadata"`
-	ExpiresAt *time.Time `json:"expires_at"`
+	UserID    uuid.UUID       `json:"user_id"`
+	Currency  string          `json:"currency"`
+	Metadata  json.RawMessage `json:"metadata"`
+	ExpiresAt *time.Time      `json:"expires_at"`
 }
 
 type GetOrder struct {
@@ -135,10 +136,10 @@ type ListOrdersByStatus struct {
 }
 
 type UpdateOrder struct {
-	ID        string     `json:"id"`
-	Currency  string     `json:"currency"`
-	Metadata  []byte     `json:"metadata"`
-	ExpiresAt *time.Time `json:"expires_at"`
+	ID        string          `json:"id"`
+	Currency  string          `json:"currency"`
+	Metadata  json.RawMessage `json:"metadata"`
+	ExpiresAt *time.Time      `json:"expires_at"`
 }
 
 type CancelOrder struct {
@@ -154,20 +155,20 @@ type RecalculateOrderTotals struct {
 }
 
 type Order struct {
-	ID          string     `json:"id"`
-	UserID      uuid.UUID  `json:"user_id"`
-	Status      string     `json:"status"`
-	Subtotal    int64      `json:"subtotal"`
-	Discount    int64      `json:"discount"`
-	Tax         int64      `json:"tax"`
-	Total       int64      `json:"total"`
-	Currency    string     `json:"currency"`
-	Metadata    []byte     `json:"metadata"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	PaidAt      *time.Time `json:"paid_at"`
-	CancelledAt *time.Time `json:"cancelled_at"`
-	ExpiresAt   *time.Time `json:"expires_at"`
+	ID          string          `json:"id"`
+	UserID      uuid.UUID       `json:"user_id"`
+	Status      string          `json:"status"`
+	Subtotal    int64           `json:"subtotal"`
+	Discount    int64           `json:"discount"`
+	Tax         int64           `json:"tax"`
+	Total       int64           `json:"total"`
+	Currency    string          `json:"currency"`
+	Metadata    json.RawMessage `json:"metadata"`
+	CreatedAt   time.Time       `json:"created_at"`
+	UpdatedAt   time.Time       `json:"updated_at"`
+	PaidAt      *time.Time      `json:"paid_at"`
+	CancelledAt *time.Time      `json:"cancelled_at"`
+	ExpiresAt   *time.Time      `json:"expires_at"`
 }
 
 type OrderItem struct {

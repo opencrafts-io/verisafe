@@ -323,6 +323,34 @@ func HasPermission(permissions []string) Middleware {
 	}
 }
 
+// HasAnyPermission checks that the authenticated user has at least one of the
+// allowed permissions. Use this for routes that support both own- and
+// any-scoped authorization, then enforce ownership in the handler for callers
+// without the any-scoped permission.
+func HasAnyPermission(permissions []string) Middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			perms := PermissionsFromContext(r.Context())
+
+			for _, allowed := range permissions {
+				if slices.Contains(perms, allowed) {
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+
+			w.WriteHeader(http.StatusForbidden)
+			json.NewEncoder(w).Encode(map[string]any{
+				"error": "you do not have the necessary permissions to perform this action",
+			})
+		})
+	}
+}
+
+func HasContextPermission(ctx context.Context, permission string) bool {
+	return slices.Contains(PermissionsFromContext(ctx), permission)
+}
+
 // --- helpers ---
 
 func writeUnauthorized(w http.ResponseWriter, message string) {
