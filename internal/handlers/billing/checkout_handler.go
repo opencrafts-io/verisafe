@@ -39,20 +39,20 @@ type CheckoutHandler struct {
 	ChargeService billingSvc.ChargeService
 }
 
-type createCheckoutSessionRequest struct {
+type CreateCheckoutSessionRequest struct {
 	OrderID string `json:"order_id"`
 }
 
-type checkoutSessionResponse struct {
+type CheckoutSessionResponse struct {
 	CheckoutURL string    `json:"checkout_url"`
 	ExpiresAt   time.Time `json:"expires_at"`
 }
 
-type exchangeCheckoutSessionRequest struct {
+type ExchangeCheckoutSessionRequest struct {
 	Code string `json:"code"`
 }
 
-type checkoutTokenResponse struct {
+type CheckoutTokenResponse struct {
 	AccessToken string    `json:"access_token"`
 	TokenType   string    `json:"token_type"`
 	ExpiresAt   time.Time `json:"expires_at"`
@@ -98,11 +98,27 @@ func (h *CheckoutHandler) RegisterHandlers(router core.Router) {
 	)
 }
 
+// CreateCheckoutSession godoc
+//
+// @Summary      Create a checkout session
+// @Description  Creates a short-lived browser checkout handoff for an unpaid order.
+// @Tags         checkout
+// @Accept       json
+// @Produce      json
+// @Param        request  body      CreateCheckoutSessionRequest  true  "Order to check out"
+// @Success      201      {object}  CheckoutSessionResponse
+// @Failure      400      {object}  core.APIError  "Invalid request body"
+// @Failure      401      {object}  core.APIError  "Missing or invalid claims"
+// @Failure      404      {object}  core.APIError  "Order not found"
+// @Failure      500      {object}  core.APIError  "Failed to create checkout session"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /checkout-sessions [post]
 func (h *CheckoutHandler) CreateCheckoutSession(
 	w http.ResponseWriter,
 	r *http.Request,
 ) error {
-	var req createCheckoutSessionRequest
+	var req CreateCheckoutSessionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil ||
 		strings.TrimSpace(req.OrderID) == "" {
 		return core.Public(core.ErrInvalidInput, msgInvalidBody)
@@ -146,18 +162,31 @@ func (h *CheckoutHandler) CreateCheckoutSession(
 		return core.Public(core.ErrInternal, "Failed to create checkout session.")
 	}
 
-	core.WriteJSON(w, http.StatusCreated, checkoutSessionResponse{
+	core.WriteJSON(w, http.StatusCreated, CheckoutSessionResponse{
 		CheckoutURL: checkoutStartURL(r, code),
 		ExpiresAt:   expiresAt,
 	})
 	return nil
 }
 
+// ExchangeCheckoutSession godoc
+//
+// @Summary      Exchange a checkout session code
+// @Description  Exchanges a one-time checkout handoff code for a short-lived checkout token.
+// @Tags         checkout
+// @Accept       json
+// @Produce      json
+// @Param        request  body      ExchangeCheckoutSessionRequest  true  "Checkout handoff code"
+// @Success      200      {object}  CheckoutTokenResponse
+// @Failure      400      {object}  core.APIError  "Missing checkout code"
+// @Failure      401      {object}  core.APIError  "Invalid or expired checkout code"
+// @Failure      500      {object}  core.APIError  "Failed to start checkout session"
+// @Router       /checkout-sessions/exchange [post]
 func (h *CheckoutHandler) ExchangeCheckoutSession(
 	w http.ResponseWriter,
 	r *http.Request,
 ) error {
-	var req exchangeCheckoutSessionRequest
+	var req ExchangeCheckoutSessionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Code == "" {
 		return core.Public(core.ErrInvalidInput, "Missing checkout code.")
 	}
@@ -193,7 +222,7 @@ func (h *CheckoutHandler) ExchangeCheckoutSession(
 		return core.Public(core.ErrInternal, "Failed to start checkout session.")
 	}
 
-	core.WriteJSON(w, http.StatusOK, checkoutTokenResponse{
+	core.WriteJSON(w, http.StatusOK, CheckoutTokenResponse{
 		AccessToken: token.AccessToken,
 		TokenType:   "Bearer",
 		ExpiresAt:   token.ExpiresAt,
@@ -202,6 +231,21 @@ func (h *CheckoutHandler) ExchangeCheckoutSession(
 	return nil
 }
 
+// GetCheckoutOrder godoc
+//
+// @Summary      Get a checkout order
+// @Description  Retrieves the order bound to the checkout token or authorized access token.
+// @Tags         checkout
+// @Produce      json
+// @Param        order_id  path      string  true  "Order ID"
+// @Success      200       {object}  billingSvc.Order
+// @Failure      401       {object}  core.APIError  "Missing or invalid checkout token"
+// @Failure      403       {object}  core.APIError  "Insufficient checkout scope or permission"
+// @Failure      404       {object}  core.APIError  "Order not found"
+// @Failure      500       {object}  core.APIError  "Failed to fetch order"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /checkout/orders/{order_id} [get]
 func (h *CheckoutHandler) GetCheckoutOrder(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -243,6 +287,21 @@ func (h *CheckoutHandler) GetCheckoutOrder(
 	return nil
 }
 
+// ListCheckoutOrderItems godoc
+//
+// @Summary      List checkout order items
+// @Description  Lists items for the order bound to the checkout token or authorized access token.
+// @Tags         checkout
+// @Produce      json
+// @Param        order_id  path      string  true  "Order ID"
+// @Success      200       {array}   billingSvc.OrderItem
+// @Failure      401       {object}  core.APIError  "Missing or invalid checkout token"
+// @Failure      403       {object}  core.APIError  "Insufficient checkout scope or permission"
+// @Failure      404       {object}  core.APIError  "Order not found"
+// @Failure      500       {object}  core.APIError  "Failed to fetch order items"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /checkout/orders/{order_id}/items [get]
 func (h *CheckoutHandler) ListCheckoutOrderItems(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -294,6 +353,26 @@ func (h *CheckoutHandler) ListCheckoutOrderItems(
 	return nil
 }
 
+// ChargeCheckoutOrder godoc
+//
+// @Summary      Charge a checkout order
+// @Description  Requests an M-Pesa STK charge for the order bound to the checkout token or authorized access token.
+// @Tags         checkout
+// @Accept       json
+// @Produce      json
+// @Param        order_id  path      string                  true  "Order ID"
+// @Param        request   body      billingSvc.ChargeOrder  true  "Payer phone number"
+// @Success      202       {object}  billingSvc.ChargeAttempt
+// @Failure      400       {object}  core.APIError  "Invalid request body or order"
+// @Failure      401       {object}  core.APIError  "Missing or invalid checkout token"
+// @Failure      403       {object}  core.APIError  "Insufficient checkout scope or permission"
+// @Failure      404       {object}  core.APIError  "Order not found"
+// @Failure      409       {object}  core.APIError  "Order cannot be charged"
+// @Failure      503       {object}  core.APIError  "RabbitMQ unavailable"
+// @Failure      500       {object}  core.APIError  "Failed to charge order"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /checkout/orders/{order_id}/charge [post]
 func (h *CheckoutHandler) ChargeCheckoutOrder(
 	w http.ResponseWriter,
 	r *http.Request,
