@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"net"
 	"net/http"
 	"net/netip"
 	"strings"
@@ -168,7 +167,10 @@ func (h *AuthHandler) PasswordLoginHandler(
 		return core.Public(core.ErrInvalidInput, "invalid login request")
 	}
 
-	clientIP, err := requestIP(r)
+	clientIP, err := middleware.ClientIP(
+		r,
+		h.auth.config.TrustedProxyPrefixes(),
+	)
 	if err != nil {
 		return core.Public(core.ErrInvalidInput, "invalid client address")
 	}
@@ -331,14 +333,6 @@ func (h *AuthHandler) clearPasswordLoginRateLimit(
 
 func invalidPasswordLogin() error {
 	return core.Public(core.ErrUnauthorized, "invalid email or password")
-}
-
-func requestIP(r *http.Request) (netip.Addr, error) {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return netip.Addr{}, err
-	}
-	return netip.ParseAddr(host)
 }
 
 func decodePasswordJSON(

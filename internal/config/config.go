@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
+	"net/netip"
 	"strings"
 	"time"
 
@@ -45,8 +46,9 @@ type Config struct {
 
 	// Application configuration
 	AppConfig struct {
-		Port    int    `envconfig:"VERISAFE_PORT"`
-		Address string `envconfig:"VERISAFE_ADDRESS"`
+		Port              int      `envconfig:"VERISAFE_PORT"`
+		Address           string   `envconfig:"VERISAFE_ADDRESS"`
+		TrustedProxyCIDRs []string `envconfig:"TRUSTED_PROXY_CIDRS"`
 	}
 
 	// Database configuration
@@ -110,6 +112,8 @@ type Config struct {
 		ReconcileEnabled    bool `envconfig:"OAUTH_RECONCILE_ENABLED"`
 		ReconcileRatePerMin int  `envconfig:"OAUTH_RECONCILE_RATE_PER_MINUTE"`
 	}
+
+	trustedProxyPrefixes []netip.Prefix
 }
 
 // Provider token defaults, applied by Validate when the corresponding env var
@@ -160,6 +164,14 @@ func LoadConfig() (*Config, error) {
 // an error the first time it's used (e.g. the first Apple login attempt).
 // See ADR 0004 (docs/adrs/0004-apple-client-secret-lifecycle.md).
 func (cfg *Config) Validate() error {
+	trustedProxyPrefixes, err := parseTrustedProxyCIDRs(
+		cfg.AppConfig.TrustedProxyCIDRs,
+	)
+	if err != nil {
+		return err
+	}
+	cfg.trustedProxyPrefixes = trustedProxyPrefixes
+
 	if cfg.AuthenticationConfig.SessionSecret == "" {
 		return fmt.Errorf("SESSION_SECRET must not be empty")
 	}
@@ -191,6 +203,46 @@ func (cfg *Config) Validate() error {
 	}
 
 	return nil
+}
+
+// TrustedProxyPrefixes returns a copy of the validated proxy ranges. If the
+// config was constructed directly instead of loaded through LoadConfig, it
+// parses the configured CIDRs on demand; invalid values are never trusted.
+func (cfg *Config) TrustedProxyPrefixes() []netip.Prefix {
+	if cfg == nil {
+		return nil
+	}
+
+	prefixes := cfg.trustedProxyPrefixes
+	if prefixes == nil {
+		prefixes, _ = parseTrustedProxyCIDRs(cfg.AppConfig.TrustedProxyCIDRs)
+	}
+	return append([]netip.Prefix(nil), prefixes...)
+}
+
+func parseTrustedProxyCIDRs(values []string) ([]netip.Prefix, error) {
+	prefixes := make([]netip.Prefix, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+
+		prefix, err := netip.ParsePrefix(value)
+		if err != nil {
+			addr, addrErr := netip.ParseAddr(value)
+			if addrErr != nil {
+				return nil, fmt.Errorf(
+					"TRUSTED_PROXY_CIDRS contains invalid IP or CIDR %q",
+					value,
+				)
+			}
+			addr = addr.Unmap()
+			prefix = netip.PrefixFrom(addr, addr.BitLen())
+		}
+		prefixes = append(prefixes, prefix.Masked())
+	}
+	return prefixes, nil
 }
 
 func (cfg *Config) BillingServiceName() string {
