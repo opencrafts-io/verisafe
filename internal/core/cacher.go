@@ -29,7 +29,11 @@ type Cacher interface {
 
 	// IncrementWithTTL atomically increments a counter and sets its expiry when
 	// first created. It is suitable for fixed-window rate limits.
-	IncrementWithTTL(ctx context.Context, key string, ttl time.Duration) (int64, error)
+	IncrementWithTTL(
+		ctx context.Context,
+		key string,
+		ttl time.Duration,
+	) (int64, error)
 
 	// Get retrieves a value by key into dest.
 	// Returns ErrCacheMiss if the key does not exist.

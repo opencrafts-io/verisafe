@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
 	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/middleware"
 	"github.com/opencrafts-io/verisafe/internal/repository"
@@ -33,8 +34,8 @@ type setPasswordRequest struct {
 }
 
 type passwordLoginRequest struct {
-	Email       string `json:"email" validate:"required"`
-	Password    string `json:"password" validate:"required,min=12,max=128"`
+	Email       string `json:"email"        validate:"required"`
+	Password    string `json:"password"     validate:"required,min=12,max=128"`
 	DeviceName  string `json:"device_name"`
 	DeviceToken string `json:"device_token"`
 }
@@ -62,7 +63,10 @@ func (h *AuthHandler) SetPasswordHandler(
 ) error {
 	claims, ok := middleware.ClaimsFromContext(r.Context())
 	if !ok || claims == nil || middleware.IsServiceToken(r.Context()) {
-		return core.Public(core.ErrUnauthorized, "a user access token is required")
+		return core.Public(
+			core.ErrUnauthorized,
+			"a user access token is required",
+		)
 	}
 	accountID, err := uuid.Parse(claims.Subject)
 	if err != nil {
@@ -70,16 +74,28 @@ func (h *AuthHandler) SetPasswordHandler(
 	}
 
 	var req setPasswordRequest
-	if err := decodePasswordJSON(w, r, &req); err != nil || !validPasswordLength(req.Password) {
+	if err := decodePasswordJSON(
+		w,
+		r,
+		&req,
+	); err != nil ||
+		!validPasswordLength(req.Password) {
 		return core.Public(
 			core.ErrInvalidInput,
-			fmt.Sprintf("password must be between %d and %d characters", passwordMinRunes, passwordMaxRunes),
+			fmt.Sprintf(
+				"password must be between %d and %d characters",
+				passwordMinRunes,
+				passwordMaxRunes,
+			),
 		)
 	}
 
 	passwordHash, err := hashPassword(req.Password)
 	if err != nil {
-		h.logger.Error("failed to hash account password", slog.Any("error", err))
+		h.logger.Error(
+			"failed to hash account password",
+			slog.Any("error", err),
+		)
 		return core.ErrInternal
 	}
 
@@ -89,7 +105,8 @@ func (h *AuthHandler) SetPasswordHandler(
 		if err != nil {
 			return err
 		}
-		if account.Type != repository.AccountTypeHuman || account.DeletedAt != nil {
+		if account.Type != repository.AccountTypeHuman ||
+			account.DeletedAt != nil {
 			return core.ErrForbidden
 		}
 		return repo.SetAccountPassword(
@@ -101,14 +118,20 @@ func (h *AuthHandler) SetPasswordHandler(
 		)
 	})
 	if err != nil {
-		h.logger.Error("failed to save account password", slog.Any("error", err))
+		h.logger.Error(
+			"failed to save account password",
+			slog.Any("error", err),
+		)
 		if errors.Is(err, core.ErrForbidden) {
 			return err
 		}
 		return core.ErrInternal
 	}
 
-	h.logger.Info("account password set", slog.String("account_id", accountID.String()))
+	h.logger.Info(
+		"account password set",
+		slog.String("account_id", accountID.String()),
+	)
 	w.WriteHeader(http.StatusNoContent)
 	return nil
 }
@@ -140,7 +163,8 @@ func (h *AuthHandler) PasswordLoginHandler(
 	}
 
 	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
-	if len(req.Email) == 0 || len(req.Email) > 255 || !validPasswordLength(req.Password) {
+	if len(req.Email) == 0 || len(req.Email) > 255 ||
+		!validPasswordLength(req.Password) {
 		return core.Public(core.ErrInvalidInput, "invalid login request")
 	}
 
@@ -148,18 +172,32 @@ func (h *AuthHandler) PasswordLoginHandler(
 	if err != nil {
 		return core.Public(core.ErrInvalidInput, "invalid client address")
 	}
-	if err := h.checkPasswordLoginRateLimit(r, clientIP, req.Email); err != nil {
+	if err := h.checkPasswordLoginRateLimit(
+		r,
+		clientIP,
+		req.Email,
+	); err != nil {
 		if errors.Is(err, errPasswordLoginRateLimited) {
-			core.WriteError(w, http.StatusTooManyRequests, "too many login attempts; try again later")
+			core.WriteError(
+				w,
+				http.StatusTooManyRequests,
+				"too many login attempts; try again later",
+			)
 			return nil
 		}
-		h.logger.Error("password login rate limiter unavailable", slog.Any("error", err))
+		h.logger.Error(
+			"password login rate limiter unavailable",
+			slog.Any("error", err),
+		)
 		return core.ErrUnavailable
 	}
 	var country *string
 	if h.geoLocator != nil {
 		if info, err := h.geoLocator.Lookup(clientIP); err != nil {
-			h.logger.Warn("geo lookup failed during password login", slog.Any("error", err))
+			h.logger.Warn(
+				"geo lookup failed during password login",
+				slog.Any("error", err),
+			)
 		} else {
 			country = &info.Country.ISOCode
 		}
@@ -169,14 +207,18 @@ func (h *AuthHandler) PasswordLoginHandler(
 	if err != nil {
 		return core.ErrInternal
 	}
-	credential, lookupErr := repository.New(conn).GetPasswordCredentialByEmail(r.Context(), req.Email)
+	credential, lookupErr := repository.New(conn).
+		GetPasswordCredentialByEmail(r.Context(), req.Email)
 	conn.Release()
 	if lookupErr != nil {
 		if errors.Is(lookupErr, pgx.ErrNoRows) {
 			burnPasswordHash(req.Password)
 			return invalidPasswordLogin()
 		}
-		h.logger.Error("failed to find password credential", slog.Any("error", lookupErr))
+		h.logger.Error(
+			"failed to find password credential",
+			slog.Any("error", lookupErr),
+		)
 		return core.ErrInternal
 	}
 	if !verifyPassword(req.Password, credential.PasswordHash) {
@@ -190,7 +232,8 @@ func (h *AuthHandler) PasswordLoginHandler(
 		if err != nil {
 			return err
 		}
-		if account.Type != repository.AccountTypeHuman || account.DeletedAt != nil {
+		if account.Type != repository.AccountTypeHuman ||
+			account.DeletedAt != nil {
 			return pgx.ErrNoRows
 		}
 
@@ -217,7 +260,10 @@ func (h *AuthHandler) PasswordLoginHandler(
 		if errors.Is(err, pgx.ErrNoRows) {
 			return invalidPasswordLogin()
 		}
-		h.logger.Error("password login transaction failed", slog.Any("error", err))
+		h.logger.Error(
+			"password login transaction failed",
+			slog.Any("error", err),
+		)
 		return core.ErrInternal
 	}
 
@@ -249,12 +295,15 @@ func (h *AuthHandler) checkPasswordLoginRateLimit(
 		return err
 	}
 	identityCount, err := h.cacher.IncrementWithTTL(
-		r.Context(), passwordLoginRatePrefix+"identity:"+identityHash, passwordLoginWindow,
+		r.Context(),
+		passwordLoginRatePrefix+"identity:"+identityHash,
+		passwordLoginWindow,
 	)
 	if err != nil {
 		return err
 	}
-	if ipCount > passwordLoginIPLimit || identityCount > passwordLoginIdentityLimit {
+	if ipCount > passwordLoginIPLimit ||
+		identityCount > passwordLoginIdentityLimit {
 		return errPasswordLoginRateLimited
 	}
 	return nil
@@ -272,7 +321,10 @@ func (h *AuthHandler) clearPasswordLoginRateLimit(
 		passwordLoginRatePrefix + "identity:" + identityHash,
 	} {
 		if err := h.cacher.Delete(r.Context(), key); err != nil {
-			h.logger.Warn("failed to clear password login rate limit", slog.Any("error", err))
+			h.logger.Warn(
+				"failed to clear password login rate limit",
+				slog.Any("error", err),
+			)
 		}
 	}
 }
@@ -289,7 +341,11 @@ func requestIP(r *http.Request) (netip.Addr, error) {
 	return netip.ParseAddr(host)
 }
 
-func decodePasswordJSON(w http.ResponseWriter, r *http.Request, dest any) error {
+func decodePasswordJSON(
+	w http.ResponseWriter,
+	r *http.Request,
+	dest any,
+) error {
 	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16*1024))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(dest); err != nil {

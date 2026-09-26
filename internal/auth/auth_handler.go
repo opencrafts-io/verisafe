@@ -18,6 +18,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
+
 	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/eventbus"
 	"github.com/opencrafts-io/verisafe/internal/geo"

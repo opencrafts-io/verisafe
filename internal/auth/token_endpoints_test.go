@@ -8,10 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/opencrafts-io/verisafe/internal/core"
-	mockscore "github.com/opencrafts-io/verisafe/internal/core/mocks"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
+
+	"github.com/opencrafts-io/verisafe/internal/core"
+	mockscore "github.com/opencrafts-io/verisafe/internal/core/mocks"
 )
 
 // ExchangeAuthCodeHandler is the one AppHandler-wrapped auth endpoint that
@@ -44,7 +45,9 @@ func TestExchangeAuthCodeHandler(t *testing.T) {
 
 		h := &AuthHandler{cacher: cacher, logger: testLogger()}
 		req := httptest.NewRequest(
-			"POST", "/auth/token/exchange", strings.NewReader(`{"code":"validcode"}`),
+			"POST",
+			"/auth/token/exchange",
+			strings.NewReader(`{"code":"validcode"}`),
 		)
 		rr := httptest.NewRecorder()
 
@@ -60,7 +63,11 @@ func TestExchangeAuthCodeHandler(t *testing.T) {
 
 	t.Run("missing code", func(t *testing.T) {
 		h := &AuthHandler{logger: testLogger()}
-		req := httptest.NewRequest("POST", "/auth/token/exchange", strings.NewReader(`{}`))
+		req := httptest.NewRequest(
+			"POST",
+			"/auth/token/exchange",
+			strings.NewReader(`{}`),
+		)
 		rr := httptest.NewRecorder()
 
 		err := h.ExchangeAuthCodeHandler(rr, req)
@@ -77,7 +84,9 @@ func TestExchangeAuthCodeHandler(t *testing.T) {
 
 		h := &AuthHandler{cacher: cacher, logger: testLogger()}
 		req := httptest.NewRequest(
-			"POST", "/auth/token/exchange", strings.NewReader(`{"code":"gonecode"}`),
+			"POST",
+			"/auth/token/exchange",
+			strings.NewReader(`{"code":"gonecode"}`),
 		)
 		rr := httptest.NewRecorder()
 
@@ -99,7 +108,9 @@ func TestExchangeAuthCodeHandler(t *testing.T) {
 func TestRefreshTokenHandler_InputValidation(t *testing.T) {
 	h := &AuthHandler{logger: testLogger()}
 	req := httptest.NewRequest(
-		"POST", "/auth/token/refresh", strings.NewReader(`{"refresh_token":""}`),
+		"POST",
+		"/auth/token/refresh",
+		strings.NewReader(`{"refresh_token":""}`),
 	)
 	rr := httptest.NewRecorder()
 
@@ -114,7 +125,11 @@ func TestRefreshTokenHandler_InputValidation(t *testing.T) {
 // DB-touching success path isn't covered here.
 func TestRevokeTokenHandler_MissingClaims(t *testing.T) {
 	h := &AuthHandler{logger: testLogger()}
-	req := httptest.NewRequest("POST", "/auth/token/revoke", strings.NewReader(`{}`))
+	req := httptest.NewRequest(
+		"POST",
+		"/auth/token/revoke",
+		strings.NewReader(`{}`),
+	)
 	rr := httptest.NewRecorder()
 
 	err := h.RevokeTokenHandler(rr, req)
