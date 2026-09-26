@@ -1,10 +1,12 @@
 # Authentication
 
-This document describes Verisafe's OAuth2 login flow and JWT/refresh-token lifecycle: the `/auth/*`
-endpoints in `internal/auth`, and token issuance/rotation/revocation in `internal/tokens`. See
+This document describes Verisafe's OAuth2 and email/password login flows and the JWT/refresh-token
+lifecycle: the `/auth/*` endpoints in `internal/auth`, and token issuance/rotation/revocation in
+`internal/tokens`. See
 [ADR 0001](adrs/0001-verisafe-authentication-and-token-strategy.md) for the original strategy
 decision and [ADR 0004](adrs/0004-apple-client-secret-lifecycle.md) for the Apple-specific
-operational caveat referenced below.
+operational caveat referenced below. Password authentication is covered by
+[ADR 0011](adrs/0011-add-password-authentication-for-existing-human-accounts.md).
 
 > **Third-party scopes are a separate concern.** What a user granted at Google or Spotify, how another
 > service obtains a token on their behalf, and how a user grants more without signing in again are all
@@ -13,17 +15,21 @@ operational caveat referenced below.
 
 ## Overview
 
-Verisafe supports three OAuth2 providers via [goth](https://github.com/markbates/goth): **Google**,
-**Spotify**, and **Apple**. Login is a single redirect-based flow shared by all three, with a
-platform split at the end:
+Verisafe supports OAuth2 sign-in through **Google**, **Spotify**, and **Apple**, plus email and
+password sign-in for human accounts that have added a password. OAuth login uses a redirect-based
+flow, with a platform split at the end:
 
 - **Web** clients get the issued access/refresh token pair set directly as `HttpOnly` cookies.
 - **Mobile** clients get a one-time opaque code appended to a deep link, then exchange that code for
   the token pair via a separate endpoint — tokens never appear in a redirect URL.
 
-Every login (regardless of provider or platform) upserts the account and social-connection rows,
-registers the requesting device, and issues a fresh access/refresh token pair inside one database
-transaction — see `CallbackHandler` in `internal/auth/auth_handler.go`.
+Every OAuth callback upserts the account and social-connection rows, registers the requesting
+device, and issues a fresh access/refresh token pair inside one database transaction — see
+`CallbackHandler` in `internal/auth/auth_handler.go`.
+
+Password sign-in uses the same Verisafe token pair and device registration, but does not create an
+account or a social connection. An existing human account adds a password while signed in; its
+OAuth login remains available.
 
 ## API Endpoints
 
@@ -63,6 +69,54 @@ Response:
 ```
 The code is single-use with a 60-second TTL (`authCodeTTL`, `internal/auth/auth_handler.go`) and is
 deleted from the cache on first use.
+
+### Set or change an account password
+
+An already-authenticated human account can add a password or replace its existing password:
+
+```http
+PUT /auth/password
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{ "password": "at-least-12-characters" }
+```
+
+The password must contain 12–128 Unicode characters. Password hashes use Argon2id and are stored
+in `account_password_credentials`, separately from account profile data. This endpoint requires a
+user Bearer token; service API keys cannot set a password. It does not create accounts. Password
+recovery is not available, so a caller must have an active signed-in session to set or change the
+password.
+
+### Sign in with email and password
+
+```http
+POST /auth/password/login
+Content-Type: application/json
+
+{
+  "email": "reviewer@example.com",
+  "password": "at-least-12-characters",
+  "device_name": "App review device",
+  "device_token": ""
+}
+```
+
+`email` and `password` are required; the device fields are optional. The endpoint only accepts an
+existing, active `human` account that has a password credential. It returns the standard JSON token
+pair shown by `/auth/token/exchange`; the client should store the refresh token in its secure
+platform storage. Unknown emails and incorrect passwords return the same `401` response. Login
+attempts are rate-limited in Redis by source IP and by source-IP/email pair; Redis errors fail the
+login closed, and an over-limit request returns `429`.
+
+### Preparing a store-review account
+
+Use a dedicated demo human account, not a developer's personal account. Sign in to Verisafe once
+with that account's existing Google or Apple identity, then call `PUT /auth/password` while its
+Verisafe session is active. Give the resulting email and password to reviewers in App Store Connect
+or Play Console, along with any steps needed to reach the app's reviewed features. The reviewer can
+then use `POST /auth/password/login` without creating an account or signing in to the linked
+provider. Keep the account active and populated with review-safe sample data for the review period.
 
 ### Refresh a token pair
 ```http
@@ -110,6 +164,10 @@ after a long period of inactivity should treat it as "please log in again," not 
 security incident.
 
 ## Security notes and known limitations
+
+- Passwords are optional credentials for existing human accounts. Setting a password does not
+  unlink Google, Spotify, or Apple, and password login does not add a provider grant. There is no
+  password signup or recovery flow yet.
 
 - **State encoding**: login state (platform, redirect URI, deep link, device name/token) is
   pipe-delimited and base64-encoded (`encodeState`/`decodeState`,

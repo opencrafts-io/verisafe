@@ -275,6 +275,13 @@ type AccountInstitutionInfo struct {
 	InstitutionCountryCode *string    `json:"institution_country_code"`
 }
 
+type AccountPasswordCredential struct {
+	AccountID    uuid.UUID `json:"account_id"`
+	PasswordHash string    `json:"password_hash"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
 type AccountVibepointRank struct {
 	ID         uuid.UUID  `json:"id"`
 	Email      string     `json:"email"`

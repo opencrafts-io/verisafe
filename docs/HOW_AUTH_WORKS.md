@@ -109,6 +109,37 @@ The app then swaps that code for the real tokens:
 
 The code works exactly once and expires after 60 seconds.
 
+### Existing accounts can add password sign-in
+
+OAuth remains the way an account is first created. While signed in, a human account can add or
+replace its password with `PUT /auth/password`. The server stores an Argon2id hash in a separate
+credential table; the account ID, provider connections, permissions, and user data stay the same.
+
+After setup, a client can call `POST /auth/password/login` with the account email and password. The
+server registers the device and returns the usual Verisafe access and refresh token pair directly as
+JSON. The refresh token still belongs in iOS Keychain or Android Keystore. Password login only works
+for an existing active human account, and password recovery is not part of this flow.
+
+For store review, set up a dedicated demo account first: create or access it through its linked
+Google or Apple sign-in, add a password while its Verisafe session is active, and supply the
+email/password plus access instructions through the store's review form. Reviewers can then reach
+the account without creating one or using the linked provider.
+
+```text
+Existing account with active OAuth session
+                 │
+                 └── PUT /auth/password { "password": "..." }
+                                      │
+                                      ▼
+                           Argon2id credential saved
+                                      │
+                                      ▼
+POST /auth/password/login { "email": "...", "password": "..." }
+                                      │
+                                      ▼
+                     Existing account's Verisafe tokens
+```
+
 ---
 
 ## Part 2: The two tokens you get

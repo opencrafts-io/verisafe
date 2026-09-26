@@ -126,6 +126,16 @@ func (h *AuthHandler) RegisterHandlers(router core.Router) {
 	router.HandleFunc("GET /auth/{provider}", h.LoginHandler)
 	router.HandleFunc("/auth/{provider}/callback", h.CallbackHandler)
 	router.Handle(
+		"POST /auth/password/login",
+		core.AppHandler(h.PasswordLoginHandler),
+	)
+	router.Handle(
+		"PUT /auth/password",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(h.auth.config, h.db, h.cacher, h.logger),
+		)(core.AppHandler(h.SetPasswordHandler)),
+	)
+	router.Handle(
 		"POST /auth/token/exchange",
 		core.AppHandler(h.ExchangeAuthCodeHandler),
 	)

@@ -93,3 +93,20 @@ UPDATE accounts
   WHERE 
     id = $1
   AND deleted_at IS NOT NULL;
+
+-- name: SetAccountPassword :exec
+INSERT INTO account_password_credentials (account_id, password_hash)
+VALUES ($1, $2)
+ON CONFLICT (account_id) DO UPDATE
+SET password_hash = EXCLUDED.password_hash,
+    updated_at = NOW();
+
+-- name: GetPasswordCredentialByEmail :one
+SELECT a.id, a.type, credentials.password_hash
+FROM accounts AS a
+JOIN account_password_credentials AS credentials
+  ON credentials.account_id = a.id
+WHERE lower(a.email) = lower(sqlc.arg(email)::varchar)
+  AND a.type = 'human'
+  AND a.deleted_at IS NULL
+LIMIT 1;

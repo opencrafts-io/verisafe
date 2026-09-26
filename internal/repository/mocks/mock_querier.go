@@ -1023,6 +1023,21 @@ func (mr *MockQuerierMockRecorder) GetOrderItem(ctx, arg any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOrderItem", reflect.TypeOf((*MockQuerier)(nil).GetOrderItem), ctx, arg)
 }
 
+// GetPasswordCredentialByEmail mocks base method.
+func (m *MockQuerier) GetPasswordCredentialByEmail(ctx context.Context, email string) (repository.GetPasswordCredentialByEmailRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPasswordCredentialByEmail", ctx, email)
+	ret0, _ := ret[0].(repository.GetPasswordCredentialByEmailRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPasswordCredentialByEmail indicates an expected call of GetPasswordCredentialByEmail.
+func (mr *MockQuerierMockRecorder) GetPasswordCredentialByEmail(ctx, email any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPasswordCredentialByEmail", reflect.TypeOf((*MockQuerier)(nil).GetPasswordCredentialByEmail), ctx, email)
+}
+
 // GetPendingChargeAttemptsByOrder mocks base method.
 func (m *MockQuerier) GetPendingChargeAttemptsByOrder(ctx context.Context, arg repository.GetPendingChargeAttemptsByOrderParams) ([]repository.ChargeAttempt, error) {
 	m.ctrl.T.Helper()
@@ -1818,6 +1833,20 @@ func (m *MockQuerier) SearchInstitutionsByName(ctx context.Context, arg reposito
 func (mr *MockQuerierMockRecorder) SearchInstitutionsByName(ctx, arg any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SearchInstitutionsByName", reflect.TypeOf((*MockQuerier)(nil).SearchInstitutionsByName), ctx, arg)
+}
+
+// SetAccountPassword mocks base method.
+func (m *MockQuerier) SetAccountPassword(ctx context.Context, arg repository.SetAccountPasswordParams) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetAccountPassword", ctx, arg)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetAccountPassword indicates an expected call of SetAccountPassword.
+func (mr *MockQuerierMockRecorder) SetAccountPassword(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAccountPassword", reflect.TypeOf((*MockQuerier)(nil).SetAccountPassword), ctx, arg)
 }
 
 // UpdateAccountDetails mocks base method.

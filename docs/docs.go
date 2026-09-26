@@ -1341,6 +1341,118 @@ const docTemplate = `{
                 }
             }
         },
+        "/auth/password": {
+            "put": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    }
+                ],
+                "description": "Adds a password credential to the signed-in human account or replaces its existing credential. The caller must already have a user access token; password recovery is not provided.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Add or change the authenticated account's password",
+                "parameters": [
+                    {
+                        "description": "New password",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/auth.setPasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Password saved"
+                    },
+                    "400": {
+                        "description": "Password does not meet requirements",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "A user access token is required",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "403": {
+                        "description": "Only active human accounts can use passwords",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/password/login": {
+            "post": {
+                "description": "Authenticates an existing human account that has previously set a password, then returns the usual Verisafe access and refresh token pair. This endpoint does not create accounts.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Sign in with an account email and password",
+                "parameters": [
+                    {
+                        "description": "Email, password, and optional device details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/auth.passwordLoginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/auth.tokenResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed login request",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "Invalid email or password",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "429": {
+                        "description": "Too many login attempts",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "503": {
+                        "description": "Login rate limiter unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/token/exchange": {
             "post": {
                 "description": "Exchanges the one-time opaque code from the deep link (see CallbackHandler) for the access/refresh token pair. The code is single-use with a 60-second TTL and is deleted on first use.",
@@ -5919,6 +6031,29 @@ const docTemplate = `{
                 }
             }
         },
+        "auth.passwordLoginRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "password"
+            ],
+            "properties": {
+                "device_name": {
+                    "type": "string"
+                },
+                "device_token": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string",
+                    "maxLength": 128,
+                    "minLength": 12
+                }
+            }
+        },
         "auth.refreshTokenRequest": {
             "type": "object",
             "properties": {
@@ -5932,6 +6067,19 @@ const docTemplate = `{
             "properties": {
                 "refresh_token": {
                     "type": "string"
+                }
+            }
+        },
+        "auth.setPasswordRequest": {
+            "type": "object",
+            "required": [
+                "password"
+            ],
+            "properties": {
+                "password": {
+                    "type": "string",
+                    "maxLength": 128,
+                    "minLength": 12
                 }
             }
         },
