@@ -95,6 +95,22 @@ definitions:
       code:
         type: string
     type: object
+  auth.passwordLoginRequest:
+    properties:
+      device_name:
+        type: string
+      device_token:
+        type: string
+      email:
+        type: string
+      password:
+        maxLength: 128
+        minLength: 12
+        type: string
+    required:
+    - email
+    - password
+    type: object
   auth.refreshTokenRequest:
     properties:
       refresh_token:
@@ -104,6 +120,15 @@ definitions:
     properties:
       refresh_token:
         type: string
+    type: object
+  auth.setPasswordRequest:
+    properties:
+      password:
+        maxLength: 128
+        minLength: 12
+        type: string
+    required:
+    - password
     type: object
   auth.tokenResponse:
     properties:
@@ -2215,6 +2240,82 @@ paths:
       security:
       - BearerToken: []
       summary: Log out of the OAuth2 provider session
+      tags:
+      - auth
+  /auth/password:
+    put:
+      consumes:
+      - application/json
+      description: Adds a password credential to the signed-in human account or replaces
+        its existing credential. The caller must already have a user access token;
+        password recovery is not provided.
+      parameters:
+      - description: New password
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.setPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Password saved
+        "400":
+          description: Password does not meet requirements
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: A user access token is required
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "403":
+          description: Only active human accounts can use passwords
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      summary: Add or change the authenticated account's password
+      tags:
+      - auth
+  /auth/password/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticates an existing human account that has previously set
+        a password, then returns the usual Verisafe access and refresh token pair.
+        This endpoint does not create accounts.
+      parameters:
+      - description: Email, password, and optional device details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.passwordLoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.tokenResponse'
+        "400":
+          description: Malformed login request
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Invalid email or password
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "429":
+          description: Too many login attempts
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "503":
+          description: Login rate limiter unavailable
+          schema:
+            $ref: '#/definitions/core.APIError'
+      summary: Sign in with an account email and password
       tags:
       - auth
   /auth/token/exchange:

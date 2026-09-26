@@ -137,6 +137,7 @@ type Querier interface {
 	GetOrder(ctx context.Context, id string) (Order, error)
 	// Retrieve one order item by its ID.
 	GetOrderItem(ctx context.Context, arg GetOrderItemParams) (OrderItem, error)
+	GetPasswordCredentialByEmail(ctx context.Context, email string) (GetPasswordCredentialByEmailRow, error)
 	GetPendingChargeAttemptsByOrder(ctx context.Context, arg GetPendingChargeAttemptsByOrderParams) ([]ChargeAttempt, error)
 	GetPermissionByID(ctx context.Context, id uuid.UUID) (Permission, error)
 	// Retrieves a plan by its code
@@ -237,6 +238,7 @@ type Querier interface {
 	SearchAccountByName(ctx context.Context, arg SearchAccountByNameParams) ([]Account, error)
 	SearchAccountByUsername(ctx context.Context, arg SearchAccountByUsernameParams) ([]Account, error)
 	SearchInstitutionsByName(ctx context.Context, arg SearchInstitutionsByNameParams) ([]Institution, error)
+	SetAccountPassword(ctx context.Context, arg SetAccountPasswordParams) error
 	UpdateAccountDetails(ctx context.Context, arg UpdateAccountDetailsParams) error
 	// Only updates the primary phone number for an account
 	UpdateAccountPhoneNumber(ctx context.Context, arg UpdateAccountPhoneNumberParams) error

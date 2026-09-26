@@ -84,6 +84,21 @@ func (mr *MockCacherMockRecorder) Get(ctx, key, dest any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockCacher)(nil).Get), ctx, key, dest)
 }
 
+// IncrementWithTTL mocks base method.
+func (m *MockCacher) IncrementWithTTL(ctx context.Context, key string, ttl time.Duration) (int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IncrementWithTTL", ctx, key, ttl)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IncrementWithTTL indicates an expected call of IncrementWithTTL.
+func (mr *MockCacherMockRecorder) IncrementWithTTL(ctx, key, ttl any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IncrementWithTTL", reflect.TypeOf((*MockCacher)(nil).IncrementWithTTL), ctx, key, ttl)
+}
+
 // Set mocks base method.
 func (m *MockCacher) Set(ctx context.Context, key string, value any, ttl time.Duration) error {
 	m.ctrl.T.Helper()

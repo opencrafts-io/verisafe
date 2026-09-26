@@ -16,9 +16,10 @@ import (
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
 	"github.com/markbates/goth/providers/google"
-	"github.com/opencrafts-io/verisafe/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/opencrafts-io/verisafe/internal/config"
 )
 
 func testLogger() *slog.Logger {
@@ -36,7 +37,11 @@ func TestIsRedirectAllowed(t *testing.T) {
 		{"exact match", "https://app.example.com/callback", true},
 		{"case-insensitive match", "HTTPS://APP.EXAMPLE.COM/CALLBACK", true},
 		{"not in allowlist", "https://evil.example.com", false},
-		{"prefix of an allowed URI is not enough", "https://app.example.com", false},
+		{
+			"prefix of an allowed URI is not enough",
+			"https://app.example.com",
+			false,
+		},
 		{"empty allowlist entry never matches empty input", "", false},
 	}
 
@@ -58,7 +63,11 @@ func TestEncodeDecodeState_RoundTrip(t *testing.T) {
 
 	encoded := encodeState(original)
 
-	req := httptest.NewRequest("GET", "/auth/google/callback?state="+encoded, nil)
+	req := httptest.NewRequest(
+		"GET",
+		"/auth/google/callback?state="+encoded,
+		nil,
+	)
 	decoded, err := decodeState(req)
 
 	require.NoError(t, err)
@@ -73,31 +82,42 @@ func TestDecodeState_KnownLimitations(t *testing.T) {
 	})
 
 	t.Run("invalid base64 encoding", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/auth/google/callback?state=not-valid-base64!!!", nil)
+		req := httptest.NewRequest(
+			"GET",
+			"/auth/google/callback?state=not-valid-base64!!!",
+			nil,
+		)
 		_, err := decodeState(req)
 		assert.ErrorContains(t, err, "invalid state encoding")
 	})
 
-	t.Run("documents the pipe-delimiter escaping limitation", func(t *testing.T) {
-		// A DeviceName containing a literal "|" is not escaped, so it
-		// splits into an extra field and corrupts every field after it.
-		// This is a known limitation (see docs/AUTHENTICATION.md), not
-		// desired behavior — this test documents today's actual output
-		// rather than silently fixing it.
-		original := StateData{
-			Platform:    authPlatformMobileValue,
-			DeviceName:  "my|weird|device",
-			DeviceToken: "tok_abc123",
-		}
-		encoded := encodeState(original)
-		req := httptest.NewRequest("GET", "/auth/google/callback?state="+encoded, nil)
+	t.Run(
+		"documents the pipe-delimiter escaping limitation",
+		func(t *testing.T) {
+			// A DeviceName containing a literal "|" is not escaped, so it
+			// splits into an extra field and corrupts every field after it.
+			// This is a known limitation (see docs/AUTHENTICATION.md), not
+			// desired behavior — this test documents today's actual output
+			// rather than silently fixing it.
+			original := StateData{
+				Platform:    authPlatformMobileValue,
+				DeviceName:  "my|weird|device",
+				DeviceToken: "tok_abc123",
+			}
+			encoded := encodeState(original)
+			req := httptest.NewRequest(
+				"GET",
+				"/auth/google/callback?state="+encoded,
+				nil,
+			)
 
-		decoded, err := decodeState(req)
+			decoded, err := decodeState(req)
 
-		require.NoError(t, err)
-		assert.NotEqual(t, original.DeviceName, decoded.DeviceName,
-			"documents that embedded '|' corrupts decoding today")
-	})
+			require.NoError(t, err)
+			assert.NotEqual(t, original.DeviceName, decoded.DeviceName,
+				"documents that embedded '|' corrupts decoding today")
+		},
+	)
 }
 
 func generateTestApplePrivateKeyPEM(t *testing.T) string {
@@ -136,7 +156,9 @@ func TestGenerateAppleClientSecret(t *testing.T) {
 		require.NoError(t, err)
 		der, err := x509.MarshalPKCS8PrivateKey(rsaKey)
 		require.NoError(t, err)
-		keyPEM := string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der}))
+		keyPEM := string(
+			pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der}),
+		)
 
 		_, err = GenerateAppleClientSecret(
 			"TEAM123", "KEY456", "com.example.app", keyPEM,
@@ -149,10 +171,20 @@ func TestGenerateAppleClientSecret(t *testing.T) {
 // so LoginHandler's happy path can reach gothic.GetAuthURL without any real
 // network access — goth's "begin auth" step builds the authorization URL
 // locally and never makes an HTTP call.
-func setupLoginHandlerTest(t *testing.T, allowedRedirects []string) *AuthHandler {
+func setupLoginHandlerTest(
+	t *testing.T,
+	allowedRedirects []string,
+) *AuthHandler {
 	t.Helper()
 	gothic.Store = sessions.NewCookieStore([]byte("test-session-secret"))
-	goth.UseProviders(google.New("dummy-id", "dummy-secret", "http://localhost/auth/google/callback", "email"))
+	goth.UseProviders(
+		google.New(
+			"dummy-id",
+			"dummy-secret",
+			"http://localhost/auth/google/callback",
+			"email",
+		),
+	)
 
 	cfg := &config.Config{}
 	cfg.JWTConfig.AllowedRedirectURIs = allowedRedirects
@@ -172,7 +204,11 @@ func TestLoginHandler(t *testing.T) {
 		h.LoginHandler(rr, req)
 
 		assert.Equal(t, 400, rr.Code)
-		assert.JSONEq(t, `{"error":"provider name not found in request path"}`, rr.Body.String())
+		assert.JSONEq(
+			t,
+			`{"error":"provider name not found in request path"}`,
+			rr.Body.String(),
+		)
 	})
 
 	t.Run("missing redirect_uri for web platform", func(t *testing.T) {
@@ -184,13 +220,22 @@ func TestLoginHandler(t *testing.T) {
 		h.LoginHandler(rr, req)
 
 		assert.Equal(t, 400, rr.Code)
-		assert.JSONEq(t, `{"error":"missing redirect_uri for web platform"}`, rr.Body.String())
+		assert.JSONEq(
+			t,
+			`{"error":"missing redirect_uri for web platform"}`,
+			rr.Body.String(),
+		)
 	})
 
 	t.Run("disallowed redirect_uri", func(t *testing.T) {
-		h := setupLoginHandlerTest(t, []string{"https://app.example.com/callback"})
+		h := setupLoginHandlerTest(
+			t,
+			[]string{"https://app.example.com/callback"},
+		)
 		req := httptest.NewRequest(
-			"GET", "/auth/google?platform=web&redirect_uri=https://evil.example.com", nil,
+			"GET",
+			"/auth/google?platform=web&redirect_uri=https://evil.example.com",
+			nil,
 		)
 		req.SetPathValue("provider", "google")
 		rr := httptest.NewRecorder()
@@ -198,7 +243,11 @@ func TestLoginHandler(t *testing.T) {
 		h.LoginHandler(rr, req)
 
 		assert.Equal(t, 400, rr.Code)
-		assert.JSONEq(t, `{"error":"redirect_uri not allowed"}`, rr.Body.String())
+		assert.JSONEq(
+			t,
+			`{"error":"redirect_uri not allowed"}`,
+			rr.Body.String(),
+		)
 	})
 
 	t.Run("valid mobile login redirects to provider", func(t *testing.T) {
@@ -213,17 +262,29 @@ func TestLoginHandler(t *testing.T) {
 		assert.Contains(t, rr.Header().Get("Location"), "accounts.google.com")
 	})
 
-	t.Run("valid web login with allowed redirect_uri redirects to provider", func(t *testing.T) {
-		h := setupLoginHandlerTest(t, []string{"https://app.example.com/callback"})
-		req := httptest.NewRequest(
-			"GET", "/auth/google?platform=web&redirect_uri=https://app.example.com/callback", nil,
-		)
-		req.SetPathValue("provider", "google")
-		rr := httptest.NewRecorder()
+	t.Run(
+		"valid web login with allowed redirect_uri redirects to provider",
+		func(t *testing.T) {
+			h := setupLoginHandlerTest(
+				t,
+				[]string{"https://app.example.com/callback"},
+			)
+			req := httptest.NewRequest(
+				"GET",
+				"/auth/google?platform=web&redirect_uri=https://app.example.com/callback",
+				nil,
+			)
+			req.SetPathValue("provider", "google")
+			rr := httptest.NewRecorder()
 
-		h.LoginHandler(rr, req)
+			h.LoginHandler(rr, req)
 
-		assert.Equal(t, 302, rr.Code)
-		assert.Contains(t, rr.Header().Get("Location"), "accounts.google.com")
-	})
+			assert.Equal(t, 302, rr.Code)
+			assert.Contains(
+				t,
+				rr.Header().Get("Location"),
+				"accounts.google.com",
+			)
+		},
+	)
 }
