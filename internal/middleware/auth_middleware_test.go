@@ -107,3 +107,39 @@ func TestHasPermission(t *testing.T) {
 		assert.Equal(t, http.StatusOK, rr.Code)
 	})
 }
+
+func TestHasAnyPermission(t *testing.T) {
+	t.Run("one allowed permission present succeeds", func(t *testing.T) {
+		next, called := nextHandlerCalled(t)
+		handler := middleware.HasAnyPermission(
+			[]string{"read:order:own", "read:order:any"},
+		)(next)
+
+		req := httptest.NewRequest("GET", "/orders", nil)
+		ctx := middleware.WithPermissions(req.Context(), []string{"read:order:own"})
+		req = req.WithContext(ctx)
+		rr := httptest.NewRecorder()
+
+		handler.ServeHTTP(rr, req)
+
+		assert.True(t, *called)
+		assert.Equal(t, http.StatusOK, rr.Code)
+	})
+
+	t.Run("no allowed permissions denies", func(t *testing.T) {
+		next, called := nextHandlerCalled(t)
+		handler := middleware.HasAnyPermission(
+			[]string{"read:order:own", "read:order:any"},
+		)(next)
+
+		req := httptest.NewRequest("GET", "/orders", nil)
+		ctx := middleware.WithPermissions(req.Context(), []string{"read:plan:any"})
+		req = req.WithContext(ctx)
+		rr := httptest.NewRecorder()
+
+		handler.ServeHTTP(rr, req)
+
+		assert.False(t, *called)
+		assert.Equal(t, http.StatusForbidden, rr.Code)
+	})
+}

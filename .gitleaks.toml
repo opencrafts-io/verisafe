@@ -47,4 +47,5 @@ paths = [
   '''docs/swagger\.yaml''',
   '''internal/geo/mmdb/.*\.mmdb''',
   '''go\.sum''',
+ '''\.gitleaks-baseline\.json$''',
 ]

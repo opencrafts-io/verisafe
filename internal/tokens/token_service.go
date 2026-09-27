@@ -13,7 +13,6 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/opencrafts-io/verisafe/internal/config"
 	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/repository"
@@ -59,12 +58,10 @@ func (ts tokenService) IssueTokenPair(
 	}
 
 	tokenParams := repository.RecordIssuedTokenParams{
-		Jti:      jti,
-		UserID:   userID,
-		DeviceID: pgtype.UUID{Bytes: deviceID, Valid: true},
-		ExpiresAt: pgtype.Timestamp{
-			Time: accessExpiry, Valid: true,
-		},
+		Jti:       jti,
+		UserID:    userID,
+		DeviceID:  &deviceID,
+		ExpiresAt: accessExpiry,
 	}
 
 	_, err = ts.repo.RecordIssuedToken(ctx, tokenParams)
@@ -84,10 +81,10 @@ func (ts tokenService) IssueTokenPair(
 		repository.RecordIssuedRefreshTokenParams{
 			TokenHash: tokenHash,
 			UserID:    userID,
-			DeviceID:  pgtype.UUID{Bytes: deviceID, Valid: true},
-			JwtJti:    pgtype.UUID{Bytes: jti, Valid: true},
-			IssuedAt:  pgtype.Timestamp{Time: time.Now(), Valid: true},
-			ExpiresAt: pgtype.Timestamp{Time: refreshExpiry, Valid: true},
+			DeviceID:  &deviceID,
+			JwtJti:    &jti,
+			IssuedAt:  time.Now(),
+			ExpiresAt: refreshExpiry,
 			FamilyID:  familyID,
 		},
 	)
@@ -127,7 +124,7 @@ func (ts tokenService) RotateRefreshToken(
 	return ts.IssueTokenPair(
 		ctx,
 		existing.UserID,
-		existing.DeviceID.Bytes,
+		*existing.DeviceID,
 		existing.FamilyID,
 	)
 }
@@ -192,6 +189,74 @@ func (ts tokenService) ValidateAccessToken(
 	}
 
 	jti, err := claims.JTI()
+	if err != nil {
+		return nil, fmt.Errorf("invalid jti: %w", err)
+	}
+
+	revoked, err := ts.IsAccessTokenRevoked(ctx, jti)
+	if err != nil {
+		return nil, fmt.Errorf("blocklist check failed: %w", err)
+	}
+	if revoked {
+		return nil, fmt.Errorf("token has been revoked")
+	}
+
+	return claims, nil
+}
+
+func (ts tokenService) IssueCheckoutToken(
+	ctx context.Context,
+	userID uuid.UUID,
+	orderID string,
+	ttl time.Duration,
+) (*CheckoutToken, error) {
+	jti, err := uuid.NewV6()
+	if err != nil {
+		return nil, err
+	}
+
+	expiry := time.Now().Add(ttl)
+	claims := CheckoutClaims{
+		TokenType: CheckoutTokenType,
+		OrderID:   orderID,
+		Scopes: []string{
+			"checkout:order:read",
+			"checkout:order-item:read",
+			"checkout:order:charge",
+		},
+		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        jti.String(),
+			Subject:   userID.String(),
+			Issuer:    "https://verisafe.opencrafts.io/",
+			Audience:  []string{CheckoutTokenAudience},
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(expiry),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signed, err := token.SignedString([]byte(ts.config.JWTConfig.ApiSecret))
+	if err != nil {
+		return nil, err
+	}
+
+	return &CheckoutToken{
+		AccessToken: signed,
+		ExpiresAt:   expiry,
+		OrderID:     orderID,
+	}, nil
+}
+
+func (ts tokenService) ValidateCheckoutToken(
+	ctx context.Context,
+	rawToken string,
+) (*CheckoutClaims, error) {
+	claims, err := ValidateCheckoutJWT(rawToken, ts.config.JWTConfig.ApiSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	jti, err := uuid.Parse(claims.ID)
 	if err != nil {
 		return nil, fmt.Errorf("invalid jti: %w", err)
 	}

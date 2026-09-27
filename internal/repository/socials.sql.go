@@ -7,9 +7,9 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createSocial = `-- name: CreateSocial :one
@@ -51,21 +51,21 @@ RETURNING user_id, id_token, account_id, provider, email, name, first_name, last
 `
 
 type CreateSocialParams struct {
-	AccountID         uuid.UUID        `json:"account_id"`
-	Provider          string           `json:"provider"`
-	Email             *string          `json:"email"`
-	Name              *string          `json:"name"`
-	FirstName         *string          `json:"first_name"`
-	LastName          *string          `json:"last_name"`
-	NickName          *string          `json:"nick_name"`
-	Description       *string          `json:"description"`
-	UserID            string           `json:"user_id"`
-	AvatarUrl         *string          `json:"avatar_url"`
-	Location          *string          `json:"location"`
-	AccessToken       *string          `json:"access_token"`
-	AccessTokenSecret *string          `json:"access_token_secret"`
-	RefreshToken      *string          `json:"refresh_token"`
-	ExpiresAt         pgtype.Timestamp `json:"expires_at"`
+	AccountID         uuid.UUID  `json:"account_id"`
+	Provider          string     `json:"provider"`
+	Email             *string    `json:"email"`
+	Name              *string    `json:"name"`
+	FirstName         *string    `json:"first_name"`
+	LastName          *string    `json:"last_name"`
+	NickName          *string    `json:"nick_name"`
+	Description       *string    `json:"description"`
+	UserID            string     `json:"user_id"`
+	AvatarUrl         *string    `json:"avatar_url"`
+	Location          *string    `json:"location"`
+	AccessToken       *string    `json:"access_token"`
+	AccessTokenSecret *string    `json:"access_token_secret"`
+	RefreshToken      *string    `json:"refresh_token"`
+	ExpiresAt         *time.Time `json:"expires_at"`
 }
 
 func (q *Queries) CreateSocial(ctx context.Context, arg CreateSocialParams) (Social, error) {
@@ -263,20 +263,20 @@ RETURNING user_id, id_token, account_id, provider, email, name, first_name, last
 `
 
 type UpdateSocialParams struct {
-	UserID            string           `json:"user_id"`
-	Provider          string           `json:"provider"`
-	ExpiresAt         pgtype.Timestamp `json:"expires_at"`
-	Email             string           `json:"email"`
-	Name              string           `json:"name"`
-	FirstName         string           `json:"first_name"`
-	LastName          string           `json:"last_name"`
-	NickName          string           `json:"nick_name"`
-	Description       string           `json:"description"`
-	AvatarUrl         string           `json:"avatar_url"`
-	Location          string           `json:"location"`
-	RefreshToken      string           `json:"refresh_token"`
-	AccessToken       string           `json:"access_token"`
-	AccessTokenSecret string           `json:"access_token_secret"`
+	UserID            string     `json:"user_id"`
+	Provider          string     `json:"provider"`
+	ExpiresAt         *time.Time `json:"expires_at"`
+	Email             string     `json:"email"`
+	Name              string     `json:"name"`
+	FirstName         string     `json:"first_name"`
+	LastName          string     `json:"last_name"`
+	NickName          string     `json:"nick_name"`
+	Description       string     `json:"description"`
+	AvatarUrl         string     `json:"avatar_url"`
+	Location          string     `json:"location"`
+	RefreshToken      string     `json:"refresh_token"`
+	AccessToken       string     `json:"access_token"`
+	AccessTokenSecret string     `json:"access_token_secret"`
 }
 
 func (q *Queries) UpdateSocial(ctx context.Context, arg UpdateSocialParams) (Social, error) {

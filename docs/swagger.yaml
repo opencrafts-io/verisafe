@@ -95,6 +95,22 @@ definitions:
       code:
         type: string
     type: object
+  auth.passwordLoginRequest:
+    properties:
+      device_name:
+        type: string
+      device_token:
+        type: string
+      email:
+        type: string
+      password:
+        maxLength: 128
+        minLength: 12
+        type: string
+    required:
+    - email
+    - password
+    type: object
   auth.refreshTokenRequest:
     properties:
       refresh_token:
@@ -104,6 +120,15 @@ definitions:
     properties:
       refresh_token:
         type: string
+    type: object
+  auth.setPasswordRequest:
+    properties:
+      password:
+        maxLength: 128
+        minLength: 12
+        type: string
+    required:
+    - password
     type: object
   auth.tokenResponse:
     properties:
@@ -115,6 +140,323 @@ definitions:
         type: string
       refresh_token:
         type: string
+    type: object
+  billing.ChargeAttempt:
+    properties:
+      amount:
+        type: integer
+      id:
+        type: string
+      notes:
+        type: string
+      order_id:
+        type: string
+      payer_phone_number:
+        type: string
+      requested_at:
+        type: string
+      resolved_at:
+        type: string
+      status:
+        type: string
+    type: object
+  billing.ChargeOrder:
+    properties:
+      order_id:
+        type: string
+      payer_phone_number:
+        type: string
+    type: object
+  billing.CheckoutSessionResponse:
+    properties:
+      checkout_url:
+        type: string
+      expires_at:
+        type: string
+    type: object
+  billing.CheckoutTokenResponse:
+    properties:
+      access_token:
+        type: string
+      expires_at:
+        type: string
+      order_id:
+        type: string
+      token_type:
+        type: string
+    type: object
+  billing.CreateCheckoutSessionRequest:
+    properties:
+      order_id:
+        type: string
+    type: object
+  billing.CreateEntitlement:
+    properties:
+      description:
+        type: string
+      key:
+        type: string
+      plan_code:
+        type: string
+      unit:
+        type: string
+      value:
+        type: integer
+    type: object
+  billing.CreateOrder:
+    properties:
+      currency:
+        type: string
+      expires_at:
+        type: string
+      metadata:
+        items:
+          type: integer
+        type: array
+      user_id:
+        type: string
+    type: object
+  billing.CreateOrderItem:
+    properties:
+      added_by:
+        type: string
+      discount:
+        type: integer
+      order_id:
+        type: string
+      plan_id:
+        type: integer
+      quantity:
+        type: integer
+      tax:
+        type: integer
+      unit_price:
+        type: integer
+    type: object
+  billing.CreatePlan:
+    properties:
+      active:
+        type: boolean
+      billing_interval_days:
+        type: integer
+      code:
+        type: string
+      created_by:
+        type: string
+      currency:
+        type: string
+      description:
+        type: string
+      name:
+        type: string
+      price:
+        type: integer
+      visible:
+        type: boolean
+    type: object
+  billing.DeleteEntitlement:
+    properties:
+      key:
+        type: string
+      plan_code:
+        type: string
+    type: object
+  billing.Entitlement:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      key:
+        type: string
+      plan_code:
+        type: string
+      unit:
+        type: string
+      updated_at:
+        type: string
+      value:
+        type: integer
+    type: object
+  billing.ExchangeCheckoutSessionRequest:
+    properties:
+      code:
+        type: string
+    type: object
+  billing.Order:
+    properties:
+      cancelled_at:
+        type: string
+      created_at:
+        type: string
+      currency:
+        type: string
+      discount:
+        type: integer
+      expires_at:
+        type: string
+      id:
+        type: string
+      metadata:
+        items:
+          type: integer
+        type: array
+      paid_at:
+        type: string
+      status:
+        type: string
+      subtotal:
+        type: integer
+      tax:
+        type: integer
+      total:
+        type: integer
+      updated_at:
+        type: string
+      user_id:
+        type: string
+    type: object
+  billing.OrderItem:
+    properties:
+      added_by:
+        type: string
+      created_at:
+        type: string
+      discount:
+        type: integer
+      id:
+        type: string
+      order_id:
+        type: string
+      plan_id:
+        type: integer
+      quantity:
+        type: integer
+      tax:
+        type: integer
+      unit_price:
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  billing.Plan:
+    properties:
+      active:
+        type: boolean
+      billing_interval_days:
+        type: integer
+      code:
+        type: string
+      created_at:
+        type: string
+      created_by:
+        type: string
+      currency:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      price:
+        type: integer
+      updated_at:
+        type: string
+      visible:
+        type: boolean
+    type: object
+  billing.Subscription:
+    properties:
+      cancel_at_period_end:
+        type: boolean
+      cancelled_at:
+        type: string
+      current_period_end:
+        type: string
+      current_period_start:
+        type: string
+      id:
+        type: integer
+      plan_code:
+        type: string
+      plan_id:
+        type: integer
+      plan_name:
+        type: string
+      started_at:
+        type: string
+      status:
+        type: string
+    type: object
+  billing.SubscriptionStatus:
+    properties:
+      active:
+        type: boolean
+      subscription:
+        $ref: '#/definitions/billing.Subscription'
+    type: object
+  billing.UpdateEntitlement:
+    properties:
+      description:
+        type: string
+      key:
+        type: string
+      plan_code:
+        type: string
+      unit:
+        type: string
+      value:
+        type: integer
+    type: object
+  billing.UpdateOrder:
+    properties:
+      currency:
+        type: string
+      expires_at:
+        type: string
+      id:
+        type: string
+      metadata:
+        items:
+          type: integer
+        type: array
+    type: object
+  billing.UpdateOrderItem:
+    properties:
+      discount:
+        type: integer
+      id:
+        type: string
+      order_id:
+        type: string
+      plan_id:
+        type: integer
+      quantity:
+        type: integer
+      tax:
+        type: integer
+      unit_price:
+        type: integer
+    type: object
+  billing.UpdatePlan:
+    properties:
+      active:
+        type: boolean
+      billing_interval_days:
+        type: integer
+      code:
+        type: string
+      currency:
+        type: string
+      description:
+        type: string
+      name:
+        type: string
+      price:
+        type: integer
+      visible:
+        type: boolean
     type: object
   core.APIError:
     properties:
@@ -324,27 +666,6 @@ definitions:
         type: string
       results: {}
     type: object
-  pgtype.InfinityModifier:
-    enum:
-    - 1
-    - 0
-    - -1
-    format: int32
-    type: integer
-    x-enum-varnames:
-    - Infinity
-    - Finite
-    - NegativeInfinity
-  pgtype.Timestamp:
-    properties:
-      infinityModifier:
-        $ref: '#/definitions/pgtype.InfinityModifier'
-      time:
-        description: Time zone will be ignored when encoding to PostgreSQL.
-        type: string
-      valid:
-        type: boolean
-    type: object
   providers.Capability:
     enum:
     - identity
@@ -368,7 +689,7 @@ definitions:
       bio:
         type: string
       created_at:
-        $ref: '#/definitions/pgtype.Timestamp'
+        type: string
       deleted_at:
         type: string
       email:
@@ -388,7 +709,7 @@ definitions:
       type:
         $ref: '#/definitions/repository.AccountType'
       updated_at:
-        $ref: '#/definitions/pgtype.Timestamp'
+        type: string
       username:
         type: string
       vibe_points:
@@ -411,7 +732,7 @@ definitions:
       avatar_url:
         type: string
       created_at:
-        $ref: '#/definitions/pgtype.Timestamp'
+        type: string
       email:
         type: string
       id:
@@ -419,7 +740,7 @@ definitions:
       name:
         type: string
       updated_at:
-        $ref: '#/definitions/pgtype.Timestamp'
+        type: string
       username:
         type: string
       vibe_points:
@@ -432,7 +753,7 @@ definitions:
       category:
         type: string
       created_at:
-        $ref: '#/definitions/pgtype.Timestamp'
+        type: string
       description:
         type: string
       id:
@@ -448,7 +769,7 @@ definitions:
       streak_eligible:
         type: boolean
       updated_at:
-        $ref: '#/definitions/pgtype.Timestamp'
+        type: string
     type: object
   repository.AddAccountInstitutionParams:
     properties:
@@ -551,7 +872,7 @@ definitions:
   repository.Permission:
     properties:
       created_at:
-        $ref: '#/definitions/pgtype.Timestamp'
+        type: string
       description:
         type: string
       id:
@@ -559,7 +880,7 @@ definitions:
       name:
         type: string
       updated_at:
-        $ref: '#/definitions/pgtype.Timestamp'
+        type: string
     type: object
   repository.RecordActivityCompletionParams:
     properties:
@@ -582,7 +903,7 @@ definitions:
   repository.Role:
     properties:
       created_at:
-        $ref: '#/definitions/pgtype.Timestamp'
+        type: string
       description:
         type: string
       id:
@@ -592,7 +913,7 @@ definitions:
       name:
         type: string
       updated_at:
-        $ref: '#/definitions/pgtype.Timestamp'
+        type: string
     type: object
   repository.RolePermissionsView:
     properties:
@@ -730,7 +1051,7 @@ definitions:
       name:
         type: string
       role_created_at:
-        $ref: '#/definitions/pgtype.Timestamp'
+        type: string
       role_description:
         type: string
       role_id:
@@ -872,13 +1193,13 @@ definitions:
       avatar_url:
         type: string
       created_at:
-        $ref: '#/definitions/pgtype.Timestamp'
+        type: string
       description:
         type: string
       email:
         type: string
       expires_at:
-        $ref: '#/definitions/pgtype.Timestamp'
+        type: string
       first_name:
         type: string
       id_token:
@@ -896,7 +1217,7 @@ definitions:
       refresh_token:
         type: string
       updated_at:
-        $ref: '#/definitions/pgtype.Timestamp'
+        type: string
       user_id:
         type: string
     type: object
@@ -1921,6 +2242,82 @@ paths:
       summary: Log out of the OAuth2 provider session
       tags:
       - auth
+  /auth/password:
+    put:
+      consumes:
+      - application/json
+      description: Adds a password credential to the signed-in human account or replaces
+        its existing credential. The caller must already have a user access token;
+        password recovery is not provided.
+      parameters:
+      - description: New password
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.setPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Password saved
+        "400":
+          description: Password does not meet requirements
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: A user access token is required
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "403":
+          description: Only active human accounts can use passwords
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      summary: Add or change the authenticated account's password
+      tags:
+      - auth
+  /auth/password/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticates an existing human account that has previously set
+        a password, then returns the usual Verisafe access and refresh token pair.
+        This endpoint does not create accounts.
+      parameters:
+      - description: Email, password, and optional device details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.passwordLoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.tokenResponse'
+        "400":
+          description: Malformed login request
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Invalid email or password
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "429":
+          description: Too many login attempts
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "503":
+          description: Login rate limiter unavailable
+          schema:
+            $ref: '#/definitions/core.APIError'
+      summary: Sign in with an account email and password
+      tags:
+      - auth
   /auth/token/exchange:
     post:
       consumes:
@@ -2020,6 +2417,221 @@ paths:
       summary: Revoke the caller's access token (and optionally a refresh token family)
       tags:
       - auth
+  /checkout-sessions:
+    post:
+      consumes:
+      - application/json
+      description: Creates a short-lived browser checkout handoff for an unpaid order.
+      parameters:
+      - description: Order to check out
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/billing.CreateCheckoutSessionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/billing.CheckoutSessionResponse'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Order not found
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to create checkout session
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Create a checkout session
+      tags:
+      - checkout
+  /checkout-sessions/exchange:
+    post:
+      consumes:
+      - application/json
+      description: Exchanges a one-time checkout handoff code for a short-lived checkout
+        token.
+      parameters:
+      - description: Checkout handoff code
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/billing.ExchangeCheckoutSessionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/billing.CheckoutTokenResponse'
+        "400":
+          description: Missing checkout code
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Invalid or expired checkout code
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to start checkout session
+          schema:
+            $ref: '#/definitions/core.APIError'
+      summary: Exchange a checkout session code
+      tags:
+      - checkout
+  /checkout/orders/{order_id}:
+    get:
+      description: Retrieves the order bound to the checkout token or authorized access
+        token.
+      parameters:
+      - description: Order ID
+        in: path
+        name: order_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/billing.Order'
+        "401":
+          description: Missing or invalid checkout token
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "403":
+          description: Insufficient checkout scope or permission
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Order not found
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to fetch order
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Get a checkout order
+      tags:
+      - checkout
+  /checkout/orders/{order_id}/charge:
+    post:
+      consumes:
+      - application/json
+      description: Requests an M-Pesa STK charge for the order bound to the checkout
+        token or authorized access token.
+      parameters:
+      - description: Order ID
+        in: path
+        name: order_id
+        required: true
+        type: string
+      - description: Payer phone number
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/billing.ChargeOrder'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/billing.ChargeAttempt'
+        "400":
+          description: Invalid request body or order
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Missing or invalid checkout token
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "403":
+          description: Insufficient checkout scope or permission
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Order not found
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "409":
+          description: Order cannot be charged
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to charge order
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "503":
+          description: RabbitMQ unavailable
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Charge a checkout order
+      tags:
+      - checkout
+  /checkout/orders/{order_id}/items:
+    get:
+      description: Lists items for the order bound to the checkout token or authorized
+        access token.
+      parameters:
+      - description: Order ID
+        in: path
+        name: order_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/billing.OrderItem'
+            type: array
+        "401":
+          description: Missing or invalid checkout token
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "403":
+          description: Insufficient checkout scope or permission
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Order not found
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to fetch order items
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: List checkout order items
+      tags:
+      - checkout
   /devices/mine:
     get:
       description: Returns all devices registered to the currently authenticated user
@@ -2046,6 +2658,168 @@ paths:
       summary: List authenticated user's devices
       tags:
       - devices
+  /entitlements:
+    delete:
+      consumes:
+      - application/json
+      description: Deletes an entitlement specified by its key
+      parameters:
+      - description: Fields specifying which entitlement to delete
+        in: body
+        name: entitlement
+        required: true
+        schema:
+          $ref: '#/definitions/billing.DeleteEntitlement'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: '{''message'':''hello''}'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Entitlement not found
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to update entitlement
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Deletes an entitlement
+      tags:
+      - entitlements
+    post:
+      consumes:
+      - application/json
+      description: Creates a new entitlement for a plan
+      parameters:
+      - description: Entitlement to create
+        in: body
+        name: entitlement
+        required: true
+        schema:
+          $ref: '#/definitions/billing.CreateEntitlement'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/billing.Entitlement'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "409":
+          description: Plan with this code already exists
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to create entitlement
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Create an entitlement for a plan
+      tags:
+      - entitlements
+  /entitlements/{key}:
+    patch:
+      consumes:
+      - application/json
+      description: Updates fields on an existing billing entitlement identified by
+        its key. Only provided fields are updated.
+      parameters:
+      - description: Plan code
+        in: path
+        name: key
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: entitlement
+        required: true
+        schema:
+          $ref: '#/definitions/billing.UpdateEntitlement'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/billing.Entitlement'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Entitlement not found
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to update entitlement
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Update an entitlement plan
+      tags:
+      - entitlements
+  /entitlements/{plan_code}:
+    get:
+      description: Returns entitlements for a plans
+      parameters:
+      - description: Plan code
+        in: path
+        name: plan_code
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/billing.Entitlement'
+            type: array
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to fetch entitlements
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: List entitlements for a plan
+      tags:
+      - entitlements
   /institutions/account:
     delete:
       consumes:
@@ -2826,6 +3600,513 @@ paths:
       summary: List the signed-in user's third-party connections
       tags:
       - oauth
+  /orders:
+    get:
+      description: Lists orders with optional status and pagination filters.
+      parameters:
+      - description: Order status
+        in: query
+        name: status
+        type: string
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Number of orders per page
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/billing.Order'
+            type: array
+        "400":
+          description: Invalid query parameter
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to fetch orders
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: List orders
+      tags:
+      - orders
+    post:
+      consumes:
+      - application/json
+      description: Creates a new billing order for the authenticated user.
+      parameters:
+      - description: Order to create
+        in: body
+        name: order
+        required: true
+        schema:
+          $ref: '#/definitions/billing.CreateOrder'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/billing.Order'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to create order
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Create an order
+      tags:
+      - orders
+  /orders/{id}:
+    get:
+      description: Retrieves an order by its identifier.
+      parameters:
+      - description: Order ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/billing.Order'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Order not found
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to fetch order
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Get an order
+      tags:
+      - orders
+    patch:
+      consumes:
+      - application/json
+      description: Updates mutable fields of an order.
+      parameters:
+      - description: Order ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Order updates
+        in: body
+        name: order
+        required: true
+        schema:
+          $ref: '#/definitions/billing.UpdateOrder'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/billing.Order'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Order not found
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to update order
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Update an order
+      tags:
+      - orders
+  /orders/{id}/cancellation:
+    post:
+      description: Cancels an order if it is currently cancellable.
+      parameters:
+      - description: Order ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/billing.Order'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Order not found or cannot be cancelled
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to cancel order
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Cancel an order
+      tags:
+      - orders
+  /orders/{id}/charge:
+    post:
+      consumes:
+      - application/json
+      description: Requests an M-Pesa STK charge for an unpaid order.
+      parameters:
+      - description: Order ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Payer phone number
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/billing.ChargeOrder'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/billing.ChargeAttempt'
+        "400":
+          description: Invalid request body or order
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Order not found
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "409":
+          description: Order cannot be charged
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to charge order
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "503":
+          description: RabbitMQ unavailable
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Charge an order
+      tags:
+      - orders
+  /orders/{id}/totals/recalculation:
+    post:
+      description: Recalculates the subtotal, discount, tax, and total for an order.
+      parameters:
+      - description: Order ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to recalculate order totals
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Recalculate order totals
+      tags:
+      - orders
+  /orders/{order_id}/items:
+    delete:
+      description: Deletes all items from an order.
+      parameters:
+      - description: Order ID
+        in: path
+        name: order_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to delete order items
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Delete order items
+      tags:
+      - orders
+    get:
+      description: Lists all items for an order.
+      parameters:
+      - description: Order ID
+        in: path
+        name: order_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/billing.OrderItem'
+            type: array
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to fetch order items
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: List order items
+      tags:
+      - orders
+    post:
+      consumes:
+      - application/json
+      description: Adds an item to an order for the authenticated user.
+      parameters:
+      - description: Order ID
+        in: path
+        name: order_id
+        required: true
+        type: string
+      - description: Order item to create
+        in: body
+        name: item
+        required: true
+        schema:
+          $ref: '#/definitions/billing.CreateOrderItem'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/billing.OrderItem'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to create order item
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Create an order item
+      tags:
+      - orders
+  /orders/{order_id}/items/{id}:
+    delete:
+      description: Deletes an item from an order.
+      parameters:
+      - description: Order ID
+        in: path
+        name: order_id
+        required: true
+        type: string
+      - description: Order item ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Invalid order item ID
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Order item not found
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to delete order item
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Delete an order item
+      tags:
+      - orders
+    get:
+      description: Retrieves an item from an order by its identifier.
+      parameters:
+      - description: Order ID
+        in: path
+        name: order_id
+        required: true
+        type: string
+      - description: Order item ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/billing.OrderItem'
+        "400":
+          description: Invalid order item ID
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Order item not found
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to fetch order item
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Get an order item
+      tags:
+      - orders
+    patch:
+      consumes:
+      - application/json
+      description: Updates mutable fields of an order item.
+      parameters:
+      - description: Order ID
+        in: path
+        name: order_id
+        required: true
+        type: string
+      - description: Order item ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Order item updates
+        in: body
+        name: item
+        required: true
+        schema:
+          $ref: '#/definitions/billing.UpdateOrderItem'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/billing.OrderItem'
+        "400":
+          description: Invalid request body or order item ID
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Order item not found
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to update order item
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Update an order item
+      tags:
+      - orders
   /permissions:
     get:
       description: |-
@@ -3102,6 +4383,158 @@ paths:
       summary: Liveness probe
       tags:
       - health
+  /plans:
+    get:
+      description: Returns billing plans, optionally filtered by visibility.
+      parameters:
+      - description: Filter by visibility
+        in: query
+        name: visible
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/billing.Plan'
+            type: array
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to fetch plans
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: List billing plans
+      tags:
+      - plans
+    post:
+      consumes:
+      - application/json
+      description: Creates a new billing plan. The authenticated caller is recorded
+        as the plan's creator.
+      parameters:
+      - description: Plan to create
+        in: body
+        name: plan
+        required: true
+        schema:
+          $ref: '#/definitions/billing.CreatePlan'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/billing.Plan'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "409":
+          description: Plan with this code already exists
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to create plan
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Create a billing plan
+      tags:
+      - plans
+  /plans/{code}:
+    get:
+      description: Returns a single billing plan matching the given plan code.
+      parameters:
+      - description: Plan code
+        in: path
+        name: code
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/billing.Plan'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Plan not found
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to fetch plan
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Get a billing plan by code
+      tags:
+      - plans
+    patch:
+      consumes:
+      - application/json
+      description: Updates fields on an existing billing plan identified by its code.
+        Only provided fields are updated.
+      parameters:
+      - description: Plan code
+        in: path
+        name: code
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: plan
+        required: true
+        schema:
+          $ref: '#/definitions/billing.UpdatePlan'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/billing.Plan'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "404":
+          description: Plan not found
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to update plan
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Update a billing plan
+      tags:
+      - plans
   /roles:
     get:
       description: |-
@@ -3558,6 +4991,31 @@ paths:
       summary: Create a streak milestone
       tags:
       - streaks
+  /subscriptions/me:
+    get:
+      description: Returns whether the caller has a currently active subscription
+        and its plan details when present.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/billing.SubscriptionStatus'
+        "401":
+          description: Missing or invalid claims
+          schema:
+            $ref: '#/definitions/core.APIError'
+        "500":
+          description: Failed to fetch subscription status
+          schema:
+            $ref: '#/definitions/core.APIError'
+      security:
+      - BearerToken: []
+      - ApiKey: []
+      summary: Get the authenticated user's subscription status
+      tags:
+      - subscriptions
   /users/activity/complete:
     post:
       consumes:

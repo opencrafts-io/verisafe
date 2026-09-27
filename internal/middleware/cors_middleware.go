@@ -1,6 +1,8 @@
 package middleware
 
-import "net/http"
+import (
+	"net/http"
+)
 
 // CORS reflects back Access-Control-Allow-Origin only for origins present in
 // allowedOrigins, instead of a single hardcoded value — a browser rejects

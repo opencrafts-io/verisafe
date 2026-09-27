@@ -13,6 +13,14 @@ type redisCacher struct {
 	client *redis.Client
 }
 
+var incrementWithTTLScript = redis.NewScript(`
+local count = redis.call("INCR", KEYS[1])
+if count == 1 then
+  redis.call("PEXPIRE", KEYS[1], ARGV[1])
+end
+return count
+`)
+
 func NewRedisCacher(client *redis.Client) Cacher {
 	return &redisCacher{client: client}
 }
@@ -56,6 +64,19 @@ func (r *redisCacher) SetNX(
 		return false, err
 	}
 	return true, nil
+}
+
+func (r *redisCacher) IncrementWithTTL(
+	ctx context.Context,
+	key string,
+	ttl time.Duration,
+) (int64, error) {
+	return incrementWithTTLScript.Run(
+		ctx,
+		r.client,
+		[]string{key},
+		ttl.Milliseconds(),
+	).Int64()
 }
 
 func (r *redisCacher) Get(ctx context.Context, key string, dest any) error {

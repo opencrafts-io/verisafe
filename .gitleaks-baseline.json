@@ -1,0 +1,23 @@
+[
+ {
+  "RuleID": "jwt",
+  "Description": "Uncovered a JSON Web Token, which may lead to unauthorized access to web applications and sensitive user data.",
+  "StartLine": 646,
+  "EndLine": 646,
+  "StartColumn": 21,
+  "EndColumn": 670,
+  "Match": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoiNmFlMWUwZTctYzY4My00ZDkzLTkwMjEtMGJlZjNmN2UzMWE4IiwiZW1haWwiOiJjaGlycEBvcGVuY3JhZnRzLmlvIiwibmFtZSI6IkNoaXJwIiwiY3JlYXRlZF9hdCI6IjIwMjUtMDctMTNUMTk6MTI6MTEuMDk4NzQ5IiwidXBkYXRlZF9hdCI6IjIwMjUtMDctMTNUMTk6MTI6MTEuMDk4NzQ5IiwidGVybXNfYWNjZXB0ZWQiOmZhbHNlLCJvbmJvYXJkZWQiOmZhbHNlLCJ0eXBlIjoiYm90In0sInJvbGVzIjpbXSwicGVybWlzc2lvbnMiOltdLCJpc3MiOiJodHRwczovL3ZlcmlzYWZlLm9wZW5jcmFmdHMuaW8vIiwic3ViIjoiNmFlMWUwZTctYzY4My00ZDkzLTkwMjEtMGJlZjNmN2UzMWE4IiwiYXVkIjpbImh0dHBzOi8vYWNhZGVtaWEub3BlbmNyYWZ0cy5pby8iXSwiZXhwIjoxNzUyNTA5NTMxLCJpYXQiOjE3NTI0MjMxMzF9.RjcyrY6h0Xabcj8_1NvTvvc1QLcqLNcpV_MsNQGbjRk\"",
+  "Secret": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoiNmFlMWUwZTctYzY4My00ZDkzLTkwMjEtMGJlZjNmN2UzMWE4IiwiZW1haWwiOiJjaGlycEBvcGVuY3JhZnRzLmlvIiwibmFtZSI6IkNoaXJwIiwiY3JlYXRlZF9hdCI6IjIwMjUtMDctMTNUMTk6MTI6MTEuMDk4NzQ5IiwidXBkYXRlZF9hdCI6IjIwMjUtMDctMTNUMTk6MTI6MTEuMDk4NzQ5IiwidGVybXNfYWNjZXB0ZWQiOmZhbHNlLCJvbmJvYXJkZWQiOmZhbHNlLCJ0eXBlIjoiYm90In0sInJvbGVzIjpbXSwicGVybWlzc2lvbnMiOltdLCJpc3MiOiJodHRwczovL3ZlcmlzYWZlLm9wZW5jcmFmdHMuaW8vIiwic3ViIjoiNmFlMWUwZTctYzY4My00ZDkzLTkwMjEtMGJlZjNmN2UzMWE4IiwiYXVkIjpbImh0dHBzOi8vYWNhZGVtaWEub3BlbmNyYWZ0cy5pby8iXSwiZXhwIjoxNzUyNTA5NTMxLCJpYXQiOjE3NTI0MjMxMzF9.RjcyrY6h0Xabcj8_1NvTvvc1QLcqLNcpV_MsNQGbjRk",
+  "File": "Verisafe.postman_collection.json",
+  "SymlinkFile": "",
+  "Commit": "fcedff4e28d516253a229e7641a7a82572221189",
+  "Link": "https://github.com/opencrafts-io/verisafe/blob/fcedff4e28d516253a229e7641a7a82572221189/Verisafe.postman_collection.json#L646",
+  "Entropy": 5.5427785,
+  "Author": "Erick",
+  "Email": "hearteric57@gmail.com",
+  "Date": "2025-08-18T08:11:41Z",
+  "Message": "chore: implemented user account searches",
+  "Tags": [],
+  "Fingerprint": "fcedff4e28d516253a229e7641a7a82572221189:Verisafe.postman_collection.json:jwt:646"
+ }
+]

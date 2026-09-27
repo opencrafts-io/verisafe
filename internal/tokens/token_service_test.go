@@ -8,15 +8,15 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
+
 	"github.com/opencrafts-io/verisafe/internal/config"
 	"github.com/opencrafts-io/verisafe/internal/core"
 	mockscore "github.com/opencrafts-io/verisafe/internal/core/mocks"
 	"github.com/opencrafts-io/verisafe/internal/repository"
 	mockQuerier "github.com/opencrafts-io/verisafe/internal/repository/mocks"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 )
 
 func TestNewTokenService(t *testing.T) {
@@ -65,14 +65,11 @@ func TestRotateRefreshToken(t *testing.T) {
 		rawToken := "valid-raw-token"
 
 		existing := repository.RefreshToken{
-			ID:       uuid.New(),
-			UserID:   userID,
-			DeviceID: pgtype.UUID{Bytes: deviceID, Valid: true},
-			FamilyID: familyID,
-			ExpiresAt: pgtype.Timestamp{
-				Time:  time.Now().Add(time.Hour),
-				Valid: true,
-			},
+			ID:        uuid.New(),
+			UserID:    userID,
+			DeviceID:  &deviceID,
+			FamilyID:  familyID,
+			ExpiresAt: time.Now().Add(time.Hour),
 		}
 
 		// ClaimRefreshToken replaces GetRefreshTokenByHash + MarkRefreshTokenUsed

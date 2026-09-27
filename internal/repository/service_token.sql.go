@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const cleanupExpiredServiceTokens = `-- name: CleanupExpiredServiceTokens :exec
@@ -33,18 +32,18 @@ RETURNING id, account_id, name, token_hash, created_at, last_used_at, expires_at
 `
 
 type CreateServiceTokenParams struct {
-	AccountID        uuid.UUID   `json:"account_id"`
-	Name             string      `json:"name"`
-	Description      *string     `json:"description"`
-	TokenHash        string      `json:"token_hash"`
-	ExpiresAt        *time.Time  `json:"expires_at"`
-	Scopes           []string    `json:"scopes"`
-	MaxUses          *int32      `json:"max_uses"`
-	RotationPolicy   []byte      `json:"rotation_policy"`
-	IpWhitelist      []string    `json:"ip_whitelist"`
-	UserAgentPattern *string     `json:"user_agent_pattern"`
-	CreatedBy        pgtype.UUID `json:"created_by"`
-	Metadata         []byte      `json:"metadata"`
+	AccountID        uuid.UUID  `json:"account_id"`
+	Name             string     `json:"name"`
+	Description      *string    `json:"description"`
+	TokenHash        string     `json:"token_hash"`
+	ExpiresAt        *time.Time `json:"expires_at"`
+	Scopes           []string   `json:"scopes"`
+	MaxUses          *int32     `json:"max_uses"`
+	RotationPolicy   []byte     `json:"rotation_policy"`
+	IpWhitelist      []string   `json:"ip_whitelist"`
+	UserAgentPattern *string    `json:"user_agent_pattern"`
+	CreatedBy        *uuid.UUID `json:"created_by"`
+	Metadata         []byte     `json:"metadata"`
 }
 
 func (q *Queries) CreateServiceToken(ctx context.Context, arg CreateServiceTokenParams) (ServiceToken, error) {

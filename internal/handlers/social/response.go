@@ -1,8 +1,9 @@
 package social
 
 import (
+	"time"
+
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/opencrafts-io/verisafe/internal/repository"
 )
 
@@ -41,9 +42,9 @@ type socialResponse struct {
 	AccessTokenSecret *string `json:"access_token_secret"`
 	RefreshToken      *string `json:"refresh_token"`
 
-	ExpiresAt pgtype.Timestamp `json:"expires_at"`
-	CreatedAt pgtype.Timestamp `json:"created_at"`
-	UpdatedAt pgtype.Timestamp `json:"updated_at"`
+	ExpiresAt time.Time `json:"expires_at"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // sanitizeSocial strips the credential fields from a single row.
@@ -61,9 +62,9 @@ func sanitizeSocial(s repository.Social) socialResponse {
 		Description: s.Description,
 		AvatarUrl:   s.AvatarUrl,
 		Location:    s.Location,
-		ExpiresAt:   s.ExpiresAt,
-		CreatedAt:   s.CreatedAt,
-		UpdatedAt:   s.UpdatedAt,
+		ExpiresAt:   *s.ExpiresAt,
+		CreatedAt:   *s.CreatedAt,
+		UpdatedAt:   *s.UpdatedAt,
 		// AccessToken, AccessTokenSecret and RefreshToken are deliberately
 		// left at their zero value.
 	}

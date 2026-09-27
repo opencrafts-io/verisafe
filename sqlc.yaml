@@ -19,21 +19,95 @@ sql:
         out: "internal/repository"           # The output directory for generated code
         sql_package: "pgx/v5"                # The SQL package to use for Postgres queries
         overrides:
+          # UUID mapping
           - db_type: "uuid"
+            nullable: false
             go_type:
               import: "github.com/google/uuid"
               type: "UUID"
-          - db_type: "TEXT"
+          - db_type: "uuid"
+            nullable: true
             go_type:
-              type: "string"
-              pointer: true                    # Optional: Pointer allows handling of NULL values
-          - db_type: "VARCHAR"
-            go_type:
-              type: "string"
-              pointer: true                 # Optional: No pointer, assumes non-NULL values
+              import: "github.com/google/uuid"
+              type: "UUID"
+              pointer: true
+
+          # TIMESTAMPTZ (timestamp with time zone)
           - db_type: "timestamptz"
+            nullable: false
+            go_type:
+              import: "time"
+              type: "Time"
+          - db_type: "timestamptz"
+            nullable: true
             go_type:
               import: "time"
               type: "Time"
               pointer: true
+          - db_type: "timestamp with time zone"
+            nullable: false
+            go_type:
+              import: "time"
+              type: "Time"
+          - db_type: "timestamp with time zone"
             nullable: true
+            go_type:
+              import: "time"
+              type: "Time"
+              pointer: true
+
+          # TIMESTAMP (timestamp without time zone)
+          - db_type: "timestamp"
+            nullable: false
+            go_type:
+              import: "time"
+              type: "Time"
+          - db_type: "timestamp"
+            nullable: true
+            go_type:
+              import: "time"
+              type: "Time"
+              pointer: true
+          - db_type: "timestamp without time zone"
+            nullable: false
+            go_type:
+              import: "time"
+              type: "Time"
+          - db_type: "timestamp without time zone"
+            nullable: true
+            go_type:
+              import: "time"
+              type: "Time"
+              pointer: true
+          - db_type: "pg_catalog.timestamptz"
+            nullable: false
+            go_type:
+              import: "time"
+              type: "Time"
+          - db_type: "pg_catalog.timestamptz"
+            nullable: true
+            go_type:
+              import: "time"
+              type: "Time"
+              pointer: true
+          - db_type: "pg_catalog.timestamp"
+            nullable: false
+            go_type:
+              import: "time"
+              type: "Time"
+          - db_type: "pg_catalog.timestamp"
+            nullable: true
+            go_type:
+              import: "time"
+              type: "Time"
+              pointer: true
+          - db_type: "pg_catalog.numeric"
+            nullable: true
+            go_type:
+              type: "int"
+              pointer: true
+          - db_type: "pg_catalog.numeric"
+            nullable: false
+            go_type:
+              type: "int"
+              pointer: false 

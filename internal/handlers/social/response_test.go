@@ -3,20 +3,25 @@ package social
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
-	"github.com/opencrafts-io/verisafe/internal/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/opencrafts-io/verisafe/internal/repository"
 )
 
 func ptr(s string) *string { return &s }
 
 func fullSocial() repository.Social {
+	dummyTimes := time.Now()
 	return repository.Social{
-		UserID:            "109348572093485720394",
-		IDToken:           ptr("eyJhbGciOi.id.token"),
-		AccountID:         uuid.MustParse("9f1c8b2e-0000-4000-8000-000000000001"),
+		UserID:  "109348572093485720394",
+		IDToken: ptr("eyJhbGciOi.id.token"),
+		AccountID: uuid.MustParse(
+			"9f1c8b2e-0000-4000-8000-000000000001",
+		),
 		Provider:          "google",
 		Email:             ptr("user@example.com"),
 		Name:              ptr("Ada Lovelace"),
@@ -27,6 +32,9 @@ func fullSocial() repository.Social {
 		AvatarUrl:         ptr("https://example.com/a.png"),
 		Location:          ptr("Nairobi"),
 		AccessToken:       ptr("ya29.a0AfB_REAL_ACCESS_TOKEN"),
+		ExpiresAt:         &dummyTimes,
+		CreatedAt:         &dummyTimes,
+		UpdatedAt:         &dummyTimes,
 		AccessTokenSecret: ptr("REAL_TOKEN_SECRET"),
 		RefreshToken:      ptr("1//0gK9_REAL_REFRESH_TOKEN"),
 	}
@@ -52,7 +60,12 @@ func TestSanitizeSocials_OmitsCredentials(t *testing.T) {
 
 	for _, field := range []string{"access_token", "access_token_secret", "refresh_token"} {
 		value, present := decoded[field]
-		assert.True(t, present, "%s must remain present so existing decoders keep working", field)
+		assert.True(
+			t,
+			present,
+			"%s must remain present so existing decoders keep working",
+			field,
+		)
 		assert.Nil(t, value, "%s must serialize as null", field)
 	}
 
@@ -78,7 +91,7 @@ func TestSanitizeSocials_PreservesEverythingElse(t *testing.T) {
 	assert.Equal(t, in.Description, got.Description)
 	assert.Equal(t, in.AvatarUrl, got.AvatarUrl)
 	assert.Equal(t, in.Location, got.Location)
-	assert.Equal(t, in.ExpiresAt, got.ExpiresAt)
+	assert.Equal(t, *in.ExpiresAt, got.ExpiresAt)
 }
 
 // The response contract is "same shape, credentials nulled". If someone adds a

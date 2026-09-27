@@ -196,6 +196,30 @@ func (q *Queries) GetAllAccounts(ctx context.Context, arg GetAllAccountsParams) 
 	return items, nil
 }
 
+const getPasswordCredentialByEmail = `-- name: GetPasswordCredentialByEmail :one
+SELECT a.id, a.type, credentials.password_hash
+FROM accounts AS a
+JOIN account_password_credentials AS credentials
+  ON credentials.account_id = a.id
+WHERE lower(a.email) = lower($1::varchar)
+  AND a.type = 'human'
+  AND a.deleted_at IS NULL
+LIMIT 1
+`
+
+type GetPasswordCredentialByEmailRow struct {
+	ID           uuid.UUID   `json:"id"`
+	Type         AccountType `json:"type"`
+	PasswordHash string      `json:"password_hash"`
+}
+
+func (q *Queries) GetPasswordCredentialByEmail(ctx context.Context, email string) (GetPasswordCredentialByEmailRow, error) {
+	row := q.db.QueryRow(ctx, getPasswordCredentialByEmail, email)
+	var i GetPasswordCredentialByEmailRow
+	err := row.Scan(&i.ID, &i.Type, &i.PasswordHash)
+	return i, err
+}
+
 const markAccountForDeletion = `-- name: MarkAccountForDeletion :exec
 UPDATE accounts
   SET
@@ -371,6 +395,24 @@ func (q *Queries) SearchAccountByUsername(ctx context.Context, arg SearchAccount
 		return nil, err
 	}
 	return items, nil
+}
+
+const setAccountPassword = `-- name: SetAccountPassword :exec
+INSERT INTO account_password_credentials (account_id, password_hash)
+VALUES ($1, $2)
+ON CONFLICT (account_id) DO UPDATE
+SET password_hash = EXCLUDED.password_hash,
+    updated_at = NOW()
+`
+
+type SetAccountPasswordParams struct {
+	AccountID    uuid.UUID `json:"account_id"`
+	PasswordHash string    `json:"password_hash"`
+}
+
+func (q *Queries) SetAccountPassword(ctx context.Context, arg SetAccountPasswordParams) error {
+	_, err := q.db.Exec(ctx, setAccountPassword, arg.AccountID, arg.PasswordHash)
+	return err
 }
 
 const updateAccountDetails = `-- name: UpdateAccountDetails :exec

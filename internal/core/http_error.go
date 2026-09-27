@@ -20,6 +20,13 @@ func WriteError(w http.ResponseWriter, status int, message string) {
 	WriteJSON(w, status, APIError{Error: message})
 }
 
+// No content
+// Returns an empty body with the status code 204
+func NoContent(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // publicError carries a client-facing message alongside a sentinel.
 //
 // Handlers migrating off hand-written response blocks use it to keep the exact
