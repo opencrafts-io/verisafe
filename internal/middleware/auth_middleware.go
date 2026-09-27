@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"regexp"
 	"slices"
 	"strings"
@@ -120,6 +121,7 @@ func IsAuthenticated(
 	cacher core.Cacher,
 	logger *slog.Logger,
 ) Middleware {
+	trustedProxyCIDRs := cfg.TrustedProxyPrefixes()
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Add("Content-Type", "application/json")
@@ -173,7 +175,11 @@ func IsAuthenticated(
 							return errAbort
 						}
 
-						if err := validateServiceToken(serviceToken, r); err != nil {
+						if err := validateServiceToken(
+							serviceToken,
+							r,
+							trustedProxyCIDRs,
+						); err != nil {
 							writeUnauthorized(w, err.Error())
 							return errAbort
 						}
@@ -361,6 +367,7 @@ func writeUnauthorized(w http.ResponseWriter, message string) {
 func validateServiceToken(
 	token repository.ServiceToken,
 	r *http.Request,
+	trustedProxyCIDRs []netip.Prefix,
 ) error {
 	if token.RevokedAt != nil {
 		return fmt.Errorf("token has been revoked")
@@ -376,10 +383,17 @@ func validateServiceToken(
 	}
 
 	if len(token.IpWhitelist) > 0 {
-		clientIP := getClientIP(r)
+		clientIP, err := ClientIP(r, trustedProxyCIDRs)
+		if err != nil {
+			return fmt.Errorf("access denied from IP address")
+		}
 		allowed := false
-		for _, ip := range token.IpWhitelist {
-			if clientIP == ip {
+		for _, entry := range token.IpWhitelist {
+			whitelistIP, err := netip.ParseAddr(entry)
+			if err != nil {
+				continue
+			}
+			if clientIP.Unmap() == whitelistIP.Unmap() {
 				allowed = true
 				break
 			}
@@ -403,26 +417,4 @@ func validateServiceToken(
 	}
 
 	return nil
-}
-
-func getClientIP(r *http.Request) string {
-	if ip := r.Header.Get("X-Forwarded-For"); ip != "" {
-		if i := strings.Index(ip, ","); i != -1 {
-			return strings.TrimSpace(ip[:i])
-		}
-		return strings.TrimSpace(ip)
-	}
-	if ip := r.Header.Get("X-Real-IP"); ip != "" {
-		return strings.TrimSpace(ip)
-	}
-	if ip := r.Header.Get("X-Client-IP"); ip != "" {
-		return strings.TrimSpace(ip)
-	}
-	if r.RemoteAddr != "" {
-		if i := strings.LastIndex(r.RemoteAddr, ":"); i != -1 {
-			return r.RemoteAddr[:i]
-		}
-		return r.RemoteAddr
-	}
-	return ""
 }
