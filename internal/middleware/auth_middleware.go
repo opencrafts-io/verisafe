@@ -388,8 +388,12 @@ func validateServiceToken(
 			return fmt.Errorf("access denied from IP address")
 		}
 		allowed := false
-		for _, ip := range token.IpWhitelist {
-			if clientIP.String() == ip {
+		for _, entry := range token.IpWhitelist {
+			whitelistIP, err := netip.ParseAddr(entry)
+			if err != nil {
+				continue
+			}
+			if clientIP.Unmap() == whitelistIP.Unmap() {
 				allowed = true
 				break
 			}

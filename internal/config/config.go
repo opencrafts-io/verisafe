@@ -240,6 +240,18 @@ func parseTrustedProxyCIDRs(values []string) ([]netip.Prefix, error) {
 			addr = addr.Unmap()
 			prefix = netip.PrefixFrom(addr, addr.BitLen())
 		}
+		if prefix.Addr().Is4In6() {
+			if prefix.Bits() < 96 {
+				return nil, fmt.Errorf(
+					"TRUSTED_PROXY_CIDRS IPv4-mapped IPv6 prefix %q is shorter than /96",
+					value,
+				)
+			}
+			prefix = netip.PrefixFrom(
+				prefix.Addr().Unmap(),
+				prefix.Bits()-96,
+			)
+		}
 		prefixes = append(prefixes, prefix.Masked())
 	}
 	return prefixes, nil

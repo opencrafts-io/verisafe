@@ -167,18 +167,20 @@ security incident.
 
 - **Reverse proxies and client IPs**: by default, the API uses the TCP peer address
   (`RemoteAddr`). To resolve the original client address behind Traefik, configure
-  `TRUSTED_PROXY_CIDRS` with the exact IPs or CIDRs of the proxies that connect directly
-  to Verisafe, as seen by the service. For example, a stable Traefik container address
-  could be configured as `TRUSTED_PROXY_CIDRS=172.20.0.10/32`. The API only uses
-  `X-Forwarded-For` when the TCP peer matches one of these ranges, then walks the chain
-  from right to left and skips trusted proxy hops. Keep these ranges limited to proxy
-  instances; do not trust a general-purpose private network where other workloads can
-  connect to Verisafe. With no configured trusted proxy ranges, forwarded headers are
-  ignored.
+  `TRUSTED_PROXY_CIDRS` with every proxy address or CIDR in the forwarded chain, including
+  upstream load balancers and Traefik's direct address as seen by Verisafe. For example,
+  `TRUSTED_PROXY_CIDRS=172.20.0.10/32,198.51.100.7/32` could list Traefik and an upstream
+  load balancer. The API only uses `X-Forwarded-For` when the TCP peer matches a configured
+  range, then walks the chain from right to left and skips trusted proxy hops. Keep these
+  ranges limited to proxy instances; do not trust a general-purpose private network where
+  other workloads can connect to Verisafe. With no configured trusted proxy ranges,
+  forwarded headers are ignored.
 - If another load balancer or proxy sits in front of Traefik, configure Traefik's
   `forwardedHeaders.trustedIPs` for only those upstream proxies so Traefik receives a
-  trustworthy forwarded chain. Do not enable Traefik's `forwardedHeaders.insecure` in
-  production. See the [Traefik forwarded headers documentation](https://doc.traefik.io/traefik/reference/install-configuration/entrypoints/).
+  trustworthy forwarded chain. This Traefik setting should list its upstream proxies;
+  the Verisafe `TRUSTED_PROXY_CIDRS` setting lists every proxy hop in the chain. Do not
+  enable Traefik's `forwardedHeaders.insecure` in production. See the [Traefik forwarded
+  headers documentation](https://doc.traefik.io/traefik/reference/install-configuration/entrypoints/).
 - The resolved client IP is used by password-login rate limiting, OAuth and password
   device registration/geolocation, and service-token IP allowlists. Caller-supplied
   forwarding headers are ignored when a request comes directly from an untrusted peer.
