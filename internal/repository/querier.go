@@ -91,7 +91,7 @@ type Querier interface {
 	GetAllStreaksMilestoneByActive(ctx context.Context, arg GetAllStreaksMilestoneByActiveParams) ([]StreakMilestone, error)
 	// Returns activity a certain user specified by their id has completed ordered
 	// from the most recent to the oldest
-	GetAllUserActivityCompletions(ctx context.Context, arg GetAllUserActivityCompletionsParams) ([]ActivityCompletion, error)
+	GetAllUserActivityCompletions(ctx context.Context, arg GetAllUserActivityCompletionsParams) ([]GetAllUserActivityCompletionsRow, error)
 	// Returns the number of record that have been done on the user's completed
 	// activities
 	GetAllUserActivityCompletionsCount(ctx context.Context, accountID uuid.UUID) (int64, error)
@@ -109,6 +109,8 @@ type Querier interface {
 	GetLeaderBoardRankForUser(ctx context.Context, id uuid.UUID) (AccountVibepointRank, error)
 	// Get top N users ranked by vibe points
 	GetLeaderboard(ctx context.Context, arg GetLeaderboardParams) ([]AccountVibepointRank, error)
+	// Returns a stable, centered leaderboard window around one human account.
+	GetLeaderboardAroundUser(ctx context.Context, arg GetLeaderboardAroundUserParams) ([]GetLeaderboardAroundUserRow, error)
 	// Retrieves an account's grant for a single provider.
 	GetOAuthGrant(ctx context.Context, arg GetOAuthGrantParams) (OauthGrant, error)
 	GetOAuthGrantByID(ctx context.Context, id uuid.UUID) (OauthGrant, error)
@@ -133,7 +135,7 @@ type Querier interface {
 	GetUserPermissionNames(ctx context.Context, userID uuid.UUID) ([]string, error)
 	// Returns all permissions associated to a user
 	GetUserPermissions(ctx context.Context, userID uuid.UUID) ([]UserPermissionsView, error)
-	GetUserStreaks(ctx context.Context, accountID uuid.UUID) ([]interface{}, error)
+	GetUserStreaks(ctx context.Context, accountID uuid.UUID) ([]GetUserStreaksRow, error)
 	ListAccountsForInstitution(ctx context.Context, arg ListAccountsForInstitutionParams) ([]Account, error)
 	ListActiveServiceTokens(ctx context.Context) ([]ActiveServiceToken, error)
 	// Retrieves all entitlements for a plan, identified by its public code.
@@ -168,8 +170,7 @@ type Querier interface {
 	// Marks and persists that a refresh token has been used
 	MarkRefreshTokenUsed(ctx context.Context, id uuid.UUID) error
 	MarkTokensForRotation(ctx context.Context) error
-	// SELECT *
-	// FROM record_activity_completion(@account_id::uuid, @activity_id::uuid, @metadata::jsonb);
+	// Completions can be retried by source event using an optional idempotency key.
 	RecordActivityCompletion(ctx context.Context, arg RecordActivityCompletionParams) (RecordActivityCompletionRow, error)
 	// Persists an issued refresh token's information to the db
 	RecordIssuedRefreshToken(ctx context.Context, arg RecordIssuedRefreshTokenParams) (RefreshToken, error)

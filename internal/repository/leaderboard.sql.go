@@ -7,6 +7,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -48,6 +49,7 @@ func (q *Queries) GetLeaderBoardRankForUser(ctx context.Context, id uuid.UUID) (
 
 const getLeaderboard = `-- name: GetLeaderboard :many
 SELECT id, email, name, username, vibe_points, avatar_url, created_at, updated_at, vibe_rank FROM account_vibepoint_rank
+ORDER BY vibe_points DESC, id ASC
 LIMIT $1 OFFSET $2
 `
 
@@ -76,6 +78,91 @@ func (q *Queries) GetLeaderboard(ctx context.Context, arg GetLeaderboardParams) 
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.VibeRank,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getLeaderboardAroundUser = `-- name: GetLeaderboardAroundUser :many
+WITH ranked AS (
+  SELECT
+    id,
+    email,
+    name,
+    username,
+    vibe_points,
+    avatar_url,
+    created_at,
+    updated_at,
+    vibe_rank,
+    ROW_NUMBER() OVER (ORDER BY vibe_points DESC, id ASC) AS position,
+    COUNT(*) OVER () AS total_users
+  FROM account_vibepoint_rank
+), target AS (
+  SELECT position, total_users
+  FROM ranked
+  WHERE id = $2::uuid
+), window_start AS (
+  SELECT LEAST(
+    GREATEST(target.position - (($1::bigint - 1) / 2), 1),
+    GREATEST(target.total_users - $1::bigint + 1, 1)
+  ) AS position
+  FROM target
+)
+SELECT ranked.id, ranked.email, ranked.name, ranked.username, ranked.vibe_points, ranked.avatar_url, ranked.created_at, ranked.updated_at, ranked.vibe_rank, ranked.position, ranked.total_users
+FROM ranked, window_start
+WHERE ranked.position BETWEEN window_start.position
+  AND window_start.position + $1::bigint - 1
+ORDER BY ranked.position
+`
+
+type GetLeaderboardAroundUserParams struct {
+	WindowSize int64     `json:"window_size"`
+	UserID     uuid.UUID `json:"user_id"`
+}
+
+type GetLeaderboardAroundUserRow struct {
+	ID         uuid.UUID  `json:"id"`
+	Email      string     `json:"email"`
+	Name       string     `json:"name"`
+	Username   *string    `json:"username"`
+	VibePoints int64      `json:"vibe_points"`
+	AvatarUrl  *string    `json:"avatar_url"`
+	CreatedAt  *time.Time `json:"created_at"`
+	UpdatedAt  *time.Time `json:"updated_at"`
+	VibeRank   int64      `json:"vibe_rank"`
+	Position   int64      `json:"position"`
+	TotalUsers int64      `json:"total_users"`
+}
+
+// Returns a stable, centered leaderboard window around one human account.
+func (q *Queries) GetLeaderboardAroundUser(ctx context.Context, arg GetLeaderboardAroundUserParams) ([]GetLeaderboardAroundUserRow, error) {
+	rows, err := q.db.Query(ctx, getLeaderboardAroundUser, arg.WindowSize, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetLeaderboardAroundUserRow{}
+	for rows.Next() {
+		var i GetLeaderboardAroundUserRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.Name,
+			&i.Username,
+			&i.VibePoints,
+			&i.AvatarUrl,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.VibeRank,
+			&i.Position,
+			&i.TotalUsers,
 		); err != nil {
 			return nil, err
 		}

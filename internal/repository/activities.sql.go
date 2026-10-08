@@ -7,8 +7,10 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createActivity = `-- name: CreateActivity :one
@@ -19,7 +21,11 @@ INSERT INTO activities (
   points_awarded, 
   max_daily_completions, 
   streak_eligible
-) VALUES ( $1, $2, $3, $4, $5, $6 )
+) VALUES (
+  $1, $2, $3, $4,
+  COALESCE($5::smallint, 1),
+  COALESCE($6::boolean, true)
+)
 RETURNING id, name, description, category, points_awarded, max_daily_completions, streak_eligible, is_active, created_at, updated_at
 `
 
@@ -257,7 +263,16 @@ func (q *Queries) GetAllInactiveActivitiesCount(ctx context.Context) (int64, err
 }
 
 const getAllUserActivityCompletions = `-- name: GetAllUserActivityCompletions :many
-SELECT id, account_id, activity_id, completed_at, completion_date, points_earned, metadata FROM activity_completions WHERE account_id = $1
+SELECT
+  id,
+  account_id,
+  activity_id,
+  completed_at,
+  completion_date,
+  points_earned,
+  metadata
+FROM activity_completions
+WHERE account_id = $1
 LIMIT $2 OFFSET $3
 `
 
@@ -267,17 +282,27 @@ type GetAllUserActivityCompletionsParams struct {
 	Offset    int32     `json:"offset"`
 }
 
+type GetAllUserActivityCompletionsRow struct {
+	ID             int64       `json:"id"`
+	AccountID      uuid.UUID   `json:"account_id"`
+	ActivityID     uuid.UUID   `json:"activity_id"`
+	CompletedAt    *time.Time  `json:"completed_at"`
+	CompletionDate pgtype.Date `json:"completion_date"`
+	PointsEarned   int16       `json:"points_earned"`
+	Metadata       []byte      `json:"metadata"`
+}
+
 // Returns activity a certain user specified by their id has completed ordered
 // from the most recent to the oldest
-func (q *Queries) GetAllUserActivityCompletions(ctx context.Context, arg GetAllUserActivityCompletionsParams) ([]ActivityCompletion, error) {
+func (q *Queries) GetAllUserActivityCompletions(ctx context.Context, arg GetAllUserActivityCompletionsParams) ([]GetAllUserActivityCompletionsRow, error) {
 	rows, err := q.db.Query(ctx, getAllUserActivityCompletions, arg.AccountID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ActivityCompletion{}
+	items := []GetAllUserActivityCompletionsRow{}
 	for rows.Next() {
-		var i ActivityCompletion
+		var i GetAllUserActivityCompletionsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.AccountID,
@@ -316,10 +341,10 @@ UPDATE activities
     name = COALESCE(NULLIF($2::varchar,''), name),
     description = COALESCE(NULLIF($3::varchar,''), description),
     category = COALESCE(NULLIF($4::varchar,''), category),
-    points_awarded = COALESCE(NULLIF($5::smallint,0), points_awarded),
-    max_daily_completions = COALESCE(NULLIF($6::smallint,0), max_daily_completions),
-    streak_eligible = COALESCE(NULLIF($7::boolean,false), streak_eligible),
-    is_active = COALESCE(NULLIF($8::boolean,false), is_active),
+    points_awarded = COALESCE($5::smallint, points_awarded),
+    max_daily_completions = COALESCE($6::smallint, max_daily_completions),
+    streak_eligible = COALESCE($7::boolean, streak_eligible),
+    is_active = COALESCE($8::boolean, is_active),
     updated_at = NOW()
   WHERE id = $1
 RETURNING id, name, description, category, points_awarded, max_daily_completions, streak_eligible, is_active, created_at, updated_at
@@ -330,10 +355,10 @@ type UpdateActivityParams struct {
 	Name                string    `json:"name"`
 	Description         string    `json:"description"`
 	Category            string    `json:"category"`
-	PointsAwarded       int16     `json:"points_awarded"`
-	MaxDailyCompletions int16     `json:"max_daily_completions"`
-	StreakEligible      bool      `json:"streak_eligible"`
-	IsActive            bool      `json:"is_active"`
+	PointsAwarded       *int16    `json:"points_awarded"`
+	MaxDailyCompletions *int16    `json:"max_daily_completions"`
+	StreakEligible      *bool     `json:"streak_eligible"`
+	IsActive            *bool     `json:"is_active"`
 }
 
 // Updates an activity specified by its ID

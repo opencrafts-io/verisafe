@@ -9,8 +9,10 @@ package leaderboard
 // being folded into msgLeaderboardFailed or the msgGeneric string other
 // handlers use -- it is a distinct string this endpoint already shipped.
 const (
-	msgInternalServer    = "internal server error"
-	msgCannotProcess     = "Cannot process your request at the moment"
-	msgInvalidUserID     = "invalid user id"
-	msgLeaderboardFailed = "We couldn't provide the global leaderboard at the moment"
+	msgInternalServer          = "internal server error"
+	msgCannotProcess           = "Cannot process your request at the moment"
+	msgInvalidUserID           = "invalid user id"
+	msgLeaderboardFailed       = "We couldn't provide the global leaderboard at the moment"
+	msgInvalidLimit            = "limit must be a positive integer"
+	msgLeaderboardUserNotFound = "user is not on the leaderboard"
 )
