@@ -78,7 +78,7 @@ func TestListActiveMilestones_EmptyResultStaysAnEmptySliceNotNil(t *testing.T) {
 	active := true
 	q.EXPECT().
 		GetAllStreaksMilestoneByActive(gomock.Any(), repository.GetAllStreaksMilestoneByActiveParams{
-			Limit: 10, Offset: 0, IsActive: &active,
+			Limit: 10, Offset: 0, IsActive: active,
 		}).
 		Return([]repository.StreakMilestone{}, nil)
 
@@ -95,7 +95,7 @@ func TestListActiveMilestones_PassesPaginationThroughUnchanged(t *testing.T) {
 	active := true
 	q.EXPECT().
 		GetAllStreaksMilestoneByActive(gomock.Any(), repository.GetAllStreaksMilestoneByActiveParams{
-			Limit: 25, Offset: 50, IsActive: &active,
+			Limit: 25, Offset: 50, IsActive: active,
 		}).
 		Return([]repository.StreakMilestone{{}}, nil)
 
