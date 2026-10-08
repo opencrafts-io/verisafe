@@ -105,7 +105,7 @@ func TestRecordUserActivity_MalformedBodyIsRejectedBeforeAnyDatabaseWork(t *test
 // work: a caller cannot spend an acquired connection to learn they were
 // going to be rejected anyway.
 func TestRecordUserActivity_MismatchedAccountIDIsForbiddenBeforeAnyDatabaseWork(t *testing.T) {
-	body := `{"account_id":"6f1b6b1e-0000-4000-8000-000000000001"}`
+	body := `{"account_id":"6f1b6b1e-0000-4000-8000-000000000001","activity_id":"6f1b6b1e-0000-4000-8000-000000000010"}`
 	req := httptest.NewRequest(
 		"POST", "/users/activity/complete", strings.NewReader(body),
 	)
@@ -131,7 +131,7 @@ func TestRecordUserActivity_MismatchedAccountIDIsForbiddenBeforeAnyDatabaseWork(
 // service so only the mock transaction's Commit needs stubbing.
 func TestRecordUserActivity_CommitFailureIsADifferentMessageFromBeginFailure(t *testing.T) {
 	subject := "6f1b6b1e-0000-4000-8000-000000000003"
-	body := `{"account_id":"` + subject + `"}`
+	body := `{"account_id":"` + subject + `","activity_id":"6f1b6b1e-0000-4000-8000-000000000010"}`
 
 	tx := testsupport.NewTx(t)
 	tx.EXPECT().Commit(gomock.Any()).Return(errors.New("commit failed"))
