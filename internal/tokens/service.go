@@ -63,6 +63,12 @@ type TokenPair struct {
 	RefreshExpiresAt time.Time
 }
 
+type CheckoutToken struct {
+	AccessToken string
+	ExpiresAt   time.Time
+	OrderID     string
+}
+
 // TokenService manages the full lifecycle of access and refresh tokens.
 // Implementations must be safe for concurrent use.
 type TokenService interface {
@@ -123,4 +129,16 @@ type TokenService interface {
 		ctx context.Context,
 		rawToken string,
 	) (*VerisafeClaims, error)
+
+	IssueCheckoutToken(
+		ctx context.Context,
+		userID uuid.UUID,
+		orderID string,
+		ttl time.Duration,
+	) (*CheckoutToken, error)
+
+	ValidateCheckoutToken(
+		ctx context.Context,
+		rawToken string,
+	) (*CheckoutClaims, error)
 }

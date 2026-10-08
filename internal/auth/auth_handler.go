@@ -8,9 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net"
 	"net/http"
-	"net/netip"
 	"strings"
 	"time"
 
@@ -18,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
+
 	"github.com/opencrafts-io/verisafe/internal/core"
 	"github.com/opencrafts-io/verisafe/internal/eventbus"
 	"github.com/opencrafts-io/verisafe/internal/geo"
@@ -125,6 +124,16 @@ func (h *AuthHandler) WithGrantRecording(
 func (h *AuthHandler) RegisterHandlers(router core.Router) {
 	router.HandleFunc("GET /auth/{provider}", h.LoginHandler)
 	router.HandleFunc("/auth/{provider}/callback", h.CallbackHandler)
+	router.Handle(
+		"POST /auth/password/login",
+		core.AppHandler(h.PasswordLoginHandler),
+	)
+	router.Handle(
+		"PUT /auth/password",
+		middleware.CreateStack(
+			middleware.IsAuthenticated(h.auth.config, h.db, h.cacher, h.logger),
+		)(core.AppHandler(h.SetPasswordHandler)),
+	)
 	router.Handle(
 		"POST /auth/token/exchange",
 		core.AppHandler(h.ExchangeAuthCodeHandler),
@@ -335,6 +344,18 @@ func (h *AuthHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	if provider == "apple" {
 		gothUser = patchAppleUserName(r, gothUser)
 	}
+	clientIP, err := middleware.ClientIP(
+		r,
+		h.auth.config.TrustedProxyPrefixes(),
+	)
+	if err != nil {
+		h.logger.Warn(
+			"failed to resolve client IP for OAuth login",
+			slog.Any("error", err),
+		)
+		core.WriteError(w, http.StatusBadRequest, "invalid client address")
+		return
+	}
 
 	conn, err := h.db.Acquire(r.Context())
 	if err != nil {
@@ -398,31 +419,19 @@ func (h *AuthHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		// Parse IP from request. net.SplitHostPort (not a naive strings.Split
-		// on ":") is required here since IPv6 addresses contain multiple
-		// colons themselves.
-		host, _, err := net.SplitHostPort(r.RemoteAddr)
-		if err != nil {
-			return fmt.Errorf("split remote addr: %w", err)
-		}
-		ip, err := netip.ParseAddr(host)
-		if err != nil {
-			return fmt.Errorf("parse remote addr: %w", err)
-		}
-
 		input := devicesvc.DeviceRegistrationInput{
 			UserID:      account.ID,
 			DeviceName:  stateData.DeviceName,
 			Platform:    stateData.Platform,
 			DeviceToken: stateData.DeviceToken,
-			IpAddress:   &ip,
+			IpAddress:   &clientIP,
 		}
 
 		if h.geoLocator != nil {
-			if info, err := h.geoLocator.Lookup(ip); err != nil {
+			if info, err := h.geoLocator.Lookup(clientIP); err != nil {
 				h.logger.Warn(
 					"geo lookup failed",
-					slog.String("ip", ip.String()),
+					slog.String("ip", clientIP.String()),
 					slog.Any("error", err),
 				)
 			} else {

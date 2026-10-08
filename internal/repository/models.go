@@ -58,6 +58,49 @@ func (ns NullAccountType) Value() (driver.Value, error) {
 	return string(ns.AccountType), nil
 }
 
+type ChargeAttemptStatus string
+
+const (
+	ChargeAttemptStatusPending ChargeAttemptStatus = "pending"
+	ChargeAttemptStatusSuccess ChargeAttemptStatus = "success"
+	ChargeAttemptStatusFailure ChargeAttemptStatus = "failure"
+)
+
+func (e *ChargeAttemptStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ChargeAttemptStatus(s)
+	case string:
+		*e = ChargeAttemptStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ChargeAttemptStatus: %T", src)
+	}
+	return nil
+}
+
+type NullChargeAttemptStatus struct {
+	ChargeAttemptStatus ChargeAttemptStatus `json:"charge_attempt_status"`
+	Valid               bool                `json:"valid"` // Valid is true if ChargeAttemptStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullChargeAttemptStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.ChargeAttemptStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ChargeAttemptStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullChargeAttemptStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ChargeAttemptStatus), nil
+}
+
 type EntitlementUnit string
 
 const (
@@ -106,6 +149,51 @@ func (ns NullEntitlementUnit) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.EntitlementUnit), nil
+}
+
+type OrderStatus string
+
+const (
+	OrderStatusPending   OrderStatus = "pending"
+	OrderStatusPaid      OrderStatus = "paid"
+	OrderStatusFailed    OrderStatus = "failed"
+	OrderStatusCancelled OrderStatus = "cancelled"
+	OrderStatusExpired   OrderStatus = "expired"
+)
+
+func (e *OrderStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = OrderStatus(s)
+	case string:
+		*e = OrderStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for OrderStatus: %T", src)
+	}
+	return nil
+}
+
+type NullOrderStatus struct {
+	OrderStatus OrderStatus `json:"order_status"`
+	Valid       bool        `json:"valid"` // Valid is true if OrderStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullOrderStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.OrderStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.OrderStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullOrderStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.OrderStatus), nil
 }
 
 type SubscriptionStatus string
@@ -187,6 +275,13 @@ type AccountInstitutionInfo struct {
 	InstitutionCountryCode *string    `json:"institution_country_code"`
 }
 
+type AccountPasswordCredential struct {
+	AccountID    uuid.UUID `json:"account_id"`
+	PasswordHash string    `json:"password_hash"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
 type AccountVibepointRank struct {
 	ID         uuid.UUID  `json:"id"`
 	Email      string     `json:"email"`
@@ -250,6 +345,17 @@ type ActivityCompletion struct {
 	MilestoneBonusAwarded     int16       `json:"milestone_bonus_awarded"`
 }
 
+type ChargeAttempt struct {
+	ID               uuid.UUID           `json:"id"`
+	OrderID          string              `json:"order_id"`
+	Status           ChargeAttemptStatus `json:"status"`
+	PayerPhoneNumber string              `json:"payer_phone_number"`
+	Amount           int64               `json:"amount"`
+	Notes            *string             `json:"notes"`
+	RequestedAt      time.Time           `json:"requested_at"`
+	ResolvedAt       *time.Time          `json:"resolved_at"`
+}
+
 type Entitlement struct {
 	ID          int64           `json:"id"`
 	PlanID      int64           `json:"plan_id"`
@@ -302,6 +408,36 @@ type OauthGrant struct {
 	RevokedReason       *string    `json:"revoked_reason"`
 	CreatedAt           time.Time  `json:"created_at"`
 	UpdatedAt           time.Time  `json:"updated_at"`
+}
+
+type Order struct {
+	ID          string      `json:"id"`
+	UserID      uuid.UUID   `json:"user_id"`
+	Status      OrderStatus `json:"status"`
+	Subtotal    int64       `json:"subtotal"`
+	Total       int64       `json:"total"`
+	Currency    string      `json:"currency"`
+	Metadata    []byte      `json:"metadata"`
+	CreatedAt   time.Time   `json:"created_at"`
+	UpdatedAt   time.Time   `json:"updated_at"`
+	PaidAt      *time.Time  `json:"paid_at"`
+	CancelledAt *time.Time  `json:"cancelled_at"`
+	ExpiresAt   *time.Time  `json:"expires_at"`
+	Discount    int64       `json:"discount"`
+	Tax         int64       `json:"tax"`
+}
+
+type OrderItem struct {
+	ID        uuid.UUID `json:"id"`
+	OrderID   string    `json:"order_id"`
+	AddedBy   uuid.UUID `json:"added_by"`
+	UnitPrice int64     `json:"unit_price"`
+	Discount  int64     `json:"discount"`
+	Quantity  int16     `json:"quantity"`
+	Tax       int64     `json:"tax"`
+	PlanID    *int32    `json:"plan_id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type Permission struct {

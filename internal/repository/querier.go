@@ -16,19 +16,30 @@ type Querier interface {
 	AssignRole(ctx context.Context, arg AssignRoleParams) (UserRole, error)
 	// Assigns a permission to a role
 	AssignRolePermission(ctx context.Context, arg AssignRolePermissionParams) (RolePermission, error)
+	// Cancel an order and record the cancellation time.
+	CancelOrder(ctx context.Context, id string) (Order, error)
 	ClaimRefreshToken(ctx context.Context, tokenHash string) (RefreshToken, error)
 	CleanupExpiredServiceTokens(ctx context.Context) error
 	// Operational check gating the removal of the transitional plaintext columns.
 	CountOAuthGrantsWithPlaintext(ctx context.Context) (int64, error)
+	// Count all orders belonging to a user.
+	CountOrdersByUser(ctx context.Context, userID uuid.UUID) (int64, error)
+	// Count orders with a specific status for a user.
+	CountOrdersByUserAndStatus(ctx context.Context, arg CountOrdersByUserAndStatusParams) (int64, error)
 	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
 	// Creates an activity.
 	// An activity is basically an action that a user can
 	// take to be awarded vibe points
 	CreateActivity(ctx context.Context, arg CreateActivityParams) (Activity, error)
+	CreateChargeAttempt(ctx context.Context, arg CreateChargeAttemptParams) (ChargeAttempt, error)
 	// Creates a new entitlement under the plan identified by its public code.
 	// Resolves plan_id internally so callers never see or supply it.
 	CreateEntitlement(ctx context.Context, arg CreateEntitlementParams) (CreateEntitlementRow, error)
 	CreateInstitution(ctx context.Context, arg CreateInstitutionParams) (Institution, error)
+	// Create a new empty order and return the created record.
+	CreateOrder(ctx context.Context, arg CreateOrderParams) (Order, error)
+	// Create a new item for an editable order and return the created record.
+	CreateOrderItem(ctx context.Context, arg CreateOrderItemParams) (OrderItem, error)
 	// Creates a permission on the database
 	CreatePermission(ctx context.Context, arg CreatePermissionParams) (Permission, error)
 	// Creates a plan and returns its details.
@@ -39,6 +50,9 @@ type Querier interface {
 	CreateSocial(ctx context.Context, arg CreateSocialParams) (Social, error)
 	// Creates a streak milestone.
 	CreateStreakMilestone(ctx context.Context, arg CreateStreakMilestoneParams) (StreakMilestone, error)
+	// Activate each plan included in a paid order. The partial unique index on
+	// subscriptions keeps a user from receiving a second simultaneous active plan.
+	CreateSubscriptionsForPaidOrder(ctx context.Context, orderID string) error
 	DeleteActivity(ctx context.Context, id uuid.UUID) error
 	// Deletes an entitlement identified by plan code and key.
 	DeleteEntitlement(ctx context.Context, arg DeleteEntitlementParams) error
@@ -46,6 +60,10 @@ type Querier interface {
 	// Useful when replacing a plan's entire entitlement set atomically.
 	DeleteEntitlementsByPlanCode(ctx context.Context, code string) error
 	DeleteInstitution(ctx context.Context, institutionID int32) error
+	// Delete an item only while its parent order is editable.
+	DeleteOrderItem(ctx context.Context, arg DeleteOrderItemParams) (OrderItem, error)
+	// Delete all items only while the parent order is editable.
+	DeleteOrderItemsByOrder(ctx context.Context, orderID string) error
 	DeleteServiceToken(ctx context.Context, id uuid.UUID) error
 	// Deletes streak milestone by ID
 	DeleteStreakMilestoneByID(ctx context.Context, id uuid.UUID) error
@@ -57,6 +75,8 @@ type Querier interface {
 	GetAccountByUsername(ctx context.Context, username string) (Account, error)
 	// Returns the number of all human accounts in the system
 	GetAccountsCount(ctx context.Context) (int64, error)
+	// Retrieves the caller's currently valid active subscription and its plan.
+	GetActiveSubscriptionByUser(ctx context.Context, userID uuid.UUID) (GetActiveSubscriptionByUserRow, error)
 	// Returns an activity specified by its id
 	GetActivityByID(ctx context.Context, id uuid.UUID) (Activity, error)
 	// Returns a list of oauth providers that they've granted
@@ -99,6 +119,7 @@ type Querier interface {
 	GetAllUserRoleNames(ctx context.Context, userID uuid.UUID) ([]string, error)
 	// Retrieves all roles that a user has
 	GetAllUserRoles(ctx context.Context, userID uuid.UUID) ([]UserRolesView, error)
+	GetChargeAttempt(ctx context.Context, id uuid.UUID) (ChargeAttempt, error)
 	// Retrieves a single entitlement by plan code and key.
 	GetEntitlement(ctx context.Context, arg GetEntitlementParams) (GetEntitlementRow, error)
 	GetGlobalLeaderBoardCount(ctx context.Context) (int64, error)
@@ -114,6 +135,12 @@ type Querier interface {
 	// Retrieves an account's grant for a single provider.
 	GetOAuthGrant(ctx context.Context, arg GetOAuthGrantParams) (OauthGrant, error)
 	GetOAuthGrantByID(ctx context.Context, id uuid.UUID) (OauthGrant, error)
+	// Retrieve one order by its order ID.
+	GetOrder(ctx context.Context, id string) (Order, error)
+	// Retrieve one order item by its ID.
+	GetOrderItem(ctx context.Context, arg GetOrderItemParams) (OrderItem, error)
+	GetPasswordCredentialByEmail(ctx context.Context, email string) (GetPasswordCredentialByEmailRow, error)
+	GetPendingChargeAttemptsByOrder(ctx context.Context, arg GetPendingChargeAttemptsByOrderParams) ([]ChargeAttempt, error)
 	GetPermissionByID(ctx context.Context, id uuid.UUID) (Permission, error)
 	// Retrieves a plan by its code
 	GetPlanByCode(ctx context.Context, code string) (GetPlanByCodeRow, error)
@@ -131,6 +158,8 @@ type Querier interface {
 	// Retrieves all user devices that a user has ever used to access their accounts
 	// Results are orderd by the most recent device used to access the account
 	GetUserDevices(ctx context.Context, userID uuid.UUID) ([]UserDevice, error)
+	// Retrieve one order by ID, limited to the specified user.
+	GetUserOrder(ctx context.Context, arg GetUserOrderParams) (Order, error)
 	// Returns all permission names that have been granted to a user
 	GetUserPermissionNames(ctx context.Context, userID uuid.UUID) ([]string, error)
 	// Returns all permissions associated to a user
@@ -146,6 +175,14 @@ type Querier interface {
 	// Every provider an account has connected. Not paginated — the provider set
 	// is small and bounded by the registry.
 	ListOAuthGrantsByAccount(ctx context.Context, accountID uuid.UUID) ([]OauthGrant, error)
+	// Retrieve all items belonging to an order.
+	ListOrderItemsByOrder(ctx context.Context, orderID string) ([]OrderItem, error)
+	// List all orders with pagination.
+	ListOrders(ctx context.Context, arg ListOrdersParams) ([]Order, error)
+	// List orders with a specific status.
+	ListOrdersByStatus(ctx context.Context, arg ListOrdersByStatusParams) ([]Order, error)
+	// List all orders belonging to a user.
+	ListOrdersByUser(ctx context.Context, arg ListOrdersByUserParams) ([]Order, error)
 	// Retrieves plans.
 	// No pagination logic is inserted as we don't anticipate having many plans
 	// at the moment.
@@ -167,10 +204,16 @@ type Querier interface {
 	// RecordOAuthGrantRefreshFailure instead; revoking on a provider outage would
 	// disconnect every user at once.
 	MarkOAuthGrantRevoked(ctx context.Context, arg MarkOAuthGrantRevokedParams) error
+	// Mark an order as paid and record the payment time.
+	MarkOrderPaid(ctx context.Context, id string) (Order, error)
 	// Marks and persists that a refresh token has been used
 	MarkRefreshTokenUsed(ctx context.Context, id uuid.UUID) error
 	MarkTokensForRotation(ctx context.Context) error
 	// Completions can be retried by source event using an optional idempotency key.
+	// Recalculate the financial totals for an order from its order items.
+	RecalculateOrderTotals(ctx context.Context, orderID string) error
+	// SELECT *
+	// FROM record_activity_completion(@account_id::uuid, @activity_id::uuid, @metadata::jsonb);
 	RecordActivityCompletion(ctx context.Context, arg RecordActivityCompletionParams) (RecordActivityCompletionRow, error)
 	// Persists an issued refresh token's information to the db
 	RecordIssuedRefreshToken(ctx context.Context, arg RecordIssuedRefreshTokenParams) (RefreshToken, error)
@@ -182,6 +225,7 @@ type Querier interface {
 	// only last_active_at, ip_address, and country are updated.
 	RecordUserDevice(ctx context.Context, arg RecordUserDeviceParams) (UserDevice, error)
 	RemoveAccountInstitution(ctx context.Context, arg RemoveAccountInstitutionParams) error
+	ResolveChargeAttempt(ctx context.Context, arg ResolveChargeAttemptParams) (ChargeAttempt, error)
 	// RevokeRefreshTokenFamily revokes all active refresh tokens belonging to a given family.
 	// This is triggered when a refresh token reuse attack is detected — i.e. a token that
 	// has already been used is presented again. Revoking the entire family forces the user
@@ -197,6 +241,7 @@ type Querier interface {
 	SearchAccountByName(ctx context.Context, arg SearchAccountByNameParams) ([]Account, error)
 	SearchAccountByUsername(ctx context.Context, arg SearchAccountByUsernameParams) ([]Account, error)
 	SearchInstitutionsByName(ctx context.Context, arg SearchInstitutionsByNameParams) ([]Institution, error)
+	SetAccountPassword(ctx context.Context, arg SetAccountPasswordParams) error
 	UpdateAccountDetails(ctx context.Context, arg UpdateAccountDetailsParams) error
 	// Only updates the primary phone number for an account
 	UpdateAccountPhoneNumber(ctx context.Context, arg UpdateAccountPhoneNumberParams) error
@@ -206,6 +251,12 @@ type Querier interface {
 	// Only non-null arguments overwrite existing values.
 	UpdateEntitlement(ctx context.Context, arg UpdateEntitlementParams) (UpdateEntitlementRow, error)
 	UpdateInstitution(ctx context.Context, arg UpdateInstitutionParams) (Institution, error)
+	// Update editable order details without changing financial totals.
+	UpdateOrder(ctx context.Context, arg UpdateOrderParams) (Order, error)
+	// Update an item only while its parent order is editable.
+	UpdateOrderItem(ctx context.Context, arg UpdateOrderItemParams) (OrderItem, error)
+	// Update the status of an order and return the updated order.
+	UpdateOrderStatus(ctx context.Context, arg UpdateOrderStatusParams) (Order, error)
 	UpdatePermission(ctx context.Context, arg UpdatePermissionParams) (Permission, error)
 	// Updates only the provided fields and returns the updated plan.
 	UpdatePlan(ctx context.Context, arg UpdatePlanParams) (UpdatePlanRow, error)

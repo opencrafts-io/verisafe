@@ -3,6 +3,7 @@
 -- No pagination logic is inserted as we don't anticipate having many plans
 -- at the moment.
 select
+    id,
     code,
     name,
     price,
@@ -21,6 +22,7 @@ where sqlc.narg('visible')::bool is null or visible = sqlc.narg('visible')::bool
 -- name: GetPlanByCode :one
 -- Retrieves a plan by its code
 select
+    id,
     code,
     name,
     price,
@@ -62,6 +64,7 @@ INSERT INTO public.plans (
     $9
 )
 RETURNING
+id,
     code,
     name,
     price,
@@ -88,6 +91,7 @@ SET
     updated_at = NOW()
 WHERE code = sqlc.arg('code')
 RETURNING
+id,
     code,
     name,
     price,

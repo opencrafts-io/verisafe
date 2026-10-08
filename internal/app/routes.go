@@ -3,6 +3,8 @@ package app
 import (
 	"net/http"
 
+	httpSwagger "github.com/swaggo/http-swagger"
+
 	_ "github.com/opencrafts-io/verisafe/docs"
 	"github.com/opencrafts-io/verisafe/internal/auth"
 	"github.com/opencrafts-io/verisafe/internal/broker"
@@ -29,7 +31,6 @@ import (
 	servicetokensvc "github.com/opencrafts-io/verisafe/internal/service/servicetoken"
 	socialsvc "github.com/opencrafts-io/verisafe/internal/service/social"
 	streaksvc "github.com/opencrafts-io/verisafe/internal/service/streak"
-	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 type VerisafeHandler interface {
@@ -161,6 +162,38 @@ func (a *App) loadRoutes() http.Handler {
 			Cacher: a.cacher,
 		},
 		&billing.EntitlementHandler{
+			DB:     db,
+			Logger: a.logger,
+			Cfg:    a.config,
+			Cacher: a.cacher,
+		},
+		&billing.OrderHandler{
+			DB:     db,
+			Logger: a.logger,
+			Cfg:    a.config,
+			Cacher: a.cacher,
+		},
+		&billing.OrderItemHandler{
+			DB:     db,
+			Logger: a.logger,
+			Cfg:    a.config,
+			Cacher: a.cacher,
+		},
+		&billing.ChargeHandler{
+			DB:      db,
+			Logger:  a.logger,
+			Cfg:     a.config,
+			Cacher:  a.cacher,
+			Service: a.chargeService,
+		},
+		&billing.CheckoutHandler{
+			DB:            db,
+			Logger:        a.logger,
+			Cfg:           a.config,
+			Cacher:        a.cacher,
+			ChargeService: a.chargeService,
+		},
+		&billing.SubscriptionHandler{
 			DB:     db,
 			Logger: a.logger,
 			Cfg:    a.config,
