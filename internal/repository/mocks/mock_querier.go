@@ -799,10 +799,10 @@ func (mr *MockQuerierMockRecorder) GetAllStreaksMilestoneByActive(ctx, arg any) 
 }
 
 // GetAllUserActivityCompletions mocks base method.
-func (m *MockQuerier) GetAllUserActivityCompletions(ctx context.Context, arg repository.GetAllUserActivityCompletionsParams) ([]repository.ActivityCompletion, error) {
+func (m *MockQuerier) GetAllUserActivityCompletions(ctx context.Context, arg repository.GetAllUserActivityCompletionsParams) ([]repository.GetAllUserActivityCompletionsRow, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAllUserActivityCompletions", ctx, arg)
-	ret0, _ := ret[0].([]repository.ActivityCompletion)
+	ret0, _ := ret[0].([]repository.GetAllUserActivityCompletionsRow)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -961,6 +961,21 @@ func (m *MockQuerier) GetLeaderboard(ctx context.Context, arg repository.GetLead
 func (mr *MockQuerierMockRecorder) GetLeaderboard(ctx, arg any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLeaderboard", reflect.TypeOf((*MockQuerier)(nil).GetLeaderboard), ctx, arg)
+}
+
+// GetLeaderboardAroundUser mocks base method.
+func (m *MockQuerier) GetLeaderboardAroundUser(ctx context.Context, arg repository.GetLeaderboardAroundUserParams) ([]repository.GetLeaderboardAroundUserRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetLeaderboardAroundUser", ctx, arg)
+	ret0, _ := ret[0].([]repository.GetLeaderboardAroundUserRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetLeaderboardAroundUser indicates an expected call of GetLeaderboardAroundUser.
+func (mr *MockQuerierMockRecorder) GetLeaderboardAroundUser(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLeaderboardAroundUser", reflect.TypeOf((*MockQuerier)(nil).GetLeaderboardAroundUser), ctx, arg)
 }
 
 // GetOAuthGrant mocks base method.
@@ -1264,10 +1279,10 @@ func (mr *MockQuerierMockRecorder) GetUserPermissions(ctx, userID any) *gomock.C
 }
 
 // GetUserStreaks mocks base method.
-func (m *MockQuerier) GetUserStreaks(ctx context.Context, accountID uuid.UUID) ([]any, error) {
+func (m *MockQuerier) GetUserStreaks(ctx context.Context, accountID uuid.UUID) ([]repository.GetUserStreaksRow, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUserStreaks", ctx, accountID)
-	ret0, _ := ret[0].([]any)
+	ret0, _ := ret[0].([]repository.GetUserStreaksRow)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

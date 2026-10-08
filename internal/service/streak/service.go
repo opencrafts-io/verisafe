@@ -17,6 +17,11 @@ import (
 
 // Service is the streak domain's contract.
 type Service interface {
+	GetUserStreaks(
+		ctx context.Context,
+		accountID uuid.UUID,
+	) ([]repository.GetUserStreaksRow, error)
+
 	RecordActivity(
 		ctx context.Context,
 		in repository.RecordActivityCompletionParams,
@@ -45,6 +50,17 @@ type service struct {
 // NewService returns a Service backed by q.
 func NewService(q repository.Querier) Service {
 	return &service{q: q}
+}
+
+func (s *service) GetUserStreaks(
+	ctx context.Context,
+	accountID uuid.UUID,
+) ([]repository.GetUserStreaksRow, error) {
+	rows, err := s.q.GetUserStreaks(ctx, accountID)
+	if err != nil {
+		return nil, fmt.Errorf("%w: get user streaks: %v", core.ErrInternal, err)
+	}
+	return rows, nil
 }
 
 func (s *service) RecordActivity(
@@ -91,7 +107,7 @@ func (s *service) ListActiveMilestones(
 	rows, err := s.q.GetAllStreaksMilestoneByActive(
 		ctx,
 		repository.GetAllStreaksMilestoneByActiveParams{
-			Limit: limit, Offset: offset, IsActive: &active,
+			Limit: limit, Offset: offset, IsActive: active,
 		},
 	)
 	if err != nil {

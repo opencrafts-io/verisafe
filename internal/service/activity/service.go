@@ -38,7 +38,7 @@ type Service interface {
 		ctx context.Context,
 		accountID uuid.UUID,
 		limit, offset int32,
-	) (total int64, rows []repository.ActivityCompletion, err error)
+	) (total int64, rows []repository.GetAllUserActivityCompletionsRow, err error)
 
 	Create(
 		ctx context.Context,
@@ -144,7 +144,7 @@ func (s *service) ListCompletionsForUser(
 	ctx context.Context,
 	accountID uuid.UUID,
 	limit, offset int32,
-) (int64, []repository.ActivityCompletion, error) {
+) (int64, []repository.GetAllUserActivityCompletionsRow, error) {
 	total, err := s.q.GetAllUserActivityCompletionsCount(ctx, accountID)
 	if err != nil {
 		return 0, nil, fmt.Errorf(

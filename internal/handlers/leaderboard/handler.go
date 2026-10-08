@@ -1,8 +1,10 @@
 package leaderboard
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -40,6 +42,90 @@ func (lh *LeaderBoardHandler) RegisterHandlers(router core.Router) {
 	router.Handle("GET /leaderboard/global/{user}", middleware.CreateStack(
 		middleware.IsAuthenticated(lh.Cfg, lh.DB, lh.Cacher, lh.Logger),
 	)(core.AppHandler(lh.GetGlobalUserRank)))
+	router.Handle("GET /leaderboard/global/{user}/around", middleware.CreateStack(
+		middleware.IsAuthenticated(lh.Cfg, lh.DB, lh.Cacher, lh.Logger),
+	)(core.AppHandler(lh.GetLeaderboardAroundUser)))
+}
+
+type LeaderboardAroundResponse struct {
+	UserID       uuid.UUID                                `json:"user_id"`
+	UserPosition int64                                    `json:"user_position"`
+	TotalUsers   int64                                    `json:"total_users"`
+	Results      []repository.GetLeaderboardAroundUserRow `json:"results"`
+}
+
+// GetLeaderboardAroundUser godoc
+//
+// @Summary      Get a leaderboard window around a user
+// @Description  Returns up to 50 users, centered on the requested account when possible. The user's own position is included in the response.
+// @Tags         leaderboard
+// @Produce      json
+// @Param        user   path   string true  "Account ID"
+// @Param        limit  query  int    false "Number of users to return (default 20, maximum 50)"
+// @Success      200 {object} LeaderboardAroundResponse
+// @Failure      400 {object} core.APIError "Invalid user id or limit"
+// @Failure      404 {object} core.APIError "User is not on the leaderboard"
+// @Failure      500 {object} core.APIError "Failed to fetch leaderboard"
+// @Security     BearerToken
+// @Security     ApiKey
+// @Router       /leaderboard/global/{user}/around [get]
+func (lh *LeaderBoardHandler) GetLeaderboardAroundUser(
+	w http.ResponseWriter,
+	r *http.Request,
+) error {
+	userID, err := uuid.Parse(r.PathValue("user"))
+	if err != nil {
+		return core.Public(core.ErrInvalidInput, msgInvalidUserID)
+	}
+
+	windowSize := 20
+	if rawLimit := r.URL.Query().Get("limit"); rawLimit != "" {
+		parsed, parseErr := strconv.Atoi(rawLimit)
+		if parseErr != nil || parsed < 1 {
+			return core.Public(core.ErrInvalidInput, msgInvalidLimit)
+		}
+		windowSize = parsed
+	}
+	if windowSize > 50 {
+		windowSize = 50
+	}
+
+	conn, err := lh.DB.Acquire(r.Context())
+	if err != nil {
+		lh.Logger.Error("Error while processing request", slog.Any("error", err))
+		return core.Public(core.ErrInternal, msgInternalServer)
+	}
+
+	var rows []repository.GetLeaderboardAroundUserRow
+	if err := core.WithTransaction(r.Context(), conn, func(tx pgx.Tx) error {
+		var queryErr error
+		rows, queryErr = lh.svc(tx).Around(r.Context(), userID, int32(windowSize))
+		if queryErr != nil {
+			return queryErr
+		}
+		return nil
+	}); err != nil {
+		if errors.Is(err, core.ErrNotFound) {
+			return core.Public(core.ErrNotFound, msgLeaderboardUserNotFound)
+		}
+		lh.Logger.Error("Failed to retrieve leaderboard window", slog.Any("error", err))
+		return core.Fallback(err, core.ErrInternal, msgLeaderboardFailed)
+	}
+
+	response := LeaderboardAroundResponse{
+		UserID:     userID,
+		TotalUsers: rows[0].TotalUsers,
+		Results:    rows,
+	}
+	for _, row := range rows {
+		if row.ID == userID {
+			response.UserPosition = row.Position
+			break
+		}
+	}
+
+	core.WriteJSON(w, http.StatusOK, response)
+	return nil
 }
 
 // GetGlobalUserRank godoc

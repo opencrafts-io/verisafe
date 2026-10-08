@@ -4,11 +4,11 @@ Date: 2026-07-12
 
 ## Status
 
-proposed
+partially implemented
 
 ## Context
 
-A full route-by-route audit found roughly 20 endpoints across `activity_handler.go`,
+A historical route-by-route audit found roughly 20 endpoints across `activity_handler.go`,
 `streak_handler.go`, `institution_handler.go`, `leaderboard_handler.go`, and `auth_handler.go`'s
 logout/revoke that require `IsAuthenticated` but no specific permission — meaning any logged-in
 account, regardless of role, can call them today:
@@ -32,54 +32,39 @@ GET  /institutions/accounts/fanout
 list — they're fixed separately via ownership checks, see ADR 0007, since they don't need a
 role/permission at all.)
 
-Naively adding `HasPermission` checks to the routes above would lock out every non-admin user
-immediately, because **no human account is ever granted a role at signup** (see `docs/RBAC.md`,
-"Known gap: no default role at signup"). A freshly created account has zero rows in `user_roles` and
-therefore zero permissions until an admin manually grants a role — which today doesn't matter, because
-none of these routes check for one. Flipping on enforcement without first giving every account
-something to hold would be a self-inflicted outage, not a security improvement.
+The historical concern that ordinary accounts have no default role has since been resolved; see
+`docs/RBAC.md`, "Default role at signup". That does not mean every previously open endpoint should
+be gated with an administrative permission. User-facing reads and self-service actions need
+appropriate user permissions or ownership checks, while shared reward-rule mutations need an
+administrative capability.
 
 ## Decision
 
-This ADR records the plan without implementing it. When this work is picked up, do it in this order,
-each step verified before the next:
+The reward-related part of the rollout is implemented:
 
-1. **Introduce a default role** (e.g. `member`) seeded via migration, with a permission set covering
-   today's any-authenticated-user behavior for the routes listed above (e.g. `read:leaderboard:any`,
-   `complete:activity:own`, `read:activity:any`, etc. — exact set to be defined when this is
-   implemented, informed by which of the routes above are genuinely meant to be open to any user vs.
-   were simply never gated).
-2. **Backfill migration**: assign the default role to every existing account that currently holds zero
-   roles. Verify count of affected accounts before and after; this step must be idempotent and safe to
-   re-run.
-3. **Signup-time assignment**: `upsertAccount` (`internal/auth/auth_handler.go`) calls `AssignRole` for
-   the default role on every new account, so step 2 never needs to run again for new signups.
-4. **Only after 1–3 are deployed and verified**, add `HasPermission` checks to the routes above,
-   endpoint-by-endpoint, one small PR per handler file — not all at once. Each PR should be verified
-   against a production (or production-like) snapshot to confirm the affected accounts already hold
-   the default role's permission before the check goes live.
+- Activity catalog writes require `create:activity:any`, `update:activity:any`, or
+  `delete:activity:any`.
+- Milestone creation and deletion require `create:streak_milestone:any` or
+  `delete:streak_milestone:any`.
+- Trusted service awards require `award:activity:any` and a service token. This permission is
+  granted explicitly to the integrating bot role; it is not added to the ordinary user role.
+- Completion-history reads enforce ownership unless the caller has `read:activity:any`.
+- User streak reads derive the account from the authenticated caller rather than accepting another
+  account ID.
 
-`PATCH`/`DELETE /activity/{id}` need particular attention in step 1's design: `Activity` has no owner
-field (it's a shared catalog resource, e.g. "Read a book"), so these two need an admin-style
-permission (e.g. `update:activity:any`/`delete:activity:any`), not something the default role would
-hold — meaning regular users would lose access to routes they technically could call today, if those
-calls were ever exercised by non-admin clients in practice. Confirm actual usage before gating these
-two specifically.
+New reward permissions are seeded by migration and automatically assigned to `Administrator` by
+the existing permission trigger. User-facing leaderboard and catalog reads remain available to
+authenticated callers. The other routes in the historical audit need separate authorization
+decisions.
 
 ## Consequences
 
-**What becomes easier, once implemented:**
-- Every endpoint's authorization requirement is explicit and enforced, not implicit in "did anyone
-  remember to add HasPermission."
-- New accounts have a well-defined baseline of what they can do from the moment they sign up, instead
-  of relying on every endpoint independently deciding to only check `IsAuthenticated`.
+**What becomes easier:**
+- Reward-rule changes and service-side awards have explicit permission requirements.
+- Integrating services can receive a narrow award permission without becoming administrators.
+- The user role remains the baseline for ordinary user-facing activity and leaderboard behavior.
 
-**What becomes harder or requires attention:**
-- This is a multi-step, multi-deploy rollout, not a single PR — skipping steps 1–3 or reordering them
-  (enforcing before backfilling) will lock out real users.
-- Deciding the exact default permission set requires auditing actual client behavior against each of
-  the ~20 routes above, not just guessing from the route name — some may turn out to be
-  admin/internal-only in practice despite currently having no permission check.
-- `PATCH`/`DELETE /activity/{id}` specifically may represent an existing capability being removed from
-  whichever callers use them today; this needs product/client confirmation before gating, not just an
-  engineering decision.
+**What remains:**
+- The other endpoints from the historical audit need individual authorization decisions. Distinguish
+  user-facing reads, ownership checks, and administrative operations instead of applying one blanket
+  permission.

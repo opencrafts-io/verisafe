@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"slices"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -103,6 +105,7 @@ func (ah *ActivityHandler) acquireRunAndCommit(
 func (ah *ActivityHandler) RegisterHandlers(router core.Router) {
 	router.Handle("POST /activity/add", middleware.CreateStack(
 		middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
+		middleware.HasPermission([]string{"create:activity:any"}),
 	)(core.AppHandler(ah.CreateActivity)))
 	router.Handle("GET /activity/all", middleware.CreateStack(
 		middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
@@ -115,9 +118,11 @@ func (ah *ActivityHandler) RegisterHandlers(router core.Router) {
 	)(core.AppHandler(ah.GetAllInactiveActivities)))
 	router.Handle("PATCH /activity/{id}", middleware.CreateStack(
 		middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
+		middleware.HasPermission([]string{"update:activity:any"}),
 	)(core.AppHandler(ah.UpdateActivity)))
 	router.Handle("DELETE /activity/{id}", middleware.CreateStack(
 		middleware.IsAuthenticated(ah.Cfg, ah.DB, ah.Cacher, ah.Logger),
+		middleware.HasPermission([]string{"delete:activity:any"}),
 	)(core.AppHandler(ah.DeleteActivity)))
 
 	// Activity completions
@@ -132,7 +137,7 @@ func (ah *ActivityHandler) RegisterHandlers(router core.Router) {
 // GetAllUserActivityCompletions godoc
 //
 // @Summary      List a given user's completed activities
-// @Description  Note: any authenticated caller can view any other user's activity completions by id — there is no ownership check on this endpoint today.
+// @Description  Users can view their own completions. Callers with read:activity:any can view any account's completion history.
 // @Tags         activities
 // @Produce      json
 // @Param        id         path   string  true   "Account ID"
@@ -156,11 +161,24 @@ func (ah *ActivityHandler) GetAllUserActivityCompletions(
 		)
 		return core.Public(core.ErrInvalidInput, msgCheckBodyRetry)
 	}
+	claims, ok := middleware.ClaimsFromContext(r.Context())
+	if !ok {
+		return core.Public(core.ErrUnauthorized, msgInternalServer)
+	}
+	callerID, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		return core.Public(core.ErrUnauthorized, msgInternalServer)
+	}
+	if callerID != id && !slices.Contains(
+		middleware.PermissionsFromContext(r.Context()), "read:activity:any",
+	) {
+		return core.Public(core.ErrForbidden, msgCompletionsOwnAccountOnly)
+	}
 
 	pageParams := pagination.ParsePageParams(r)
 
 	var total int64
-	var rows []repository.ActivityCompletion
+	var rows []repository.GetAllUserActivityCompletionsRow
 	if err := ah.acquireAndRun(r, func(tx pgx.Tx) error {
 		var err error
 		total, rows, err = ah.svc(tx).ListCompletionsForUser(
@@ -187,7 +205,7 @@ func (ah *ActivityHandler) GetAllUserActivityCompletions(
 // DeleteActivity godoc
 //
 // @Summary      Delete an activity definition
-// @Description  Note: Activity is a shared catalog resource with no per-user owner — this route only checks IsAuthenticated today, with no admin-style permission gate (see ADR 0006 for the planned fix).
+// @Description  Requires delete:activity:any. Activity definitions are shared reward rules.
 // @Tags         activities
 // @Produce      json
 // @Param        id  path  string  true  "Activity ID"
@@ -232,7 +250,7 @@ func (ah *ActivityHandler) DeleteActivity(
 // UpdateActivity godoc
 //
 // @Summary      Update an activity definition
-// @Description  Note: Activity is a shared catalog resource with no per-user owner — this route only checks IsAuthenticated today, with no admin-style permission gate (see ADR 0006 for the planned fix).
+// @Description  Requires update:activity:any. Explicit false values disable the activity or its streak eligibility; omitted fields remain unchanged.
 // @Tags         activities
 // @Accept       json
 // @Produce      json
@@ -261,6 +279,11 @@ func (ah *ActivityHandler) UpdateActivity(
 	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
 		ah.Logger.Error("Failed to parse request body", slog.Any("error", err))
 		return core.Public(core.ErrInvalidInput, msgCheckBody)
+	}
+	if (requestBody.PointsAwarded != nil &&
+		(*requestBody.PointsAwarded < 1 || *requestBody.PointsAwarded > 10)) ||
+		(requestBody.MaxDailyCompletions != nil && *requestBody.MaxDailyCompletions < 1) {
+		return core.Public(core.ErrInvalidInput, msgInvalidActivityUpdate)
 	}
 	requestBody.ID = id
 
@@ -426,7 +449,7 @@ func (ah *ActivityHandler) GetAllActivities(
 // CreateActivity godoc
 //
 // @Summary      Create an activity definition
-// @Description  Note: this route only checks IsAuthenticated today, with no admin-style permission gate (see ADR 0006 for the planned fix).
+// @Description  Requires create:activity:any. points_awarded must be 1–10. Omitted max_daily_completions defaults to 1 and omitted streak_eligible defaults to true.
 // @Tags         activities
 // @Accept       json
 // @Produce      json
@@ -445,6 +468,11 @@ func (ah *ActivityHandler) CreateActivity(
 	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
 		ah.Logger.Error("Failed to parse request body", slog.Any("error", err))
 		return core.Public(core.ErrInvalidInput, msgCheckBody)
+	}
+	if strings.TrimSpace(requestBody.Name) == "" || requestBody.PointsAwarded < 1 ||
+		requestBody.PointsAwarded > 10 ||
+		(requestBody.MaxDailyCompletions != nil && *requestBody.MaxDailyCompletions < 1) {
+		return core.Public(core.ErrInvalidInput, msgInvalidRewardDefinition)
 	}
 
 	var created repository.Activity

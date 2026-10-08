@@ -324,21 +324,25 @@ type Activity struct {
 	Description         *string    `json:"description"`
 	Category            *string    `json:"category"`
 	PointsAwarded       int16      `json:"points_awarded"`
-	MaxDailyCompletions *int16     `json:"max_daily_completions"`
-	StreakEligible      *bool      `json:"streak_eligible"`
-	IsActive            *bool      `json:"is_active"`
+	MaxDailyCompletions int16      `json:"max_daily_completions"`
+	StreakEligible      bool       `json:"streak_eligible"`
+	IsActive            bool       `json:"is_active"`
 	CreatedAt           *time.Time `json:"created_at"`
 	UpdatedAt           *time.Time `json:"updated_at"`
 }
 
 type ActivityCompletion struct {
-	ID             int64       `json:"id"`
-	AccountID      uuid.UUID   `json:"account_id"`
-	ActivityID     uuid.UUID   `json:"activity_id"`
-	CompletedAt    *time.Time  `json:"completed_at"`
-	CompletionDate pgtype.Date `json:"completion_date"`
-	PointsEarned   int16       `json:"points_earned"`
-	Metadata       []byte      `json:"metadata"`
+	ID                        int64       `json:"id"`
+	AccountID                 uuid.UUID   `json:"account_id"`
+	ActivityID                uuid.UUID   `json:"activity_id"`
+	CompletedAt               *time.Time  `json:"completed_at"`
+	CompletionDate            pgtype.Date `json:"completion_date"`
+	PointsEarned              int16       `json:"points_earned"`
+	Metadata                  []byte      `json:"metadata"`
+	IdempotencyKey            *string     `json:"idempotency_key"`
+	CurrentStreakAtCompletion int16       `json:"current_streak_at_completion"`
+	MilestoneAchieved         bool        `json:"milestone_achieved"`
+	MilestoneBonusAwarded     int16       `json:"milestone_bonus_awarded"`
 }
 
 type ChargeAttempt struct {
@@ -544,7 +548,7 @@ type StreakMilestone struct {
 	BonusPoints  int16      `json:"bonus_points"`
 	Title        string     `json:"title"`
 	Description  *string    `json:"description"`
-	IsActive     *bool      `json:"is_active"`
+	IsActive     bool       `json:"is_active"`
 }
 
 type Subscription struct {
