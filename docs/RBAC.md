@@ -63,6 +63,9 @@ there's no way to create a permission that *isn't* immediately usable by those t
 | `assign:permission:role` | `GET /permissions/assign/{perm_id}/{role_id}` |
 | `revoke:permission:role` | `DELETE /permissions/revoke/{perm_id}/{role_id}` |
 | `manage:institutions:accounts:any` | Admin override on `POST`/`DELETE /institutions/account` (see ADR 0007) |
+| `create:activity:any`, `update:activity:any`, `delete:activity:any`, `read:activity:any` | Activity catalog administration and reading another account's completion history |
+| `create:streak_milestone:any`, `delete:streak_milestone:any` | Streak reward milestone administration |
+| `award:activity:any` | Trusted service-token awards to any account through `POST /rewards/activity-completions` |
 | `create:account:any`, `read:account:any`, `read:account:own`, `update:account:own` | account handlers |
 | `create:institutions:any`, `update:institutions:any`, `list:institutions:any`, `delete:institutions:any` | institution handlers |
 | `create:service_token:own`, `list:service_token:own`/`:any`, `read:service_token:own`/`:any`, `update:service_token:own`/`:any`, `rotate:service_token:own`/`:any`, `revoke:service_token:own`/`:any` | service token handlers |

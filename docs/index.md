@@ -57,6 +57,7 @@ Reference material, once you know your way around:
 | [BILLING.md](BILLING.md) | Plans, orders, checkout sessions, charges, and subscriptions |
 | [SERVICE_TOKENS.md](SERVICE_TOKENS.md) | Service-to-service API keys |
 | [BOT_ACCOUNT_CREATION.md](BOT_ACCOUNT_CREATION.md) | Creating bot accounts |
+| [REWARDS_LEADERBOARD_AND_STREAKS.md](REWARDS_LEADERBOARD_AND_STREAKS.md) | Awarding points from other services, streaks, and leaderboard APIs |
 | [RABBITMQ_INTEGRATION.md](RABBITMQ_INTEGRATION.md) | Event publishing and consumption |
 | [setup.md](setup.md) | Getting the service running locally |
 | [adrs/](adrs/) | Why things are the way they are |

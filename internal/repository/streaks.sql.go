@@ -14,7 +14,7 @@ import (
 const createStreakMilestone = `-- name: CreateStreakMilestone :one
 INSERT INTO streak_milestones (
   activity_id, days_required, bonus_points, title, description, is_active
-) VALUES ( $1, $2, $3, $4, $5, $6 )
+) VALUES ( $1, $2, $3, $4, $5, COALESCE($6::boolean, true) )
 RETURNING id, activity_id, days_required, bonus_points, title, description, is_active
 `
 
@@ -91,7 +91,7 @@ OFFSET $3
 `
 
 type GetAllStreaksMilestoneByActiveParams struct {
-	IsActive *bool `json:"is_active"`
+	IsActive bool  `json:"is_active"`
 	Limit    int32 `json:"limit"`
 	Offset   int32 `json:"offset"`
 }
@@ -126,23 +126,68 @@ func (q *Queries) GetAllStreaksMilestoneByActive(ctx context.Context, arg GetAll
 }
 
 const getUserStreaks = `-- name: GetUserStreaks :many
-SELECT get_user_streaks
-FROM get_user_streaks($1::uuid)
+SELECT
+  a.name AS activity_name,
+  CASE
+    WHEN us.last_completion_date < CURRENT_DATE THEN 0::smallint
+    ELSE us.current_streak
+    END::smallint AS current_streak,
+  us.longest_streak,
+  us.total_completions,
+  us.last_completion_date::text AS last_completion_date,
+  COALESCE((
+    SELECT MIN(sm.days_required -
+      CASE
+        WHEN us.last_completion_date < CURRENT_DATE THEN 0
+        ELSE us.current_streak
+      END)
+    FROM streak_milestones sm
+    LEFT JOIN user_streak_achievements usa
+      ON usa.streak_milestone_id = sm.id AND usa.account_id = us.account_id
+    WHERE sm.activity_id = a.id
+      AND sm.is_active = true
+      AND sm.days_required >
+        CASE
+          WHEN us.last_completion_date < CURRENT_DATE THEN 0
+          ELSE us.current_streak
+        END
+      AND usa.id IS NULL
+  )::smallint, 0)::smallint AS days_until_next_milestone
+FROM user_streaks us
+JOIN activities a ON a.id = us.activity_id
+WHERE us.account_id = $1::uuid
+ORDER BY current_streak DESC, a.name ASC
 `
 
-func (q *Queries) GetUserStreaks(ctx context.Context, accountID uuid.UUID) ([]interface{}, error) {
+type GetUserStreaksRow struct {
+	ActivityName           string `json:"activity_name"`
+	CurrentStreak          int16  `json:"current_streak"`
+	LongestStreak          int16  `json:"longest_streak"`
+	TotalCompletions       int32  `json:"total_completions"`
+	LastCompletionDate     string `json:"last_completion_date"`
+	DaysUntilNextMilestone int16  `json:"days_until_next_milestone"`
+}
+
+func (q *Queries) GetUserStreaks(ctx context.Context, accountID uuid.UUID) ([]GetUserStreaksRow, error) {
 	rows, err := q.db.Query(ctx, getUserStreaks, accountID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []interface{}{}
+	items := []GetUserStreaksRow{}
 	for rows.Next() {
-		var get_user_streaks interface{}
-		if err := rows.Scan(&get_user_streaks); err != nil {
+		var i GetUserStreaksRow
+		if err := rows.Scan(
+			&i.ActivityName,
+			&i.CurrentStreak,
+			&i.LongestStreak,
+			&i.TotalCompletions,
+			&i.LastCompletionDate,
+			&i.DaysUntilNextMilestone,
+		); err != nil {
 			return nil, err
 		}
-		items = append(items, get_user_streaks)
+		items = append(items, i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -156,14 +201,23 @@ SELECT
   (result).points_earned::smallint as points_earned,
   (result).current_streak::smallint as current_streak,
   (result).milestone_achieved::boolean as milestone_achieved,
-  COALESCE((result).milestone_bonus::smallint,0)::smallint as milestone_bonus
-FROM record_activity_completion($1::uuid, $2::uuid, $3::jsonb) AS result
+  COALESCE((result).milestone_bonus::smallint,0)::smallint as milestone_bonus,
+  (result).already_processed::boolean as already_processed
+FROM record_activity_completion(
+  $1::uuid,
+  $2::uuid,
+  $3::jsonb,
+  $4::text,
+  $5::text
+) AS result
 `
 
 type RecordActivityCompletionParams struct {
-	AccountID  uuid.UUID `json:"account_id"`
-	ActivityID uuid.UUID `json:"activity_id"`
-	Metadata   []byte    `json:"metadata"`
+	AccountID      uuid.UUID `json:"account_id"`
+	ActivityID     uuid.UUID `json:"activity_id"`
+	Metadata       []byte    `json:"metadata"`
+	IdempotencyKey *string   `json:"idempotency_key"`
+	AwardedBy      *string   `json:"awarded_by"`
 }
 
 type RecordActivityCompletionRow struct {
@@ -172,12 +226,18 @@ type RecordActivityCompletionRow struct {
 	CurrentStreak     int16 `json:"current_streak"`
 	MilestoneAchieved bool  `json:"milestone_achieved"`
 	MilestoneBonus    int16 `json:"milestone_bonus"`
+	AlreadyProcessed  bool  `json:"already_processed"`
 }
 
-// SELECT *
-// FROM record_activity_completion(@account_id::uuid, @activity_id::uuid, @metadata::jsonb);
+// Completions can be retried by source event using an optional idempotency key.
 func (q *Queries) RecordActivityCompletion(ctx context.Context, arg RecordActivityCompletionParams) (RecordActivityCompletionRow, error) {
-	row := q.db.QueryRow(ctx, recordActivityCompletion, arg.AccountID, arg.ActivityID, arg.Metadata)
+	row := q.db.QueryRow(ctx, recordActivityCompletion,
+		arg.AccountID,
+		arg.ActivityID,
+		arg.Metadata,
+		arg.IdempotencyKey,
+		arg.AwardedBy,
+	)
 	var i RecordActivityCompletionRow
 	err := row.Scan(
 		&i.CompletionID,
@@ -185,6 +245,7 @@ func (q *Queries) RecordActivityCompletion(ctx context.Context, arg RecordActivi
 		&i.CurrentStreak,
 		&i.MilestoneAchieved,
 		&i.MilestoneBonus,
+		&i.AlreadyProcessed,
 	)
 	return i, err
 }

@@ -123,7 +123,7 @@ func TestListCompletionsForUser_PassesArgumentsThroughUnchanged(t *testing.T) {
 		GetAllUserActivityCompletions(gomock.Any(), repository.GetAllUserActivityCompletionsParams{
 			AccountID: accountID, Limit: 20, Offset: 40,
 		}).
-		Return([]repository.ActivityCompletion{{}}, nil)
+		Return([]repository.GetAllUserActivityCompletionsRow{{}}, nil)
 
 	total, rows, err := svc.ListCompletionsForUser(
 		context.Background(), accountID, 20, 40,

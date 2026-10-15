@@ -29,6 +29,12 @@ type Service interface {
 		ctx context.Context,
 		limit, offset int32,
 	) (total int64, rows []repository.AccountVibepointRank, err error)
+
+	Around(
+		ctx context.Context,
+		userID uuid.UUID,
+		windowSize int32,
+	) (rows []repository.GetLeaderboardAroundUserRow, err error)
 }
 
 type service struct {
@@ -78,4 +84,31 @@ func (s *service) Global(
 	}
 
 	return total, rows, nil
+}
+
+func (s *service) Around(
+	ctx context.Context,
+	userID uuid.UUID,
+	windowSize int32,
+) ([]repository.GetLeaderboardAroundUserRow, error) {
+	if windowSize < 1 {
+		windowSize = 1
+	}
+	if windowSize > 50 {
+		windowSize = 50
+	}
+
+	rows, err := s.q.GetLeaderboardAroundUser(
+		ctx,
+		repository.GetLeaderboardAroundUserParams{
+			UserID: userID, WindowSize: int64(windowSize),
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("%w: get leaderboard around user: %v", core.ErrInternal, err)
+	}
+	if len(rows) == 0 {
+		return nil, fmt.Errorf("%w: user not found in leaderboard", core.ErrNotFound)
+	}
+	return rows, nil
 }

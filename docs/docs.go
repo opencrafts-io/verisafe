@@ -634,7 +634,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
-                "description": "Note: this route only checks IsAuthenticated today, with no admin-style permission gate (see ADR 0006 for the planned fix).",
+                "description": "Requires create:activity:any. points_awarded must be 1–10. Omitted max_daily_completions defaults to 1 and omitted streak_eligible defaults to true.",
                 "consumes": [
                     "application/json"
                 ],
@@ -784,7 +784,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
-                "description": "Note: Activity is a shared catalog resource with no per-user owner — this route only checks IsAuthenticated today, with no admin-style permission gate (see ADR 0006 for the planned fix).",
+                "description": "Requires delete:activity:any. Activity definitions are shared reward rules.",
                 "produces": [
                     "application/json"
                 ],
@@ -832,7 +832,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
-                "description": "Note: Activity is a shared catalog resource with no per-user owner — this route only checks IsAuthenticated today, with no admin-style permission gate (see ADR 0006 for the planned fix).",
+                "description": "Requires update:activity:any. Explicit false values disable the activity or its streak eligibility; omitted fields remain unchanged.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3185,6 +3185,67 @@ const docTemplate = `{
                 }
             }
         },
+        "/leaderboard/global/{user}/around": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Returns up to 50 users, centered on the requested account when possible. The user's own position is included in the response.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "leaderboard"
+                ],
+                "summary": "Get a leaderboard window around a user",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Account ID",
+                        "name": "user",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of users to return (default 20, maximum 50)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/leaderboard.LeaderboardAroundResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid user id or limit",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "User is not on the leaderboard",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch leaderboard",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
         "/oauth/grants": {
             "get": {
                 "security": [
@@ -5042,6 +5103,63 @@ const docTemplate = `{
                 }
             }
         },
+        "/rewards/activity-completions": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Trusted service-token endpoint. The service must hold award:activity:any and provide a stable source-event idempotency key. Replaying the same account/key returns the original completion without awarding again.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "rewards"
+                ],
+                "summary": "Award an activity reward to an account",
+                "parameters": [
+                    {
+                        "description": "Verified activity completion",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/streak.ActivityCompletionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/repository.RecordActivityCompletionRow"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body or idempotency key",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "403": {
+                        "description": "Service token or reward permission required",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to award activity",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
         "/roles": {
             "get": {
                 "security": [
@@ -5632,7 +5750,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
-                "description": "Note: this route only checks IsAuthenticated today, with no admin-style permission gate (see ADR 0006 for the planned fix).",
+                "description": "Requires create:streak_milestone:any. activity_id and title are required; days_required must be positive and bonus_points must be 1–10.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5686,7 +5804,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
-                "description": "Note: this route only checks IsAuthenticated today, with no admin-style permission gate (see ADR 0006 for the planned fix).",
+                "description": "Requires delete:streak_milestone:any.",
                 "produces": [
                     "application/json"
                 ],
@@ -5776,7 +5894,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
-                "description": "The request body's account_id must match the caller's own subject.",
+                "description": "The request body's account_id must match the caller's own subject. An optional idempotency_key can make client retries safe.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5794,13 +5912,13 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/repository.RecordActivityCompletionParams"
+                            "$ref": "#/definitions/streak.ActivityCompletionRequest"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Confirmation message",
+                        "description": "Completion and reward details",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -5837,7 +5955,7 @@ const docTemplate = `{
                         "ApiKey": []
                     }
                 ],
-                "description": "Note: any authenticated caller can view any other user's activity completions by id — there is no ownership check on this endpoint today.",
+                "description": "Users can view their own completions. Callers with read:activity:any can view any account's completion history.",
                 "produces": [
                     "application/json"
                 ],
@@ -5881,6 +5999,43 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Failed to fetch completions",
+                        "schema": {
+                            "$ref": "#/definitions/core.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/users/streaks/me": {
+            "get": {
+                "security": [
+                    {
+                        "BearerToken": []
+                    },
+                    {
+                        "ApiKey": []
+                    }
+                ],
+                "description": "Returns streaks for each streak-eligible activity. A streak is reported as zero after the database's current date passes the last completion date.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "streaks"
+                ],
+                "summary": "Get the authenticated user's streaks",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/repository.GetUserStreaksRow"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch streaks",
                         "schema": {
                             "$ref": "#/definitions/core.APIError"
                         }
@@ -6680,6 +6835,26 @@ const docTemplate = `{
                 }
             }
         },
+        "leaderboard.LeaderboardAroundResponse": {
+            "type": "object",
+            "properties": {
+                "results": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/repository.GetLeaderboardAroundUserRow"
+                    }
+                },
+                "total_users": {
+                    "type": "integer"
+                },
+                "user_id": {
+                    "type": "string"
+                },
+                "user_position": {
+                    "type": "integer"
+                }
+            }
+        },
         "oauth.InsufficientScopeResponse": {
             "type": "object",
             "properties": {
@@ -7137,6 +7312,67 @@ const docTemplate = `{
                 }
             }
         },
+        "repository.GetLeaderboardAroundUserRow": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "position": {
+                    "type": "integer"
+                },
+                "total_users": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                },
+                "vibe_points": {
+                    "type": "integer"
+                },
+                "vibe_rank": {
+                    "type": "integer"
+                }
+            }
+        },
+        "repository.GetUserStreaksRow": {
+            "type": "object",
+            "properties": {
+                "activity_name": {
+                    "type": "string"
+                },
+                "current_streak": {
+                    "type": "integer"
+                },
+                "days_until_next_milestone": {
+                    "type": "integer"
+                },
+                "last_completion_date": {
+                    "type": "string"
+                },
+                "longest_streak": {
+                    "type": "integer"
+                },
+                "total_completions": {
+                    "type": "integer"
+                }
+            }
+        },
         "repository.Institution": {
             "type": "object",
             "properties": {
@@ -7189,20 +7425,26 @@ const docTemplate = `{
                 }
             }
         },
-        "repository.RecordActivityCompletionParams": {
+        "repository.RecordActivityCompletionRow": {
             "type": "object",
             "properties": {
-                "account_id": {
-                    "type": "string"
+                "already_processed": {
+                    "type": "boolean"
                 },
-                "activity_id": {
-                    "type": "string"
+                "completion_id": {
+                    "type": "integer"
                 },
-                "metadata": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                "current_streak": {
+                    "type": "integer"
+                },
+                "milestone_achieved": {
+                    "type": "boolean"
+                },
+                "milestone_bonus": {
+                    "type": "integer"
+                },
+                "points_earned": {
+                    "type": "integer"
                 }
             }
         },
@@ -7695,6 +7937,23 @@ const docTemplate = `{
                 },
                 "user_id": {
                     "type": "string"
+                }
+            }
+        },
+        "streak.ActivityCompletionRequest": {
+            "type": "object",
+            "properties": {
+                "account_id": {
+                    "type": "string"
+                },
+                "activity_id": {
+                    "type": "string"
+                },
+                "idempotency_key": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "type": "object"
                 }
             }
         }

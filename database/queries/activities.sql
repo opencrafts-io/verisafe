@@ -9,7 +9,11 @@ INSERT INTO activities (
   points_awarded, 
   max_daily_completions, 
   streak_eligible
-) VALUES ( $1, $2, $3, $4, $5, $6 )
+) VALUES (
+  $1, $2, $3, $4,
+  COALESCE(sqlc.narg(max_daily_completions)::smallint, 1),
+  COALESCE(sqlc.narg(streak_eligible)::boolean, true)
+)
 RETURNING *;
 
 
@@ -53,10 +57,10 @@ UPDATE activities
     name = COALESCE(NULLIF(@name::varchar,''), name),
     description = COALESCE(NULLIF(@description::varchar,''), description),
     category = COALESCE(NULLIF(@category::varchar,''), category),
-    points_awarded = COALESCE(NULLIF(@points_awarded::smallint,0), points_awarded),
-    max_daily_completions = COALESCE(NULLIF(@max_daily_completions::smallint,0), max_daily_completions),
-    streak_eligible = COALESCE(NULLIF(@streak_eligible::boolean,false), streak_eligible),
-    is_active = COALESCE(NULLIF(@is_active::boolean,false), is_active),
+    points_awarded = COALESCE(sqlc.narg(points_awarded)::smallint, points_awarded),
+    max_daily_completions = COALESCE(sqlc.narg(max_daily_completions)::smallint, max_daily_completions),
+    streak_eligible = COALESCE(sqlc.narg(streak_eligible)::boolean, streak_eligible),
+    is_active = COALESCE(sqlc.narg(is_active)::boolean, is_active),
     updated_at = NOW()
   WHERE id = $1
 RETURNING *;
@@ -69,7 +73,16 @@ WHERE id = $1;
 -- name: GetAllUserActivityCompletions :many
 -- Returns activity a certain user specified by their id has completed ordered 
 -- from the most recent to the oldest
-SELECT * FROM activity_completions WHERE account_id = $1
+SELECT
+  id,
+  account_id,
+  activity_id,
+  completed_at,
+  completion_date,
+  points_earned,
+  metadata
+FROM activity_completions
+WHERE account_id = $1
 LIMIT $2 OFFSET $3;
 
 

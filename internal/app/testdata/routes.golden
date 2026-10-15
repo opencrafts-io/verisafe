@@ -34,6 +34,7 @@ GET /institutions/for-account
 GET /institutions/search
 GET /leaderboard/global
 GET /leaderboard/global/{user}
+GET /leaderboard/global/{user}/around
 GET /oauth/grants
 GET /oauth/scopes
 GET /oauth/{provider}/callback
@@ -56,6 +57,7 @@ GET /socials/user/{user_id}
 GET /streaks/milestone/active
 GET /subscriptions/me
 GET /users/activity/completions/for-user/{id}
+GET /users/streaks/me
 PATCH /accounts/me
 PATCH /accounts/me/phone
 PATCH /activity/{id}
@@ -85,6 +87,7 @@ POST /orders/{id}/charge
 POST /orders/{id}/totals/recalculation
 POST /orders/{order_id}/items
 POST /permissions/create
+POST /rewards/activity-completions
 POST /roles/create
 POST /streaks/milestone/create
 POST /users/activity/complete

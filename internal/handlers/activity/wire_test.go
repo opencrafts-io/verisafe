@@ -122,7 +122,8 @@ func TestCreateActivity_CommitFailureIsADifferentMessageFromBeginFailure(t *test
 	tx.EXPECT().Commit(gomock.Any()).Return(errors.New("commit failed"))
 
 	req := httptest.NewRequest(
-		"POST", "/activity/add", strings.NewReader(`{"name":"x"}`),
+		"POST", "/activity/add",
+		strings.NewReader(`{"name":"x","points_awarded":1}`),
 	)
 
 	h := &activity.ActivityHandler{
